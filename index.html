@@ -350,15 +350,19 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
         // Global Configuration
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'english-class-v1';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            // Placeholder: you should use a real config if running locally
-            apiKey: "mock-key", projectId: "mock-project"
+            apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
+            authDomain: "nypscm.firebaseapp.com",
+            projectId: "nypscm",
+            storageBucket: "nypscm.firebasestorage.app",
+            messagingSenderId: "775913301411",
+            appId: "1:775913301411:web:9d73da7688854865826616"
         };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -975,7 +979,7 @@
             const studentRef = doc(db, 'artifacts', appId, 'public', 'data', `student_states_${grade}`, `seat_${seat}`);
             
             try {
-                const { getDoc: fsGetDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const { getDoc: fsGetDoc } = await import("https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js");
                 const snap = await fsGetDoc(studentRef);
                 let currentData = { points: 0, isLate: false, noHW: false, seat: seat };
                 
@@ -1082,7 +1086,7 @@
         async function initStudentDashboard() {
             const grade = AppState.grade;
             
-            const { getDoc: fsGetDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+            const { getDoc: fsGetDoc } = await import("https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js");
             const studentRef = doc(db, 'artifacts', appId, 'public', 'data', `student_states_${grade}`, `seat_${AppState.seat}`);
             
             unsubscribeStudentsState = onSnapshot(studentRef, (docSnap) => {
