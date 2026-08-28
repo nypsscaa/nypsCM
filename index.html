@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動英語課室 (Interactive English Classroom)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Confetti JS for visual effects -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+            touch-action: manipulation;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Digital Sticker Animation */
+        .sticker-anim { animation: popInOut 3s forwards ease-in-out; }
+        @keyframes popInOut { 
+            0% { transform: scale(0) rotate(-15deg); opacity: 0; } 
+            15% { transform: scale(1.2) rotate(5deg); opacity: 1; } 
+            25% { transform: scale(1) rotate(0deg); opacity: 1; } 
+            80% { transform: scale(1) rotate(0deg); opacity: 1; } 
+            100% { transform: scale(0) rotate(15deg); opacity: 0; } 
+        }
+
+        #drawing-canvas {
+            border: 2px dashed #cbd5e1;
+            border-radius: 0.5rem;
+            cursor: crosshair;
+            background-color: white;
+            width: 100%;
+            height: 300px;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- Custom Toast Notification Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Teacher Feedback Modal (Digital Stickers) -->
+    <div id="feedback-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm text-center transform scale-100 transition-transform">
+            <h3 class="text-xl font-bold text-slate-700 mb-4" id="feedback-modal-title">發送鼓勵印章</h3>
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <button onclick="sendSticker('Good Job')" class="py-4 bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-200 rounded-xl flex flex-col items-center gap-2 transition-transform hover:scale-105">
+                    <span class="text-4xl">🌟</span><span class="font-bold text-yellow-700">Good Job!</span>
+                </button>
+                <button onclick="sendSticker('Excellent')" class="py-4 bg-orange-50 hover:bg-orange-100 border-2 border-orange-200 rounded-xl flex flex-col items-center gap-2 transition-transform hover:scale-105">
+                    <span class="text-4xl">👑</span><span class="font-bold text-orange-700">Excellent!</span>
+                </button>
+                <button onclick="sendSticker('Creative')" class="py-4 bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 rounded-xl flex flex-col items-center gap-2 transition-transform hover:scale-105">
+                    <span class="text-4xl">🎨</span><span class="font-bold text-purple-700">Creative!</span>
+                </button>
+                <button onclick="sendSticker('Try Again')" class="py-4 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-xl flex flex-col items-center gap-2 transition-transform hover:scale-105">
+                    <span class="text-4xl">💪</span><span class="font-bold text-blue-700">Try Again</span>
+                </button>
+            </div>
+            <button onclick="closeFeedbackModal()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-3 rounded-full font-bold transition-colors">取消</button>
+        </div>
+    </div>
+
+    <!-- VIEW: LOGIN -->
+    <div id="view-login" class="flex-1 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full fade-in">
+            <h1 class="text-3xl font-bold text-center text-indigo-600 mb-2">EngClass Pro</h1>
+            <p class="text-center text-slate-500 mb-8">數位互動英語課室</p>
+
+            <div class="space-y-6">
+                <!-- Role Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">我是... (I am a...)</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="selectRole('student')" id="btn-role-student" class="py-3 px-4 border-2 border-indigo-500 bg-indigo-50 text-indigo-700 rounded-xl font-semibold transition-all">
+                            🧑‍🎓 學生 Student
+                        </button>
+                        <button onclick="selectRole('teacher')" id="btn-role-teacher" class="py-3 px-4 border-2 border-slate-200 text-slate-600 hover:border-indigo-300 rounded-xl font-semibold transition-all">
+                            👩‍🏫 老師 Teacher
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Student Login Form -->
+                <div id="student-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">班級 (Grade)</label>
+                        <select id="login-grade" class="w-full border-slate-300 rounded-lg shadow-sm p-3 bg-slate-50 border focus:ring-indigo-500 focus:border-indigo-500" onchange="updateSeatOptions()">
+                            <option value="5">5年級 (Grade 5)</option>
+                            <option value="6">6年級 (Grade 6)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">座號 (Seat Number)</label>
+                        <select id="login-seat" class="w-full border-slate-300 rounded-lg shadow-sm p-3 bg-slate-50 border focus:ring-indigo-500 focus:border-indigo-500">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Teacher Login Form -->
+                <div id="teacher-form" class="hidden space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">教師密碼 (Password)</label>
+                        <!-- Password is 'edu' -->
+                        <input type="password" id="login-password" class="w-full border-slate-300 rounded-lg shadow-sm p-3 bg-slate-50 border focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <button onclick="handleLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-colors">
+                    進入教室 (Enter)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW: TEACHER DASHBOARD -->
+    <div id="view-teacher" class="hidden flex-col h-full bg-slate-100">
+        <!-- Header -->
+        <header class="bg-indigo-600 text-white p-4 shadow-md flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-4">
+                <h1 class="text-xl font-bold">Teacher Dashboard</h1>
+                <div class="bg-indigo-800 rounded-lg p-1 flex">
+                    <button onclick="switchTeacherGrade('5')" id="tab-grade-5" class="px-4 py-1 rounded-md bg-white text-indigo-800 font-bold transition-all">5年級 (5人)</button>
+                    <button onclick="switchTeacherGrade('6')" id="tab-grade-6" class="px-4 py-1 rounded-md text-indigo-100 hover:text-white transition-all">6年級 (6人)</button>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="teacher-status" class="text-sm bg-indigo-500 px-3 py-1 rounded-full">🟢 已連線</span>
+                <button onclick="logout()" class="text-indigo-200 hover:text-white">登出</button>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Left Sidebar: Controls -->
+            <aside class="w-80 bg-white shadow-lg flex flex-col overflow-y-auto shrink-0 z-10">
+                <div class="p-4 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-700 mb-3 uppercase text-sm tracking-wider">發送互動任務 (Send Activity)</h2>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="sendActivity('ox')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex flex-col items-center gap-1"><span class="text-xl">⭕/❌</span> O或X</button>
+                        <button onclick="sendActivity('abc')" class="bg-green-100 hover:bg-green-200 text-green-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex flex-col items-center gap-1"><span class="text-xl">🅰️</span> 選擇題</button>
+                        <button onclick="sendActivity('text')" class="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex flex-col items-center gap-1"><span class="text-xl">⌨️</span> 自由打字</button>
+                        <button onclick="sendActivity('whiteboard')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex flex-col items-center gap-1"><span class="text-xl">🖍️</span> 學生白板</button>
+                        <button onclick="sendActivity('audio')" class="bg-pink-100 hover:bg-pink-200 text-pink-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex flex-col items-center gap-1"><span class="text-xl">🎤</span> 錄音作業</button>
+                        <button onclick="sendActivity('homework')" class="bg-orange-100 hover:bg-orange-200 text-orange-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex flex-col items-center gap-1"><span class="text-xl">📁</span> 上傳作業</button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-slate-200">
+                        <h3 class="font-bold text-slate-700 mb-2 text-sm">自訂字卡選擇 (Flashcards)</h3>
+                        <input type="text" id="teacher-flashcards-input" placeholder="輸入選項，用逗號分隔 (例: Apple,Banana,Cat)" class="w-full text-sm border-slate-300 rounded-md p-2 bg-slate-50 border mb-2">
+                        <button onclick="sendFlashcards()" class="w-full bg-teal-100 hover:bg-teal-200 text-teal-700 py-2 rounded-lg font-medium shadow-sm transition-colors">發送字卡</button>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-slate-200">
+                        <button onclick="sendActivity('none')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 rounded-lg font-medium shadow-sm transition-colors">🛑 停止所有任務 (Clear Screen)</button>
+                    </div>
+                </div>
+
+                <!-- Class Tools Section -->
+                <div class="p-4 border-b border-slate-200 bg-indigo-50">
+                    <h2 class="font-bold text-indigo-900 mb-3 uppercase text-sm tracking-wider">🛠️ 課堂工具 (Class Tools)</h2>
+                    
+                    <!-- Timer -->
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-indigo-700 mb-1">倒數計時器 (Timer)</label>
+                        <div class="flex gap-2 items-center">
+                            <input type="number" id="teacher-timer-mins" value="1" min="1" max="60" class="w-16 text-sm border-slate-300 rounded-md p-1.5 text-center">
+                            <span class="text-sm text-slate-600">分鐘</span>
+                            <button onclick="startTimer()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-bold flex-1 shadow-sm">開始</button>
+                            <button onclick="stopTimer()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-bold shadow-sm">停止</button>
+                        </div>
+                        <div id="teacher-timer-display" class="text-center font-mono text-xl font-bold text-indigo-800 mt-2 hidden">00:00</div>
+                    </div>
+
+                    <!-- Today's Tasks -->
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-indigo-700 mb-1">今日任務 (Today's Tasks)</label>
+                        <textarea id="teacher-tasks-input" rows="2" placeholder="輸入今日任務..." class="w-full text-sm border-slate-300 rounded-md p-2 bg-white border mb-2"></textarea>
+                        <button onclick="updateTodayTasks()" class="w-full bg-indigo-200 hover:bg-indigo-300 text-indigo-800 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-colors">更新任務</button>
+                    </div>
+
+                    <!-- Screen Lock & Export -->
+                    <div class="pt-4 border-t border-indigo-200 space-y-2">
+                        <button onclick="toggleScreenLock()" id="btn-screen-lock" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-2 rounded-lg text-sm font-bold shadow-sm transition-colors">🔒 鎖定螢幕 (黑屏)</button>
+                        <button onclick="exportCSV()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-sm font-bold shadow-sm transition-colors">📊 下載課堂紀錄 (CSV)</button>
+                    </div>
+                </div>
+
+                <!-- Advanced Interactions -->
+                <div class="p-4 border-b border-slate-200 bg-amber-50">
+                    <h2 class="font-bold text-amber-900 mb-3 uppercase text-sm tracking-wider">🎮 進階互動 (Interactive Games)</h2>
+                    
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <button onclick="pickRandomStudent()" class="bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex justify-center items-center gap-1"><span class="text-lg">🎲</span> 抽籤</button>
+                        <button onclick="sendActivity('buzzer')" class="bg-red-100 hover:bg-red-200 text-red-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex justify-center items-center gap-1"><span class="text-lg">🔔</span> 搶答</button>
+                    </div>
+
+                    <button onclick="toggleLeaderboard()" class="w-full bg-yellow-100 hover:bg-yellow-200 text-yellow-700 py-2 rounded-lg font-medium shadow-sm transition-colors flex justify-center items-center gap-1 mb-3"><span class="text-lg">🏆</span> 切換積分排行榜</button>
+
+                    <div class="flex gap-2">
+                        <select id="group-count" class="border-slate-300 rounded-lg p-2 text-sm bg-white border shadow-sm">
+                            <option value="2">2組</option>
+                            <option value="3">3組</option>
+                            <option value="4">4組</option>
+                        </select>
+                        <button onclick="generateGroups()" class="flex-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 py-2 rounded-lg font-medium shadow-sm transition-colors">👥 隨機分組</button>
+                    </div>
+                </div>
+
+                <div class="p-4 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-700 mb-3 uppercase text-sm tracking-wider">分享教材 (Share Material)</h2>
+                    <input type="text" id="teacher-material-url" placeholder="輸入圖片或檔案網址 (URL)" class="w-full text-sm border-slate-300 rounded-md p-2 bg-slate-50 border mb-2">
+                    <button onclick="shareMaterial()" class="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 py-2 rounded-lg font-medium shadow-sm transition-colors">分享給學生觀看</button>
+                </div>
+            </aside>
+
+            <!-- Main Content: Student Monitoring -->
+            <main class="flex-1 p-6 overflow-y-auto relative">
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-slate-800 shrink-0" id="current-class-title">5年級 學生動態</h2>
+                    
+                    <div class="flex flex-wrap items-center gap-3 bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-200 flex-1 w-full justify-between">
+                        <div class="text-slate-600 font-medium">
+                            目前任務: <span id="teacher-current-activity-label" class="text-indigo-600 font-bold ml-1">無 (待機中)</span>
+                        </div>
+                        
+                        <!-- Real-time interaction controls -->
+                        <div class="flex items-center gap-2">
+                            <div id="batch-score-container" class="hidden flex gap-2 border-r border-slate-200 pr-3 mr-1">
+                                <!-- Populated dynamically based on activity -->
+                            </div>
+                            <button id="btn-blind-mode" onclick="toggleBlindMode()" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-colors">🙈 隱藏答案</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Student Grid -->
+                <div id="teacher-students-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <!-- Student Cards Populated by JS -->
+                </div>
+
+                <!-- Leaderboard View -->
+                <div id="teacher-leaderboard" class="hidden bg-white rounded-2xl shadow-lg border border-slate-200 p-8 max-w-4xl mx-auto">
+                    <div class="flex justify-between items-center mb-8">
+                        <h2 class="text-3xl font-bold text-yellow-600 flex items-center gap-2"><span>🏆</span> 班級榮譽榜 <span>🏆</span></h2>
+                        <div class="flex bg-slate-100 p-1 rounded-full shadow-inner">
+                            <button onclick="renderLeaderboard('individual')" id="tab-lb-indiv" class="px-6 py-2 bg-yellow-500 text-white font-bold rounded-full shadow-md transition-colors">個人排行</button>
+                            <button onclick="renderLeaderboard('group')" id="tab-lb-group" class="px-6 py-2 text-slate-600 hover:text-slate-900 font-bold rounded-full transition-colors">小組排行</button>
+                        </div>
+                    </div>
+                    <div id="leaderboard-content" class="space-y-4">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Random Picker Modal -->
+                <div id="random-picker-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
+                    <div class="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center w-80 text-center transform scale-100 transition-transform">
+                        <h3 class="text-xl font-bold text-slate-700 mb-6">幸運大抽籤</h3>
+                        <div id="random-picker-display" class="text-8xl font-black text-slate-800 mb-8 h-32 flex items-center justify-center transition-all duration-300">?</div>
+                        <button onclick="document.getElementById('random-picker-modal').classList.add('hidden')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-2 rounded-full font-bold transition-colors">關閉</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- VIEW: STUDENT DASHBOARD -->
+    <div id="view-student" class="hidden flex-col h-full bg-slate-50 relative overflow-hidden">
+        
+        <!-- Full Screen Lock Overlay -->
+        <div id="student-lock-screen" class="hidden fixed inset-0 bg-slate-900/95 z-[999] flex flex-col items-center justify-center fade-in">
+            <div class="text-8xl mb-6">🔒</div>
+            <h2 class="text-4xl font-black text-white tracking-widest text-center">Eyes on Teacher</h2>
+            <p class="text-slate-400 mt-4 text-xl">請專心聽老師講解</p>
+        </div>
+
+        <!-- Digital Sticker Display Container -->
+        <div id="student-sticker-container" class="fixed inset-0 pointer-events-none z-[990] flex items-center justify-center"></div>
+
+        <!-- Header -->
+        <header class="bg-sky-500 text-white p-4 shadow-md flex justify-between items-center shrink-0 relative z-10">
+            <div class="flex items-center gap-3">
+                <div class="bg-white text-sky-600 rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl shadow-inner" id="student-avatar">1</div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight" id="student-name-display">5年級 1號</h1>
+                    <p class="text-xs text-sky-100">學生介面 Student Desk</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="flex gap-2 items-center">
+                    <span id="student-group-badge" class="hidden bg-emerald-500 border-2 border-emerald-300 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">A 組</span>
+                    <span id="student-points-badge" class="bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full shadow-sm">⭐ 0</span>
+                    <span id="student-status-badge" class="hidden bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">遲到</span>
+                </div>
+                <button onclick="logout()" class="text-sky-100 hover:text-white bg-sky-600 px-3 py-1 rounded-md text-sm transition-colors">登出</button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col gap-6 max-w-4xl mx-auto w-full relative z-10">
+            
+            <!-- Info Bar (Timer & Tasks) -->
+            <div id="student-info-bar" class="flex flex-col md:flex-row gap-4 hidden fade-in">
+                <div id="student-timer-card" class="hidden flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-xl shadow-md flex items-center justify-between">
+                    <div class="font-bold">⏳ 倒數計時</div>
+                    <div id="student-timer-display" class="font-mono text-3xl font-bold tracking-wider">00:00</div>
+                </div>
+                <div id="student-tasks-card" class="hidden flex-[2] bg-white border-l-4 border-yellow-400 p-4 rounded-xl shadow-md">
+                    <h3 class="font-bold text-slate-700 text-sm mb-1">📋 今日任務 (Today's Tasks)</h3>
+                    <p id="student-tasks-display" class="text-slate-600 font-medium whitespace-pre-wrap"></p>
+                </div>
+            </div>
+
+            <!-- Shared Material Section -->
+            <div id="student-material-section" class="hidden bg-white p-4 rounded-xl shadow-md border border-slate-200 fade-in">
+                <h3 class="font-bold text-slate-700 mb-2 flex items-center gap-2"><span>📢</span> 老師分享的教材 (Teacher's Material)</h3>
+                <div id="student-material-content" class="bg-slate-100 rounded-lg p-2 text-center min-h-[100px] flex items-center justify-center">
+                    <!-- Image or Link goes here -->
+                </div>
+            </div>
+
+            <!-- Interactive Task Section -->
+            <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-200 flex-1 flex flex-col relative overflow-hidden">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800" id="student-task-title">請等待老師派發任務...</h2>
+                    <p class="text-slate-500 mt-1" id="student-task-subtitle">Waiting for teacher...</p>
+                </div>
+
+                <!-- Dynamic Workspace -->
+                <div id="student-workspace" class="flex-1 flex flex-col items-center justify-center w-full">
+                    <!-- Content injected by JS based on state -->
+                    <div class="animate-pulse text-6xl">⏳</div>
+                </div>
+
+                <!-- Status Message -->
+                <div id="student-submit-status" class="hidden mt-4 text-center font-bold text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg fade-in shadow-sm">
+                    ✅ 答案已送出！(可隨時修改重傳)
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Configuration
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'english-class-v1';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            // Placeholder: you should use a real config if running locally
+            apiKey: "mock-key", projectId: "mock-project"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth;
+        let currentUser = null;
+        let unsubscribeClassState = null;
+        let unsubscribeResponses = null;
+        let unsubscribeStudentsState = null;
+
+        const AppState = {
+            role: null, // 'teacher' or 'student'
+            grade: '5', // '5' or '6'
+            seat: '1',
+            teacherCurrentGrade: '5',
+            classConfig: {
+                '5': { count: 5 },
+                '6': { count: 6 }
+            },
+            currentActivity: 'none',
+            mediaRecorder: null,
+            audioChunks: [],
+            studentStates: {}, // Track points, late, HW, feedback
+            classState: {}, // Track global class state (lock, blind mode, timer, etc)
+            currentResponses: {}, // Track live answers for batch scoring
+            targetFeedbackSeat: null, // Target for sticker modal
+            lastStickerTime: 0 // Prevent duplicate sticker popups on client
+        };
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playAppSound(type) {
+            try {
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                if(type === 'win') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1);
+                    osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+                } else if (type === 'sticker') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+                }
+            } catch(e) { console.log('Audio disabled until interaction', e); }
+        }
+
+        window.showToast = function(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-indigo-600', warning: 'bg-orange-500' };
+            toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 fade-in`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        window.formatTime = function(dateString) {
+            if (!dateString) return '';
+            const d = new Date(dateString);
+            return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute:'2-digit', second:'2-digit' });
+        };
+
+        async function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                if (file.size > 800 * 1024) {
+                    reject(new Error("檔案太大！請上傳小於 800KB 的檔案。"));
+                    return;
+                }
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function initFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                currentUser = auth.currentUser;
+                console.log("Firebase initialized, User ID:", currentUser.uid);
+                updateSeatOptions();
+            } catch (error) {
+                console.error("Firebase init error:", error);
+                showToast("系統連線失敗，請重新整理頁面。", "error");
+            }
+        }
+
+        window.selectRole = function(role) {
+            AppState.role = role;
+            const btnS = document.getElementById('btn-role-student');
+            const btnT = document.getElementById('btn-role-teacher');
+            const formS = document.getElementById('student-form');
+            const formT = document.getElementById('teacher-form');
+
+            if (role === 'student') {
+                btnS.className = "py-3 px-4 border-2 border-indigo-500 bg-indigo-50 text-indigo-700 rounded-xl font-semibold transition-all";
+                btnT.className = "py-3 px-4 border-2 border-slate-200 text-slate-600 hover:border-indigo-300 rounded-xl font-semibold transition-all";
+                formS.classList.remove('hidden');
+                formT.classList.add('hidden');
+            } else {
+                btnT.className = "py-3 px-4 border-2 border-indigo-500 bg-indigo-50 text-indigo-700 rounded-xl font-semibold transition-all";
+                btnS.className = "py-3 px-4 border-2 border-slate-200 text-slate-600 hover:border-indigo-300 rounded-xl font-semibold transition-all";
+                formT.classList.remove('hidden');
+                formS.classList.add('hidden');
+            }
+        };
+
+        window.updateSeatOptions = function() {
+            const grade = document.getElementById('login-grade').value;
+            const count = AppState.classConfig[grade].count;
+            const seatSelect = document.getElementById('login-seat');
+            seatSelect.innerHTML = '';
+            for (let i = 1; i <= count; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${i} 號`;
+                seatSelect.appendChild(opt);
+            }
+        };
+
+        window.handleLogin = function() {
+            if (!currentUser) return showToast("連線中，請稍候...", "warning");
+            if(audioCtx.state === 'suspended') audioCtx.resume(); // Unlock audio
+
+            if (AppState.role === 'teacher') {
+                const pwd = document.getElementById('login-password').value;
+                if (pwd !== 'edu') return showToast("密碼錯誤", "error");
+                
+                document.getElementById('view-login').classList.add('hidden');
+                document.getElementById('view-teacher').classList.remove('hidden');
+                document.getElementById('view-teacher').classList.add('flex');
+                initTeacherDashboard();
+            } else if (AppState.role === 'student') {
+                AppState.grade = document.getElementById('login-grade').value;
+                AppState.seat = document.getElementById('login-seat').value;
+                
+                document.getElementById('student-avatar').textContent = AppState.seat;
+                document.getElementById('student-name-display').textContent = `${AppState.grade}年級 ${AppState.seat}號`;
+                
+                document.getElementById('view-login').classList.add('hidden');
+                document.getElementById('view-student').classList.remove('hidden');
+                document.getElementById('view-student').classList.add('flex');
+                initStudentDashboard();
+            }
+        };
+
+        window.logout = function() {
+            if (unsubscribeClassState) unsubscribeClassState();
+            if (unsubscribeResponses) unsubscribeResponses();
+            if (unsubscribeStudentsState) unsubscribeStudentsState();
+            
+            document.getElementById('view-teacher').classList.add('hidden');
+            document.getElementById('view-teacher').classList.remove('flex');
+            document.getElementById('view-student').classList.add('hidden');
+            document.getElementById('view-student').classList.remove('flex');
+            document.getElementById('view-login').classList.remove('hidden');
+            AppState.role = null;
+            AppState.currentResponses = {};
+        };
+
+        window.switchTeacherGrade = function(grade) {
+            AppState.teacherCurrentGrade = grade;
+            AppState.currentResponses = {}; // Clear old responses
+            const tab5 = document.getElementById('tab-grade-5');
+            const tab6 = document.getElementById('tab-grade-6');
+            
+            if (grade === '5') {
+                tab5.className = "px-4 py-1 rounded-md bg-white text-indigo-800 font-bold transition-all";
+                tab6.className = "px-4 py-1 rounded-md text-indigo-100 hover:text-white transition-all";
+            } else {
+                tab6.className = "px-4 py-1 rounded-md bg-white text-indigo-800 font-bold transition-all";
+                tab5.className = "px-4 py-1 rounded-md text-indigo-100 hover:text-white transition-all";
+            }
+            
+            document.getElementById('current-class-title').textContent = `${grade}年級 學生動態`;
+            initTeacherDashboard(); 
+        };
+
+        async function initTeacherDashboard() {
+            const grade = AppState.teacherCurrentGrade;
+            const studentCount = AppState.classConfig[grade].count;
+            const grid = document.getElementById('teacher-students-grid');
+            grid.innerHTML = '';
+
+            // Generate Student Cards
+            for (let i = 1; i <= studentCount; i++) {
+                grid.innerHTML += `
+                    <div id="student-card-${i}" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer relative" onclick="openFeedbackModal('${i}')">
+                        <div class="absolute inset-0 bg-indigo-50 opacity-0 hover:opacity-10 pointer-events-none transition-opacity"></div>
+                        <div class="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center pointer-events-none">
+                            <div class="flex items-center gap-2">
+                                <div class="bg-indigo-100 text-indigo-700 font-bold rounded-full w-8 h-8 flex items-center justify-center">${i}</div>
+                                <span class="font-semibold text-slate-700">${grade}年級 ${i}號</span>
+                            </div>
+                            <div class="flex gap-1 flex-wrap justify-end max-w-[50%]" id="student-badges-${i}"></div>
+                        </div>
+                        <div class="p-4 flex-1 flex flex-col justify-center items-center min-h-[140px] bg-slate-50/50 pointer-events-none" id="student-response-${i}">
+                            <span class="text-slate-400 text-sm">尚未作答</span>
+                        </div>
+                        <div class="bg-slate-100 p-2 flex justify-between gap-1 border-t border-slate-200 text-xs" onclick="event.stopPropagation()">
+                            <button onclick="updateStudentState('${i}', 'addPoint')" class="flex-1 bg-white hover:bg-yellow-50 text-slate-700 border border-slate-300 rounded py-1 transition-colors">⭐ +1</button>
+                            <button onclick="updateStudentState('${i}', 'toggleLate')" class="flex-1 bg-white hover:bg-red-50 text-slate-700 border border-slate-300 rounded py-1 transition-colors">⏰ 遲到</button>
+                            <button onclick="updateStudentState('${i}', 'toggleHW')" class="flex-1 bg-white hover:bg-orange-50 text-slate-700 border border-slate-300 rounded py-1 transition-colors">📚 缺交</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (unsubscribeClassState) unsubscribeClassState();
+            if (unsubscribeResponses) unsubscribeResponses();
+            if (unsubscribeStudentsState) unsubscribeStudentsState();
+
+            // Listen to Class State
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${grade}`);
+            unsubscribeClassState = onSnapshot(stateRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    AppState.classState = data; 
+                    
+                    let label = "無 (待機中)";
+                    const map = { 'ox': '⭕/❌ O或X', 'abc': '🅰️ 選擇題', 'text': '⌨️ 自由打字', 'whiteboard': '🖍️ 學生白板', 'audio': '🎤 錄音作業', 'homework': '📁 上傳作業', 'flashcards': '🗂️ 選擇字卡', 'buzzer': '🔔 搶答' };
+                    if (data.activity && map[data.activity]) label = map[data.activity];
+                    document.getElementById('teacher-current-activity-label').textContent = label;
+                    
+                    // Handle Screen Lock UI
+                    const lockBtn = document.getElementById('btn-screen-lock');
+                    if (data.screenLocked) {
+                        lockBtn.classList.replace('bg-slate-800', 'bg-red-600');
+                        lockBtn.classList.replace('hover:bg-slate-900', 'hover:bg-red-700');
+                        lockBtn.innerHTML = '🔓 解除鎖定 (解鎖)';
+                    } else {
+                        lockBtn.classList.replace('bg-red-600', 'bg-slate-800');
+                        lockBtn.classList.replace('hover:bg-red-700', 'hover:bg-slate-900');
+                        lockBtn.innerHTML = '🔒 鎖定螢幕 (黑屏)';
+                    }
+
+                    // Handle Blind Mode UI & Batch Scoring
+                    const blindBtn = document.getElementById('btn-blind-mode');
+                    const batchContainer = document.getElementById('batch-score-container');
+                    
+                    if (data.activity && data.activity !== 'none') {
+                        blindBtn.classList.remove('hidden');
+                        if (data.hideAnswers) {
+                            blindBtn.classList.replace('bg-slate-200', 'bg-indigo-600');
+                            blindBtn.classList.replace('text-slate-700', 'text-white');
+                            blindBtn.innerHTML = '🙈 已隱藏 (點擊開獎)';
+                        } else {
+                            blindBtn.classList.replace('bg-indigo-600', 'bg-slate-200');
+                            blindBtn.classList.replace('text-white', 'text-slate-700');
+                            blindBtn.innerHTML = '🙈 隱藏答案';
+                        }
+                        
+                        if(data.activity === 'ox' || data.activity === 'abc') {
+                            batchContainer.classList.remove('hidden');
+                            if(data.activity === 'ox') {
+                                batchContainer.innerHTML = `
+                                    <button onclick="batchScore('O')" class="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors">全答 O 加分</button>
+                                    <button onclick="batchScore('X')" class="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors">全答 X 加分</button>
+                                `;
+                            } else if (data.activity === 'abc') {
+                                batchContainer.innerHTML = `
+                                    <button onclick="batchScore('A')" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 transition-colors">答 A 加分</button>
+                                    <button onclick="batchScore('B')" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 transition-colors">答 B 加分</button>
+                                    <button onclick="batchScore('C')" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 transition-colors">答 C 加分</button>
+                                `;
+                            }
+                        } else {
+                            batchContainer.classList.add('hidden');
+                        }
+                    } else {
+                        blindBtn.classList.add('hidden');
+                        batchContainer.classList.add('hidden');
+                    }
+                    
+                    refreshAllResponsesDisplay();
+
+                    if (data.todayTasks) document.getElementById('teacher-tasks-input').value = data.todayTasks;
+                    if (data.timerEndTime) startLocalTimer(data.timerEndTime, 'teacher-timer-display');
+                    else stopLocalTimer('teacher-timer-display');
+                }
+            });
+
+            // Listen to Student Profile States
+            const studentsColRef = collection(db, 'artifacts', appId, 'public', 'data', `student_states_${grade}`);
+            unsubscribeStudentsState = onSnapshot(studentsColRef, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    const data = change.doc.data();
+                    const seat = data.seat;
+                    AppState.studentStates[seat] = data;
+
+                    const badgesContainer = document.getElementById(`student-badges-${seat}`);
+                    if (badgesContainer) {
+                        let html = `<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded-full shadow-sm font-bold">⭐ ${data.points || 0}</span>`;
+                        if (data.isLate) html += `<span class="bg-red-100 text-red-800 text-[10px] px-1.5 py-0.5 rounded shadow-sm font-medium mt-1">遲</span>`;
+                        if (data.noHW) html += `<span class="bg-orange-100 text-orange-800 text-[10px] px-1.5 py-0.5 rounded shadow-sm font-medium mt-1">缺</span>`;
+                        badgesContainer.innerHTML = html;
+                    }
+                });
+            });
+
+            // Listen to Live Responses
+            const responsesColRef = collection(db, 'artifacts', appId, 'public', 'data', `responses_${grade}`);
+            unsubscribeResponses = onSnapshot(responsesColRef, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    const data = change.doc.data();
+                    const seat = data.seat;
+                    AppState.currentResponses[seat] = data; 
+                    renderSingleResponse(seat, data);
+                });
+            });
+        }
+
+        function renderSingleResponse(seat, data) {
+            const container = document.getElementById(`student-response-${seat}`);
+            if (!container) return;
+
+            let isBlind = AppState.classState?.hideAnswers || false;
+            let contentHtml = '';
+
+            // Blind Mode Logic
+            if (isBlind && data.type !== 'buzzer' && data.answer) {
+                contentHtml = `
+                    <div class="text-5xl mb-2 animate-pulse">✅</div>
+                    <div class="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">已作答</div>
+                `;
+                container.innerHTML = contentHtml;
+                return; 
+            }
+
+            // Normal rendering
+            if (data.type === 'ox' || data.type === 'abc' || data.type === 'flashcards') {
+                const color = data.answer === 'O' ? 'text-blue-600' : (data.answer === 'X' ? 'text-red-600' : 'text-indigo-600');
+                contentHtml = `<div class="text-5xl font-bold ${color}">${data.answer}</div>`;
+            } else if (data.type === 'text') {
+                contentHtml = `<div class="w-full h-full text-left bg-white p-2 border border-slate-200 rounded text-sm overflow-y-auto break-words">${data.answer}</div>`;
+            } else if (data.type === 'whiteboard' || data.type === 'homework') {
+                if (data.answer.startsWith('data:image')) {
+                    contentHtml = `<img src="${data.answer}" class="max-h-[120px] object-contain rounded border border-slate-200 cursor-pointer shadow-sm hover:scale-105 transition-transform" onclick="window.open('${data.answer}'); event.stopPropagation();">`;
+                } else {
+                    contentHtml = `<a href="${data.answer}" target="_blank" onclick="event.stopPropagation();" class="text-blue-600 underline text-sm break-all font-medium bg-blue-50 px-2 py-1 rounded border border-blue-200">📁 查看檔案</a>`;
+                }
+            } else if (data.type === 'audio') {
+                contentHtml = `<audio src="${data.answer}" controls onclick="event.stopPropagation();" class="w-full h-10 rounded-full bg-slate-100"></audio>`;
+            } else if (data.type === 'buzzer') {
+                const d = new Date(data.timestamp);
+                const ms = d.getMilliseconds().toString().padStart(3, '0');
+                contentHtml = `
+                    <div class="text-4xl mb-1 animate-bounce">🔔</div>
+                    <div class="text-xl font-black text-red-600">叮!</div>
+                    <div class="text-xs text-slate-500 font-mono mt-1">${d.getSeconds()}.${ms} 秒</div>
+                `;
+            }
+            
+            if (data.type !== 'buzzer') {
+                contentHtml += `<div class="text-[10px] text-slate-400 mt-2 font-mono bg-slate-100 px-2 rounded">${formatTime(data.timestamp)}</div>`;
+            }
+
+            container.innerHTML = contentHtml;
+            
+            // Visual bump for new submission
+            const timeDiff = Date.now() - new Date(data.timestamp).getTime();
+            if(timeDiff < 2000) {
+                if(data.type === 'buzzer') {
+                    container.classList.add('bg-red-50', 'border-red-300', 'border-2');
+                    setTimeout(() => container.classList.remove('bg-red-50', 'border-red-300', 'border-2'), 3000);
+                } else {
+                    container.classList.add('bg-green-50');
+                    setTimeout(() => container.classList.remove('bg-green-50'), 1000);
+                }
+            }
+        }
+
+        function refreshAllResponsesDisplay() {
+            for (const seat in AppState.currentResponses) {
+                renderSingleResponse(seat, AppState.currentResponses[seat]);
+            }
+        }
+
+        window.sendActivity = async function(activityType, extraData = {}) {
+            if (!currentUser) return;
+            const grade = AppState.teacherCurrentGrade;
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${grade}`);
+            
+            try {
+                let payload = { activity: activityType, timestamp: new Date().toISOString(), hideAnswers: false, screenLocked: false, ...extraData };
+                await setDoc(stateRef, payload, { merge: true });
+                showToast(`已發送任務！`, 'success');
+
+                document.getElementById('teacher-leaderboard').classList.add('hidden');
+                document.getElementById('teacher-students-grid').classList.remove('hidden');
+            } catch (error) { showToast("發送失敗", "error"); }
+        };
+
+        window.sendFlashcards = function() {
+            const input = document.getElementById('teacher-flashcards-input').value;
+            if (!input.trim()) return showToast('請先輸入選項', 'warning');
+            const options = input.split(',').map(s => s.trim()).filter(s => s);
+            if (options.length > 0) sendActivity('flashcards', { options: options });
+            document.getElementById('teacher-flashcards-input').value = '';
+        };
+
+        let timerInterval = null;
+        function startLocalTimer(endTime, displayId) {
+            const display = document.getElementById(displayId);
+            if (!display) return;
+            display.classList.remove('hidden');
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                const diff = endTime - now;
+                if (diff <= 0) {
+                    clearInterval(timerInterval);
+                    display.textContent = "00:00";
+                    display.classList.add('text-red-500', 'animate-pulse');
+                } else {
+                    display.classList.remove('text-red-500', 'animate-pulse');
+                    const m = Math.floor(diff / 60000);
+                    const s = Math.floor((diff % 60000) / 1000);
+                    display.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+
+        function stopLocalTimer(displayId) {
+            if (timerInterval) clearInterval(timerInterval);
+            const display = document.getElementById(displayId);
+            if (display) { display.classList.add('hidden'); display.textContent = "00:00"; display.classList.remove('text-red-500', 'animate-pulse'); }
+        }
+
+        window.startTimer = async function() {
+            const mins = parseFloat(document.getElementById('teacher-timer-mins').value);
+            if (isNaN(mins) || mins <= 0) return showToast('請輸入有效時間', 'warning');
+            const endTime = Date.now() + mins * 60000;
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${AppState.teacherCurrentGrade}`);
+            await setDoc(stateRef, { timerEndTime: endTime }, { merge: true });
+        };
+        window.stopTimer = async function() {
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${AppState.teacherCurrentGrade}`);
+            await setDoc(stateRef, { timerEndTime: null }, { merge: true });
+        };
+        window.updateTodayTasks = async function() {
+            const tasks = document.getElementById('teacher-tasks-input').value;
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${AppState.teacherCurrentGrade}`);
+            await setDoc(stateRef, { todayTasks: tasks }, { merge: true });
+            showToast('今日任務已更新', 'success');
+        };
+        window.shareMaterial = async function() {
+            const url = document.getElementById('teacher-material-url').value;
+            if (!url.trim()) return showToast('請輸入網址', 'warning');
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${AppState.teacherCurrentGrade}`);
+            await setDoc(stateRef, { materialUrl: url }, { merge: true });
+            showToast('教材已分享', 'success');
+            document.getElementById('teacher-material-url').value = '';
+        };
+
+        window.pickRandomStudent = function() {
+            const modal = document.getElementById('random-picker-modal');
+            const display = document.getElementById('random-picker-display');
+            modal.classList.remove('hidden');
+            display.classList.remove('text-indigo-600', 'scale-125');
+            
+            const max = AppState.classConfig[AppState.teacherCurrentGrade].count;
+            let counter = 0;
+            let interval = setInterval(() => {
+                display.textContent = Math.floor(Math.random() * max) + 1;
+                counter++;
+                if(counter > 20) {
+                    clearInterval(interval);
+                    const finalSeat = Math.floor(Math.random() * max) + 1;
+                    display.textContent = `${finalSeat} 號`;
+                    display.classList.add('text-indigo-600', 'scale-125');
+                    
+                    showToast(`恭喜 ${finalSeat} 號！`, 'success');
+                    playAppSound('win');
+                    if(window.confetti) confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, zIndex: 9999 });
+                }
+            }, 80);
+        };
+
+        window.toggleLeaderboard = function() {
+            const grid = document.getElementById('teacher-students-grid');
+            const lb = document.getElementById('teacher-leaderboard');
+            
+            if (grid.classList.contains('hidden')) {
+                grid.classList.remove('hidden');
+                lb.classList.add('hidden');
+            } else {
+                grid.classList.add('hidden');
+                lb.classList.remove('hidden');
+                renderLeaderboard('individual');
+                playAppSound('win');
+                if(window.confetti) confetti({ particleCount: 80, spread: 100, origin: { y: 0.4 }, zIndex: 9999 });
+            }
+        };
+
+        window.renderLeaderboard = function(mode = 'individual') {
+            const content = document.getElementById('leaderboard-content');
+            const max = AppState.classConfig[AppState.teacherCurrentGrade].count;
+            
+            const tabIndiv = document.getElementById('tab-lb-indiv');
+            const tabGroup = document.getElementById('tab-lb-group');
+            if (mode === 'individual') {
+                tabIndiv.className = "px-6 py-2 bg-yellow-500 text-white font-bold rounded-full shadow-md transition-colors";
+                tabGroup.className = "px-6 py-2 text-slate-600 hover:text-slate-900 font-bold rounded-full transition-colors";
+            } else {
+                tabGroup.className = "px-6 py-2 bg-yellow-500 text-white font-bold rounded-full shadow-md transition-colors";
+                tabIndiv.className = "px-6 py-2 text-slate-600 hover:text-slate-900 font-bold rounded-full transition-colors";
+            }
+            
+            if (mode === 'individual') {
+                let studentsList = [];
+                for(let i=1; i<=max; i++) {
+                    const data = AppState.studentStates[i.toString()] || { points: 0 };
+                    studentsList.push({ name: `${i} 號`, points: data.points || 0 });
+                }
+                studentsList.sort((a, b) => b.points - a.points);
+                
+                content.innerHTML = studentsList.map((st, index) => {
+                    let medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<span class="w-6 inline-block text-center text-slate-400 font-bold">${index+1}</span>`));
+                    let bg = index === 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-100';
+                    return `
+                        <div class="flex items-center justify-between p-4 rounded-xl border ${bg} shadow-sm fade-in">
+                            <div class="flex items-center gap-4">
+                                <span class="text-2xl">${medal}</span>
+                                <span class="font-bold text-slate-700 text-lg">${st.name}</span>
+                            </div>
+                            <div class="font-black text-2xl text-yellow-600">⭐ ${st.points}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                let groupScores = {};
+                const classGroups = AppState.classState.groups || {};
+                
+                for(let i=1; i<=max; i++) {
+                    const data = AppState.studentStates[i.toString()] || { points: 0 };
+                    const groupName = classGroups[i.toString()] || '未分組';
+                    if(!groupScores[groupName]) groupScores[groupName] = 0;
+                    groupScores[groupName] += (data.points || 0);
+                }
+
+                let groupsList = Object.keys(groupScores).map(g => ({ name: `${g} 組`, points: groupScores[g] }));
+                groupsList.sort((a, b) => b.points - a.points);
+
+                if (groupsList.length === 0 || (groupsList.length === 1 && groupsList[0].name === '未分組 組')) {
+                     content.innerHTML = `<div class="text-center text-slate-500 py-8 bg-slate-50 rounded-lg border border-slate-200 border-dashed">請先使用左側「隨機分組」功能，才能查看小組排名。</div>`;
+                     return;
+                }
+
+                content.innerHTML = groupsList.map((grp, index) => {
+                    let medal = index === 0 ? '🏆' : `<span class="w-6 inline-block text-center text-slate-400 font-bold">${index+1}</span>`;
+                    let bg = index === 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100';
+                    return `
+                        <div class="flex items-center justify-between p-5 rounded-xl border ${bg} shadow-sm fade-in">
+                            <div class="flex items-center gap-4">
+                                <span class="text-3xl">${medal}</span>
+                                <span class="font-black text-slate-700 text-2xl">${grp.name}</span>
+                            </div>
+                            <div class="font-black text-4xl text-emerald-600">⭐ ${grp.points}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        window.generateGroups = async function() {
+            const count = parseInt(document.getElementById('group-count').value);
+            const totalStudents = AppState.classConfig[AppState.teacherCurrentGrade].count;
+            let students = Array.from({length: totalStudents}, (_, i) => i + 1);
+            
+            for (let i = students.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [students[i], students[j]] = [students[j], students[i]];
+            }
+            
+            const groupNames = ['A', 'B', 'C', 'D', 'E', 'F'];
+            const groupsMap = {};
+            students.forEach((seat, index) => { groupsMap[seat.toString()] = groupNames[index % count]; });
+
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${AppState.teacherCurrentGrade}`);
+            try {
+                await setDoc(stateRef, { groups: groupsMap }, { merge: true });
+                showToast(`已隨機分成 ${count} 組！`, 'success');
+            } catch (err) { showToast('分組失敗', 'error'); }
+        };
+
+        window.updateStudentState = async function(seat, action) {
+            if (!currentUser) return;
+            const grade = AppState.teacherCurrentGrade;
+            const studentRef = doc(db, 'artifacts', appId, 'public', 'data', `student_states_${grade}`, `seat_${seat}`);
+            
+            try {
+                const { getDoc: fsGetDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const snap = await fsGetDoc(studentRef);
+                let currentData = { points: 0, isLate: false, noHW: false, seat: seat };
+                
+                if (snap.exists()) currentData = snap.data();
+
+                if (action === 'addPoint') currentData.points = (currentData.points || 0) + 1;
+                if (action === 'toggleLate') currentData.isLate = !currentData.isLate;
+                if (action === 'toggleHW') currentData.noHW = !currentData.noHW;
+
+                await setDoc(studentRef, currentData, { merge: true });
+                if(action === 'addPoint') showToast(`${seat}號 +1分`, 'success');
+            } catch (err) { showToast('更新失敗', 'error'); }
+        };
+
+        window.toggleScreenLock = async function() {
+            if (!currentUser) return;
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${AppState.teacherCurrentGrade}`);
+            const isLocked = AppState.classState?.screenLocked || false;
+            await setDoc(stateRef, { screenLocked: !isLocked }, { merge: true });
+        };
+
+        window.toggleBlindMode = async function() {
+            if (!currentUser) return;
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${AppState.teacherCurrentGrade}`);
+            const isHidden = AppState.classState?.hideAnswers || false;
+            
+            if(isHidden) {
+                if(window.confetti) confetti({ particleCount: 50, spread: 80, origin: { y: 0.7 }, zIndex: 9999 });
+                playAppSound('win');
+            }
+            await setDoc(stateRef, { hideAnswers: !isHidden }, { merge: true });
+        };
+
+        window.batchScore = async function(answerValue) {
+            let count = 0;
+            for (let seat in AppState.currentResponses) {
+                if (AppState.currentResponses[seat].answer === answerValue) {
+                    await updateStudentState(seat, 'addPoint');
+                    count++;
+                }
+            }
+            if(count > 0) {
+                showToast(`已為 ${count} 位答 ${answerValue} 的學生加分`, 'success');
+                if(window.confetti) confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 }, zIndex: 9999 });
+            } else {
+                showToast(`沒有人回答 ${answerValue}`, 'info');
+            }
+        };
+
+        window.exportCSV = function() {
+            const max = AppState.classConfig[AppState.teacherCurrentGrade].count;
+            const groups = AppState.classState?.groups || {};
+            let csvContent = "\uFEFF座號,分數,組別,遲到紀錄,缺交作業,最新回答\n"; 
+            
+            for(let i=1; i<=max; i++) {
+                const s = i.toString();
+                const state = AppState.studentStates[s] || {};
+                let ans = '無';
+                if(AppState.currentResponses[s]) {
+                    ans = (AppState.currentResponses[s].type === 'whiteboard' || AppState.currentResponses[s].type === 'homework') ? '[圖檔/檔案]' : AppState.currentResponses[s].answer;
+                }
+                const grp = groups[s] || '未分組';
+                const late = state.isLate ? 'V' : '';
+                const nohw = state.noHW ? 'V' : '';
+                const pts = state.points || 0;
+                
+                csvContent += `${s},${pts},${grp},${late},${nohw},"${ans}"\n`;
+            }
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `課堂紀錄_${AppState.teacherCurrentGrade}年級_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            showToast('報表已下載', 'success');
+        };
+
+        window.openFeedbackModal = function(seat) {
+            if(!AppState.currentResponses[seat] && AppState.currentActivity !== 'none') {
+                 // Even if they didn't answer, allow teacher to give feedback, but warn.
+                 showToast('該學生此輪尚未作答，但仍可給予印章', 'info');
+            }
+            AppState.targetFeedbackSeat = seat;
+            document.getElementById('feedback-modal-title').textContent = `發送鼓勵印章給 ${seat} 號`;
+            document.getElementById('feedback-modal').classList.remove('hidden');
+        };
+
+        window.closeFeedbackModal = function() {
+            document.getElementById('feedback-modal').classList.add('hidden');
+        };
+
+        window.sendSticker = async function(stickerName) {
+            const seat = AppState.targetFeedbackSeat;
+            if(!seat) return;
+            const studentRef = doc(db, 'artifacts', appId, 'public', 'data', `student_states_${AppState.teacherCurrentGrade}`, `seat_${seat}`);
+            
+            try {
+                await setDoc(studentRef, { feedback: { sticker: stickerName, ts: Date.now() } }, { merge: true });
+                showToast(`已發送 ${stickerName} 印章給 ${seat} 號！`, 'success');
+                closeFeedbackModal();
+            } catch (err) { showToast('發送失敗', 'error'); }
+        };
+
+        async function initStudentDashboard() {
+            const grade = AppState.grade;
+            
+            const { getDoc: fsGetDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+            const studentRef = doc(db, 'artifacts', appId, 'public', 'data', `student_states_${grade}`, `seat_${AppState.seat}`);
+            
+            unsubscribeStudentsState = onSnapshot(studentRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('student-points-badge').textContent = `⭐ ${data.points || 0}`;
+                    
+                    const statusBadge = document.getElementById('student-status-badge');
+                    let statusText = [];
+                    if (data.isLate) statusText.push('遲到');
+                    if (data.noHW) statusText.push('缺交');
+                    
+                    if (statusText.length > 0) {
+                        statusBadge.textContent = statusText.join(' | ');
+                        statusBadge.classList.remove('hidden');
+                    } else {
+                        statusBadge.classList.add('hidden');
+                    }
+
+                    // Handle Feedback Stickers
+                    if (data.feedback && data.feedback.ts > AppState.lastStickerTime) {
+                        AppState.lastStickerTime = data.feedback.ts;
+                        showStudentSticker(data.feedback.sticker);
+                    }
+                }
+            });
+
+            const stateRef = doc(db, 'artifacts', appId, 'public', 'data', `class_state_${grade}`);
+            unsubscribeClassState = onSnapshot(stateRef, (docSnap) => {
+                if (docSnap.exists()) handleTeacherCommand(docSnap.data());
+            });
+        }
+
+        function handleTeacherCommand(stateData) {
+            const workspace = document.getElementById('student-workspace');
+            const title = document.getElementById('student-task-title');
+            const subtitle = document.getElementById('student-task-subtitle');
+            const statusMsg = document.getElementById('student-submit-status');
+            const matSection = document.getElementById('student-material-section');
+            const matContent = document.getElementById('student-material-content');
+            
+            // Only hide status if activity changes
+            if(AppState.currentActivity !== stateData.activity) {
+                statusMsg.classList.add('hidden');
+            }
+            
+            // Screen Lock Handler
+            const lockScreen = document.getElementById('student-lock-screen');
+            if (stateData.screenLocked) {
+                lockScreen.classList.remove('hidden');
+            } else {
+                lockScreen.classList.add('hidden');
+            }
+            
+            const groupBadge = document.getElementById('student-group-badge');
+            if (stateData.groups && stateData.groups[AppState.seat]) {
+                groupBadge.textContent = `${stateData.groups[AppState.seat]} 組`;
+                groupBadge.classList.remove('hidden');
+            } else {
+                groupBadge.classList.add('hidden');
+            }
+
+            let showInfoBar = false;
+            const infoBar = document.getElementById('student-info-bar');
+            const timerCard = document.getElementById('student-timer-card');
+            const tasksCard = document.getElementById('student-tasks-card');
+            const tasksDisplay = document.getElementById('student-tasks-display');
+
+            if (stateData.todayTasks && stateData.todayTasks.trim() !== '') {
+                tasksDisplay.textContent = stateData.todayTasks;
+                tasksCard.classList.remove('hidden');
+                showInfoBar = true;
+            } else { tasksCard.classList.add('hidden'); }
+
+            if (stateData.timerEndTime) {
+                startLocalTimer(stateData.timerEndTime, 'student-timer-display');
+                timerCard.classList.remove('hidden');
+                showInfoBar = true;
+            } else {
+                stopLocalTimer('student-timer-display');
+                timerCard.classList.add('hidden');
+            }
+
+            if (showInfoBar) infoBar.classList.remove('hidden');
+            else infoBar.classList.add('hidden');
+
+            if (stateData.materialUrl) {
+                matSection.classList.remove('hidden');
+                if (stateData.materialUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+                    matContent.innerHTML = `<img src="${stateData.materialUrl}" class="max-w-full h-auto max-h-[300px] rounded object-contain shadow-sm border border-slate-200">`;
+                } else {
+                    matContent.innerHTML = `<a href="${stateData.materialUrl}" target="_blank" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-indigo-700 transition-colors">打開教材 / 下載檔案</a>`;
+                }
+            } else { matSection.classList.add('hidden'); }
+
+            let activity = stateData.activity || 'none';
+            if(AppState.currentActivity === activity) return; // Prevent full re-render if activity is same (fixes canvas wiping)
+            
+            AppState.currentActivity = activity;
+            workspace.innerHTML = ''; 
+
+            switch (activity) {
+                case 'none':
+                    title.textContent = '請等待老師派發任務...';
+                    subtitle.textContent = 'Waiting for teacher...';
+                    workspace.innerHTML = '<div class="animate-pulse text-6xl">⏳</div>';
+                    break;
+                case 'buzzer':
+                    title.textContent = '搶答時間！';
+                    subtitle.textContent = '知道答案請立刻按下按鈕 (Press the buzzer!)';
+                    workspace.innerHTML = `<div class="flex-1 flex items-center justify-center w-full">
+                        <button onclick="submitStudentAnswer('buzzer_pressed')" class="w-48 h-48 sm:w-64 sm:h-64 bg-red-500 rounded-full border-b-8 border-red-700 shadow-[0_15px_30px_rgba(0,0,0,0.3)] hover:translate-y-2 hover:border-b-[4px] hover:shadow-[0_8px_15px_rgba(0,0,0,0.3)] active:border-b-0 active:translate-y-4 active:shadow-none transition-all text-white text-5xl sm:text-6xl font-black flex items-center justify-center">按我!</button>
+                    </div>`;
+                    break;
+                case 'ox':
+                    title.textContent = '是非題';
+                    subtitle.textContent = '請選擇 O 或 X (True or False)';
+                    workspace.innerHTML = `<div class="flex gap-6 justify-center w-full max-w-md">
+                        <button onclick="submitStudentAnswer('O')" class="flex-1 aspect-square bg-white border-4 border-blue-500 rounded-3xl text-7xl md:text-9xl font-bold text-blue-500 hover:bg-blue-50 hover:scale-105 transition-transform shadow-lg">O</button>
+                        <button onclick="submitStudentAnswer('X')" class="flex-1 aspect-square bg-white border-4 border-red-500 rounded-3xl text-7xl md:text-9xl font-bold text-red-500 hover:bg-red-50 hover:scale-105 transition-transform shadow-lg">X</button>
+                    </div>`;
+                    break;
+                case 'abc':
+                    title.textContent = '選擇題';
+                    subtitle.textContent = '請選擇 A, B 或 C (Multiple Choice)';
+                    workspace.innerHTML = `<div class="flex flex-col gap-4 w-full max-w-md">
+                        <button onclick="submitStudentAnswer('A')" class="w-full py-6 bg-white border-2 border-slate-300 rounded-xl text-3xl font-bold text-slate-700 hover:bg-slate-50 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-md">A</button>
+                        <button onclick="submitStudentAnswer('B')" class="w-full py-6 bg-white border-2 border-slate-300 rounded-xl text-3xl font-bold text-slate-700 hover:bg-slate-50 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-md">B</button>
+                        <button onclick="submitStudentAnswer('C')" class="w-full py-6 bg-white border-2 border-slate-300 rounded-xl text-3xl font-bold text-slate-700 hover:bg-slate-50 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-md">C</button>
+                    </div>`;
+                    break;
+                case 'flashcards':
+                    title.textContent = '字卡測驗';
+                    subtitle.textContent = '請選擇正確的答案 (Select the correct option)';
+                    const options = stateData.options || [];
+                    let btnsHtml = options.map(opt => `<button onclick="submitStudentAnswer('${opt}')" class="w-full py-4 bg-teal-50 border-2 border-teal-200 rounded-xl text-xl font-bold text-teal-800 hover:bg-teal-100 transition-all shadow-sm break-words">${opt}</button>`).join('');
+                    workspace.innerHTML = `<div class="flex flex-col gap-3 w-full max-w-md">${btnsHtml}</div>`;
+                    break;
+                case 'text':
+                    title.textContent = '自由作答';
+                    subtitle.textContent = '請輸入你的答案 (Type your answer)';
+                    workspace.innerHTML = `<div class="w-full max-w-lg flex flex-col gap-4">
+                        <textarea id="student-text-input" rows="4" class="w-full p-4 rounded-xl border-2 border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 shadow-sm text-lg resize-none" placeholder="Type here..."></textarea>
+                        <button onclick="submitStudentText()" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-md transition-colors">送出 (Submit)</button>
+                    </div>`;
+                    break;
+                case 'whiteboard':
+                    title.textContent = '手寫白板';
+                    subtitle.textContent = '請畫出或寫下答案 (Draw or write your answer)';
+                    workspace.innerHTML = `<div class="w-full max-w-2xl flex flex-col gap-4 items-center">
+                        <canvas id="drawing-canvas"></canvas>
+                        <div class="flex gap-4 w-full">
+                            <button onclick="clearCanvas()" class="flex-1 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold transition-colors shadow-sm">清除 (Clear)</button>
+                            <button onclick="submitStudentCanvas()" class="flex-[2] py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-md transition-colors">送出 (Submit)</button>
+                        </div>
+                    </div>`;
+                    setupCanvas();
+                    break;
+                case 'audio':
+                    title.textContent = '錄音作業';
+                    subtitle.textContent = '請唸出老師指定的內容 (Record your voice)';
+                    workspace.innerHTML = `<div class="w-full max-w-md flex flex-col gap-6 items-center">
+                        <div class="w-32 h-32 rounded-full bg-pink-100 flex items-center justify-center text-5xl border-4 border-pink-300 shadow-inner" id="audio-indicator">🎤</div>
+                        <div class="flex gap-4 w-full">
+                            <button id="btn-record-start" onclick="startRecording()" class="flex-1 py-4 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold shadow-md transition-colors text-lg">開始錄音 (Start)</button>
+                            <button id="btn-record-stop" onclick="stopRecording()" class="hidden flex-1 py-4 bg-slate-600 hover:bg-slate-700 text-white rounded-xl font-bold shadow-md transition-colors text-lg">停止 (Stop)</button>
+                        </div>
+                        <p class="text-xs text-slate-400">最多錄製 10 秒 (Max 10 seconds)</p>
+                    </div>`;
+                    break;
+                case 'homework':
+                    title.textContent = '上傳作業';
+                    subtitle.textContent = '請上傳圖片或檔案 (Upload image or file)';
+                    workspace.innerHTML = `<div class="w-full max-w-md flex flex-col gap-4">
+                        <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50">
+                            <input type="file" id="student-file-input" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100" accept="image/*,.pdf">
+                        </div>
+                        <button onclick="submitStudentFile()" class="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold text-lg shadow-md transition-colors">上傳 (Upload)</button>
+                        <p class="text-xs text-center text-slate-400">限制大小 800KB 以內 (Max 800KB)</p>
+                    </div>`;
+                    break;
+            }
+        }
+
+        function showStudentSticker(stickerName) {
+            playAppSound('sticker');
+            const container = document.getElementById('student-sticker-container');
+            const el = document.createElement('div');
+            
+            const stickerMap = {
+                'Good Job': '🌟 Good Job!',
+                'Excellent': '👑 Excellent!',
+                'Try Again': '💪 Try Again!',
+                'Creative': '🎨 Creative!'
+            };
+            
+            el.className = 'sticker-anim bg-white/95 backdrop-blur-sm border-4 border-yellow-400 text-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-10 text-center flex flex-col items-center justify-center';
+            el.innerHTML = `<div class="text-8xl mb-4 drop-shadow-md">${stickerMap[stickerName].split(' ')[0]}</div><div class="text-4xl font-black text-indigo-600 tracking-wider">${stickerMap[stickerName].substring(2)}</div>`;
+            
+            container.appendChild(el);
+            if(window.confetti) confetti({ particleCount: 60, origin: { y: 0.5 }, spread: 80, disableForReducedMotion: true, zIndex: 9999 });
+
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transition = 'opacity 0.5s';
+                setTimeout(() => el.remove(), 500);
+            }, 3000);
+        }
+
+        window.submitStudentAnswer = async function(answerValue) {
+            if (!currentUser) return;
+            const docId = `${Date.now()}_${AppState.seat}`;
+            const responseRef = doc(db, 'artifacts', appId, 'public', 'data', `responses_${AppState.grade}`, docId);
+            
+            try {
+                await setDoc(responseRef, { seat: AppState.seat, type: AppState.currentActivity, answer: answerValue, timestamp: new Date().toISOString() });
+                
+                // Show status and re-animate
+                const statusEl = document.getElementById('student-submit-status');
+                statusEl.classList.remove('hidden', 'fade-in');
+                void statusEl.offsetWidth; // Trigger reflow
+                statusEl.classList.add('fade-in');
+                
+            } catch (err) { showToast('提交失敗', 'error'); }
+        };
+
+        window.submitStudentText = function() {
+            const val = document.getElementById('student-text-input').value;
+            if (!val.trim()) return showToast('請輸入內容', 'warning');
+            submitStudentAnswer(val.trim());
+        };
+
+        // Canvas Logic
+        let ctx, isDrawing = false, lastX = 0, lastY = 0;
+        function setupCanvas() {
+            const canvas = document.getElementById('drawing-canvas');
+            if (!canvas) return;
+            ctx = canvas.getContext('2d');
+            
+            // Set real dimensions
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width; canvas.height = rect.height;
+            ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = '#1e293b';
+            
+            function getPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                return { 
+                    x: (e.touches ? e.touches[0].clientX : e.clientX) - rect.left, 
+                    y: (e.touches ? e.touches[0].clientY : e.clientY) - rect.top 
+                };
+            }
+
+            const startDraw = (e) => { isDrawing = true; const pos = getPos(e); [lastX, lastY] = [pos.x, pos.y]; };
+            const draw = (e) => {
+                if (!isDrawing) return;
+                const pos = getPos(e);
+                ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(pos.x, pos.y); ctx.stroke();
+                [lastX, lastY] = [pos.x, pos.y];
+            };
+            const stopDraw = () => isDrawing = false;
+
+            canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDraw); canvas.addEventListener('mouseout', stopDraw);
+            canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); });
+            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+            canvas.addEventListener('touchend', stopDraw);
+        }
+
+        window.clearCanvas = function() {
+            const canvas = document.getElementById('drawing-canvas');
+            if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        };
+
+        window.submitStudentCanvas = function() {
+            const canvas = document.getElementById('drawing-canvas');
+            if (!canvas) return;
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            if (dataUrl.length > 800000) return showToast('圖檔太大，請重新繪製簡單一點', 'error');
+            submitStudentAnswer(dataUrl);
+            clearCanvas();
+        };
+
+        // Audio Logic
+        let recordTimeout;
+        window.startRecording = async function() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                AppState.mediaRecorder = new MediaRecorder(stream);
+                AppState.audioChunks = [];
+                AppState.mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) AppState.audioChunks.push(e.data); };
+                AppState.mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(AppState.audioChunks, { type: 'audio/webm' });
+                    if (audioBlob.size > 900000) return showToast('錄音太長，請重新錄製', 'error');
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = () => submitStudentAnswer(reader.result);
+                };
+                AppState.mediaRecorder.start();
+                document.getElementById('btn-record-start').classList.add('hidden');
+                document.getElementById('btn-record-stop').classList.remove('hidden');
+                document.getElementById('audio-indicator').classList.add('animate-pulse', 'bg-red-100', 'border-red-300');
+                
+                recordTimeout = setTimeout(() => {
+                    if (AppState.mediaRecorder && AppState.mediaRecorder.state === "recording") {
+                        stopRecording();
+                        showToast('已達錄音時間上限 (10秒)', 'info');
+                    }
+                }, 10000);
+            } catch (err) { showToast('無法存取麥克風，請檢查權限', 'error'); }
+        };
+
+        window.stopRecording = function() {
+            if (AppState.mediaRecorder && AppState.mediaRecorder.state === "recording") {
+                AppState.mediaRecorder.stop();
+                AppState.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                clearTimeout(recordTimeout);
+                document.getElementById('btn-record-stop').classList.add('hidden');
+                document.getElementById('btn-record-start').classList.remove('hidden');
+                document.getElementById('audio-indicator').classList.remove('animate-pulse', 'bg-red-100', 'border-red-300');
+            }
+        };
+
+        // File Upload Logic
+        window.submitStudentFile = async function() {
+            const input = document.getElementById('student-file-input');
+            if (!input.files || input.files.length === 0) return showToast('請先選擇檔案', 'warning');
+            try {
+                showToast('處理中...', 'info');
+                const base64String = await fileToBase64(input.files[0]);
+                await submitStudentAnswer(base64String);
+                input.value = ''; 
+            } catch (err) { showToast(err.message || '上傳失敗', 'error'); }
+        };
+
+        window.onload = initFirebase;
+    </script>
+</body>
+</html>
