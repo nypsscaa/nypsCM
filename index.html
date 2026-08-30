@@ -152,6 +152,17 @@
       <button id="btn-unlock-screen" class="hidden w-full text-left p-3 rounded-xl bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 transition flex items-center font-bold shadow-sm active:scale-[.98]">
         <i class="fas fa-unlock w-8 text-center"></i> 解除螢幕鎖定</button>
 
+      <div class="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 mt-6 pl-1">本堂課</div>
+      <div class="p-3 bg-sky-50 rounded-xl border border-sky-100 space-y-2">
+        <div class="text-sm text-sky-800 font-bold flex items-center justify-between">
+          <span>已記錄題數</span><span id="session-count" class="text-2xl font-black">0</span>
+        </div>
+        <p id="session-hint" class="text-[11px] text-sky-700/70 leading-snug">每收回一題就自動記一筆，暫存在這台裝置上。</p>
+        <button id="btn-end-session" class="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-bold text-sm shadow active:scale-95">
+          <i class="fas fa-box-archive mr-1"></i>結束本堂並存檔</button>
+        <button id="btn-discard-session" class="w-full py-1.5 text-[11px] text-sky-700/60 hover:text-red-500">丟棄本堂暫存（不存檔）</button>
+      </div>
+
       <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 pl-1">設定</div>
       <label class="flex items-center gap-2 p-3 rounded-xl bg-white border text-sm cursor-pointer select-none">
         <input type="checkbox" id="chk-sound" class="w-5 h-5 accent-indigo-600" checked> 提示音效
@@ -241,12 +252,28 @@
       <div id="leaderboard" class="space-y-1"></div>
     </div>
 
-    <div class="p-3 border-b flex justify-between items-center bg-gray-800 text-white shrink-0">
-      <h3 class="font-bold text-sm"><i class="fas fa-clipboard-list mr-1.5"></i>獎懲與缺交紀錄</h3>
-      <button id="btn-export-report" class="text-xs bg-gray-600 hover:bg-gray-500 px-2 py-1 rounded"><i class="fas fa-download mr-1"></i>匯出</button>
+    <!-- 分頁：本堂紀錄 / 上課歷程 -->
+    <div class="flex border-b shrink-0 bg-gray-800 text-white text-sm font-bold">
+      <button class="board-tab flex-1 py-2.5" data-btab="records"><i class="fas fa-clipboard-list mr-1.5"></i>本堂紀錄</button>
+      <button class="board-tab flex-1 py-2.5" data-btab="history"><i class="fas fa-clock-rotate-left mr-1.5"></i>上課歷程</button>
     </div>
-    <div class="flex-1 overflow-y-auto p-3 pb-24 lg:pb-3 bg-gray-50 space-y-2 min-h-0" id="records-container">
-      <div class="text-center text-gray-400 text-sm mt-8">目前無任何紀錄</div>
+
+    <div class="flex-1 overflow-y-auto p-3 pb-24 lg:pb-3 bg-gray-50 min-h-0" id="board-pane-records">
+      <div class="flex justify-end mb-2">
+        <button id="btn-export-report" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded font-bold text-gray-700"><i class="fas fa-download mr-1"></i>匯出本堂</button>
+      </div>
+      <div class="space-y-2" id="records-container">
+        <div class="text-center text-gray-400 text-sm mt-8">目前無任何紀錄</div>
+      </div>
+    </div>
+
+    <div class="hidden flex-1 overflow-y-auto p-3 pb-24 lg:pb-3 bg-gray-50 min-h-0" id="board-pane-history">
+      <div class="flex justify-end mb-2">
+        <button id="btn-export-term" class="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded font-bold text-gray-700"><i class="fas fa-file-csv mr-1"></i>匯出整學期</button>
+      </div>
+      <div class="space-y-2" id="history-list">
+        <div class="text-center text-gray-400 text-sm mt-8">還沒有存檔的課堂</div>
+      </div>
     </div>
   </aside>
 
@@ -317,6 +344,7 @@
 
       <!-- 打字 -->
       <div id="stu-mode-typing" class="hidden w-full max-w-xl flex-col">
+        <div id="stu-blanks" class="hidden mb-3 text-center font-mono text-3xl sm:text-4xl font-black text-indigo-400 tracking-[0.2em] select-none"></div>
         <textarea id="stu-typing-input" autocapitalize="off" autocomplete="off" spellcheck="false"
           class="w-full h-32 p-4 rounded-2xl border-2 border-gray-300 focus:border-blue-500 outline-none resize-none text-2xl shadow-inner font-medium" placeholder="Type your answer…"></textarea>
         <button id="btn-stu-submit-typing" class="mt-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition">
@@ -424,6 +452,10 @@
         <label class="block font-bold text-indigo-700 text-sm mb-2"><i class="fas fa-key mr-1"></i>正確答案（可自動批改）</label>
         <div id="answer-inputs-container"></div>
         <p class="text-xs text-gray-500 mt-1.5">拼字題可用 <code class="bg-gray-200 px-1 rounded">/</code> 分隔多個正解，例如 <code class="bg-gray-200 px-1 rounded">colour/color</code>。大小寫與標點不影響判定。</p>
+        <label id="lbl-show-blanks" class="hidden mt-2 flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none bg-white p-2 rounded-lg border">
+          <input type="checkbox" id="chk-show-blanks" class="w-5 h-5 accent-indigo-600">
+          顯示字母格數提示 <span class="font-mono text-indigo-400">_ _ _ _ _</span>
+        </label>
       </div>
       <div id="modal-material-upload" class="hidden p-4 bg-blue-50 rounded-xl border border-blue-100">
         <label class="block font-bold text-blue-700 text-sm mb-2"><i class="fas fa-image mr-1"></i>上傳底圖 / 教材圖片</label>
@@ -453,6 +485,7 @@
     <button id="sheet-hw" class="w-full py-3 bg-orange-50 text-orange-600 rounded-xl font-bold border border-orange-100"><i class="fas fa-book mr-2"></i>登記缺交作業</button>
     <button id="sheet-praise" class="w-full py-3 bg-emerald-50 text-emerald-700 rounded-xl font-bold border border-emerald-100"><i class="fas fa-thumbs-up mr-2"></i>記優良表現</button>
     <button id="sheet-spotlight" class="w-full py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold border border-indigo-100"><i class="fas fa-hand-point-right mr-2"></i>點他回答（推播到平板）</button>
+    <button id="sheet-profile" class="w-full py-3 bg-sky-50 text-sky-700 rounded-xl font-bold border border-sky-100"><i class="fas fa-address-card mr-2"></i>學習檔案</button>
     <button id="sheet-close" class="w-full py-3 bg-gray-200 rounded-xl font-bold text-gray-700 mt-1">關閉</button>
   </div>
 </div>
@@ -464,6 +497,21 @@
     <div class="flex gap-2">
       <button id="confirm-no" class="flex-1 py-2.5 bg-gray-200 rounded-xl font-bold text-gray-700">取消</button>
       <button id="confirm-yes" class="flex-1 py-2.5 bg-red-500 text-white rounded-xl font-bold">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 課堂明細 / 學習檔案 共用彈窗 -->
+<div id="info-modal" class="hidden fixed inset-0 bg-black/60 z-[140] flex items-end sm:items-center justify-center sm:p-4">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh]">
+    <div class="p-4 bg-sky-700 text-white flex justify-between items-center rounded-t-3xl sm:rounded-t-2xl shrink-0">
+      <h3 class="font-bold text-lg truncate" id="info-title">明細</h3>
+      <button id="info-close" class="text-white/80 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto flex-1 text-sm" id="info-body"></div>
+    <div class="p-3 border-t bg-gray-50 shrink-0 safe-b flex gap-2">
+      <button id="info-delete" class="hidden px-4 py-2.5 bg-red-50 text-red-600 rounded-xl font-bold border border-red-100 text-sm">刪除這堂</button>
+      <button id="info-close2" class="flex-1 py-2.5 bg-gray-200 rounded-xl font-bold text-gray-700">關閉</button>
     </div>
   </div>
 </div>
@@ -550,7 +598,10 @@ const STATE = {
   teacherTab: 'students',
   currentTaskId: null,
   soundOn: true, autoSpeak: true,
-  sheetSeat: null
+  sheetSeat: null,
+  sessionLog: null,   // 本堂暫存 { startedAt, items[] }
+  sessions: [],       // 已存檔的課堂
+  records: []
 };
 
 const store = {
@@ -559,6 +610,7 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} }
 };
 
+const fmtTime = (ms) => ms ? new Date(ms).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 const rosterOf = (g) => ROSTER[g] || [];
 const nameOf = (g, seat) => {
   const r = rosterOf(g).find(s => String(s.seat) === String(seat));
@@ -920,7 +972,9 @@ function startTeacherListeners() {
   clearListeners();
   STATE.localStudentsData = {};
   STATE.currentTaskId = null;
+  STATE.sessions = [];
   buildTeacherGrid();
+  loadSessionLog();          // 每個年級各有自己的本堂暫存
 
   STATE.unsubs.push(onSnapshot(stateRef(STATE.grade), snap => {
     applyClassStateToTeacher(snap.exists() ? snap.data() : { mode:'waiting', locked:false });
@@ -961,6 +1015,166 @@ function startTeacherListeners() {
     }).join('');
     STATE.records = recs;
   }, e => console.error(e)));
+
+  // 4. 監聽已存檔的課堂
+  STATE.unsubs.push(onSnapshot(colRef(`sessions_${STATE.grade}`), snap => {
+    const list = [];
+    snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+    list.sort((a, b) => (b.endedAt || 0) - (a.endedAt || 0));
+    STATE.sessions = list;
+    renderHistory();
+  }, e => console.error(e)));
+}
+
+function renderHistory() {
+  const box = $('history-list'); if (!box) return;
+  if (!STATE.sessions.length) {
+    box.innerHTML = '<div class="text-center text-gray-400 text-sm mt-8">還沒有存檔的課堂</div>';
+    return;
+  }
+  box.innerHTML = STATE.sessions.map(s => {
+    let att = 0, cor = 0;
+    Object.values(s.students || {}).forEach(v => { att += v.attempted || 0; cor += v.correct || 0; });
+    const pct = att ? Math.round(cor / att * 100) : null;
+    return `<button class="history-item w-full text-left p-3 bg-white rounded-xl border hover:border-sky-300 shadow-sm transition" data-id="${s.id}">
+      <div class="flex justify-between items-center">
+        <span class="font-black text-gray-800">${s.date}<span class="ml-2 text-xs font-bold text-gray-400">${fmtTime(s.startedAt)}</span></span>
+        <span class="text-xs font-bold px-2 py-0.5 rounded ${pct === null ? 'bg-gray-100 text-gray-500' : pct >= 70 ? 'bg-green-100 text-green-700' : pct >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}">
+          ${pct === null ? '—' : pct + '%'}
+        </span>
+      </div>
+      <div class="text-xs text-gray-500 mt-0.5">${s.itemCount} 題　·　答對 ${cor}/${att}</div>
+    </button>`;
+  }).join('');
+}
+
+/* 單堂明細 */
+function openSessionDetail(id) {
+  const s = STATE.sessions.find(x => x.id === id); if (!s) return;
+  const seats = rosterOf(STATE.grade).map(r => r.seat);
+  const head = seats.map(seat => `<th class="px-2 py-1.5 text-xs font-bold text-gray-600 whitespace-nowrap">${escapeHtml(shortNameOf(STATE.grade, seat))}</th>`).join('');
+
+  const rows = (s.items || []).map((it, i) => {
+    const cells = seats.map(seat => {
+      const a = it.answers?.[seat];
+      if (!a) return '<td class="px-2 py-1.5 text-center text-gray-300">–</td>';
+      const c = a.correct === true ? 'text-green-600' : a.correct === false ? 'text-red-500' : 'text-gray-700';
+      const mark = a.correct === true ? '✓ ' : a.correct === false ? '✗ ' : '';
+      return `<td class="px-2 py-1.5 text-center ${c} break-words max-w-[110px]">${mark}${escapeHtml(a.answer)}</td>`;
+    }).join('');
+    return `<tr class="border-t">
+      <td class="px-2 py-1.5 align-top">
+        <div class="font-bold text-gray-700 text-xs">${i + 1}. ${escapeHtml(it.question || MODES[it.mode] || '')}</div>
+        ${it.correctAnswer ? `<div class="text-[11px] text-indigo-500 font-bold">正解 ${escapeHtml(it.correctAnswer)}</div>` : ''}
+      </td>${cells}</tr>`;
+  }).join('');
+
+  const summary = seats.map(seat => {
+    const v = s.students?.[seat] || {};
+    const pct = v.attempted ? Math.round(v.correct / v.attempted * 100) : null;
+    return `<td class="px-2 py-1.5 text-center font-black ${pct === null ? 'text-gray-300' : pct >= 70 ? 'text-green-600' : pct >= 40 ? 'text-amber-600' : 'text-red-500'}">${pct === null ? '–' : pct + '%'}</td>`;
+  }).join('');
+
+  $('info-title').innerText = `${s.date} ${fmtTime(s.startedAt)}　${s.grade} 年級　${s.itemCount} 題`;
+  $('info-body').innerHTML = `
+    <div class="overflow-x-auto -mx-1">
+      <table class="w-full text-sm border-collapse">
+        <thead class="bg-gray-50"><tr><th class="px-2 py-1.5 text-left text-xs font-bold text-gray-600">題目</th>${head}</tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot class="bg-sky-50 border-t-2"><tr><td class="px-2 py-1.5 text-xs font-black text-sky-700">本堂正確率</td>${summary}</tr></tfoot>
+      </table>
+    </div>`;
+  $('info-delete').classList.remove('hidden');
+  $('info-delete').dataset.id = id;
+  $('info-modal').classList.remove('hidden');
+}
+
+/* 個人學習檔案 */
+async function openProfile(seat) {
+  $('info-title').innerText = `${nameOf(STATE.grade, seat)}　學習檔案`;
+  $('info-body').innerHTML = '<div class="text-center text-gray-400 py-8">讀取中…</div>';
+  $('info-delete').classList.add('hidden');
+  $('info-modal').classList.remove('hidden');
+
+  const snap = await getDoc(docRef(`studentStats_${STATE.grade}`, `${STATE.grade}-${seat}`));
+  const st = snap.exists() ? snap.data() : null;
+  if (!st || !st.sessions) {
+    $('info-body').innerHTML = '<div class="text-center text-gray-400 py-8">這位同學還沒有存檔的上課紀錄。<br>下課按「結束本堂並存檔」之後就會累積。</div>';
+    return;
+  }
+
+  const pct = st.attempted ? Math.round(st.correct / st.attempted * 100) : 0;
+  const recent = (st.recent || []).slice(-12);
+  const bars = recent.map(r => {
+    const p = r.attempted ? Math.round(r.correct / r.attempted * 100) : 0;
+    const color = p >= 70 ? 'bg-green-500' : p >= 40 ? 'bg-amber-400' : 'bg-red-400';
+    return `<div class="flex flex-col items-center gap-1 shrink-0">
+      <span class="text-[10px] font-black text-gray-600">${p}%</span>
+      <div class="w-8 h-24 bg-gray-100 rounded flex flex-col justify-end overflow-hidden">
+        <div class="${color}" style="height:${Math.max(4, p)}%"></div>
+      </div>
+      <span class="text-[10px] text-gray-500">${r.date.slice(5)}</span>
+      <span class="text-[10px] text-gray-400">${r.correct}/${r.attempted}</span>
+    </div>`;
+  }).join('');
+
+  const words = Object.entries(st.wrongWords || {}).sort((a, b) => b[1] - a[1]).slice(0, 15);
+  $('info-body').innerHTML = `
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <div class="p-3 bg-sky-50 rounded-xl text-center"><div class="text-2xl font-black text-sky-700">${st.sessions}</div><div class="text-xs text-gray-500">上課堂數</div></div>
+      <div class="p-3 bg-sky-50 rounded-xl text-center"><div class="text-2xl font-black text-sky-700">${st.attempted}</div><div class="text-xs text-gray-500">總作答題數</div></div>
+      <div class="p-3 bg-sky-50 rounded-xl text-center"><div class="text-2xl font-black ${pct >= 70 ? 'text-green-600' : pct >= 40 ? 'text-amber-600' : 'text-red-500'}">${pct}%</div><div class="text-xs text-gray-500">整體正確率</div></div>
+    </div>
+    <h4 class="font-bold text-gray-700 mb-2 text-sm">最近表現</h4>
+    <div class="flex gap-2 overflow-x-auto pb-2 mb-4">${bars || '<span class="text-gray-400 text-sm">尚無資料</span>'}</div>
+    <h4 class="font-bold text-gray-700 mb-2 text-sm">常錯的字 / 句</h4>
+    ${words.length
+      ? `<div class="flex flex-wrap gap-1.5">${words.map(([w, c]) => `
+          <span class="px-2.5 py-1 bg-red-50 text-red-700 rounded-lg text-sm font-bold border border-red-100">
+            ${escapeHtml(w)} <span class="text-red-400 text-xs">×${c}</span></span>`).join('')}</div>`
+      : '<span class="text-gray-400 text-sm">目前沒有累積錯題 👍</span>'}`;
+}
+
+/* 匯出整學期 */
+function exportTermCsv() {
+  if (!STATE.sessions.length) return showToast('還沒有存檔的課堂', 'warning');
+  const seats = rosterOf(STATE.grade);
+  const byTime = (a, b) => (a.startedAt || 0) - (b.startedAt || 0);
+  let csv = '﻿課堂總表\n日期,時間,題數,';
+  csv += seats.map(s => `${s.name}答對,${s.name}作答`).join(',') + '\n';
+  STATE.sessions.slice().sort(byTime).forEach(s => {
+    csv += `${s.date},${fmtTime(s.startedAt)},${s.itemCount},`;
+    csv += seats.map(({ seat }) => {
+      const v = s.students?.[seat] || {};
+      return `${v.correct || 0},${v.attempted || 0}`;
+    }).join(',') + '\n';
+  });
+
+  csv += '\n\n逐題明細\n日期,時間,題號,題型,題目,正解,';
+  csv += seats.map(s => s.name).join(',') + '\n';
+  STATE.sessions.slice().sort(byTime).forEach(s => {
+    (s.items || []).forEach((it, i) => {
+      const q = `"${String(it.question || '').replace(/"/g, '""')}"`;
+      csv += `${s.date},${fmtTime(s.startedAt)},${i + 1},${MODES[it.mode] || it.mode},${q},"${String(it.correctAnswer || '').replace(/"/g, '""')}",`;
+      csv += seats.map(({ seat }) => {
+        const a = it.answers?.[seat];
+        if (!a) return '';
+        const mark = a.correct === true ? '✓' : a.correct === false ? '✗' : '';
+        return `"${mark}${String(a.answer).replace(/"/g, '""')}"`;
+      }).join(',') + '\n';
+    });
+  });
+
+  downloadCsv(csv, `G${STATE.grade}_term_report_${new Date().toISOString().slice(0, 10)}.csv`);
+}
+
+function downloadCsv(csv, filename) {
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.style.display = 'none';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
+  showToast('報表已下載', 'success');
 }
 
 /* 倒數計時（老師端與學生端共用） */
@@ -987,13 +1201,150 @@ function runCountdown(endTime, spanEl, isTeacher) {
 
 /* 發布任務 */
 async function publishTask(payload) {
+  captureCurrentTask();          // 先把上一題的作答收進本堂暫存
   const data = Object.assign({
     mode:'waiting', locked:false, question:null, speak:null, choices:null,
     correctAnswer:null, materialData:null, timerEnd:null, reveal:false,
+    showBlanks:false,
     taskId: newTaskId(), timestamp: Date.now()
   }, payload);
   STATE.showAnswersTriggered = false;
   await setDoc(stateRef(STATE.grade), data, { merge: true });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   本堂課暫存與存檔
+   上課中先記在這台裝置（localStorage），按「結束本堂並存檔」才寫進資料庫
+   ══════════════════════════════════════════════════════════════════ */
+const sessionKey = () => `nyps.session.${STATE.grade}`;
+const MEDIA_PLACEHOLDER = { whiteboard: '［白板作品］', audio: '［語音錄音］', material: '［看教材］' };
+
+function loadSessionLog() {
+  STATE.sessionLog = store.get(sessionKey(), null) || { startedAt: Date.now(), items: [] };
+  renderSessionCount();
+}
+function saveSessionLog() {
+  store.set(sessionKey(), STATE.sessionLog);
+  renderSessionCount();
+}
+function renderSessionCount() {
+  const n = STATE.sessionLog?.items?.length || 0;
+  const el = $('session-count'); if (el) el.innerText = n;
+  const hint = $('session-hint');
+  if (hint) hint.innerText = n
+    ? `本堂從 ${new Date(STATE.sessionLog.startedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})} 開始，暫存在這台裝置上。`
+    : '每收回一題就自動記一筆，暫存在這台裝置上。';
+}
+
+/* 把「目前這一題」的作答收進暫存（同一題只收一次） */
+function captureCurrentTask() {
+  const cs = STATE.classState;
+  if (!cs || !cs.taskId || cs.mode === 'waiting') return;
+  if (!STATE.sessionLog) loadSessionLog();
+  if (STATE.sessionLog.items.some(i => i.taskId === cs.taskId)) return;
+
+  const answers = {};
+  let answered = 0;
+  rosterOf(STATE.grade).forEach(({ seat }) => {
+    const d = STATE.localStudentsData[`${STATE.grade}-${seat}`];
+    if (!d || d.status !== 'submitted' || d.answerTaskId !== cs.taskId) return;
+    answered++;
+    // 白板圖與錄音是 base64，不能塞進課堂紀錄（會爆 Firestore 1MB），只留標記
+    const raw = String(d.answer ?? '');
+    const text = raw.startsWith('data:') ? (MEDIA_PLACEHOLDER[cs.mode] || '［檔案］') : raw;
+    answers[seat] = { answer: text.slice(0, 200), correct: isAnswerCorrect(raw, cs.correctAnswer) };
+  });
+  if (!answered && cs.mode !== 'material') return;   // 沒人作答就不記
+
+  STATE.sessionLog.items.push({
+    taskId: cs.taskId,
+    at: Date.now(),
+    mode: cs.mode,
+    question: (cs.question || '').slice(0, 120) || null,
+    speak: (cs.speak || '').slice(0, 120) || null,
+    correctAnswer: cs.correctAnswer || null,
+    answers
+  });
+  saveSessionLog();
+}
+
+/* 結束本堂：寫入 sessions_{年級} + 更新每位學生的累計檔案 */
+async function endSession() {
+  captureCurrentTask();
+  const log = STATE.sessionLog;
+  if (!log || !log.items.length) return showToast('本堂還沒有任何作答紀錄', 'warning');
+
+  if (!await askConfirm(`結束本堂並存檔？\n共 ${log.items.length} 題，存檔後全班分數會歸零，準備下一堂。`)) return;
+
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('sv-SE');   // YYYY-MM-DD
+  let sessionId = dateStr;
+  const existing = await getDoc(docRef(`sessions_${STATE.grade}`, sessionId));
+  if (existing.exists()) sessionId = `${dateStr}-${String(today.getHours()).padStart(2,'0')}${String(today.getMinutes()).padStart(2,'0')}`;
+
+  // 每位學生本堂統計
+  const perStudent = {};
+  rosterOf(STATE.grade).forEach(({ seat, name }) => {
+    let attempted = 0, correct = 0;
+    const wrong = [];
+    log.items.forEach(it => {
+      const a = it.answers[seat];
+      if (!a) return;
+      attempted++;
+      if (a.correct === true) correct++;
+      else if (a.correct === false && it.correctAnswer) wrong.push(it.correctAnswer);
+    });
+    perStudent[seat] = {
+      name,
+      score: STATE.localStudentsData[`${STATE.grade}-${seat}`]?.score || 0,
+      attempted, correct, wrong
+    };
+  });
+
+  const doc_ = {
+    date: dateStr, sessionId, grade: STATE.grade, teacher: TEACHER_NAME,
+    startedAt: log.startedAt, endedAt: Date.now(),
+    itemCount: log.items.length,
+    items: log.items,
+    students: perStudent
+  };
+
+  try {
+    await setDoc(docRef(`sessions_${STATE.grade}`, sessionId), doc_);
+
+    // 累計檔案
+    const batch = writeBatch(db);
+    for (const { seat } of rosterOf(STATE.grade)) {
+      const ref = docRef(`studentStats_${STATE.grade}`, `${STATE.grade}-${seat}`);
+      const prev = (await getDoc(ref)).data() || {};
+      const s = perStudent[seat];
+      const wrongWords = Object.assign({}, prev.wrongWords || {});
+      s.wrong.forEach(w => { wrongWords[w] = (wrongWords[w] || 0) + 1; });
+      const recent = (prev.recent || []).concat([{ date: dateStr, attempted: s.attempted, correct: s.correct, score: s.score }]).slice(-30);
+      batch.set(ref, {
+        seat: String(seat), name: s.name,
+        sessions: (prev.sessions || 0) + 1,
+        attempted: (prev.attempted || 0) + s.attempted,
+        correct: (prev.correct || 0) + s.correct,
+        wrongWords, recent
+      }, { merge: true });
+      // 順便把分數歸零
+      batch.set(studentRef(STATE.grade, seat), { score: 0, streak: 0 }, { merge: true });
+    }
+    await batch.commit();
+
+    // 先收回任務再清暫存：publishTask 內的 captureCurrentTask 會因為 taskId 已存在而略過，
+    // 順序反了會把最後一題重複記進下一堂
+    await publishTask({ mode: 'waiting' });
+    store.del(sessionKey());
+    STATE.sessionLog = { startedAt: Date.now(), items: [] };
+    renderSessionCount();
+    showToast(`本堂已存檔（${log.items.length} 題）`, 'success');
+    fireConfetti(true);
+  } catch (e) {
+    console.error(e);
+    showToast('存檔失敗，本堂暫存還在，請檢查網路後再按一次', 'error');
+  }
 }
 
 /* ── 老師端事件綁定 ── */
@@ -1002,6 +1353,7 @@ function bindTeacherEvents() {
 
   const switchGrade = (g) => {
     STATE.grade = g;
+    store.set('nyps.grade', g);          // 記住年級，中途重新整理不會跳回 5 年級
     $('control-grade-select').value = g;
     $('control-grade-select-m').value = g;
     startTeacherListeners();
@@ -1026,6 +1378,7 @@ function bindTeacherEvents() {
     const ansBox = $('modal-answer-setup'), ansIn = $('answer-inputs-container');
     const matBox = $('modal-material-upload'), chBox = $('modal-choices-setup');
     ansIn.innerHTML = ''; ansBox.classList.add('hidden'); matBox.classList.add('hidden'); chBox.classList.add('hidden');
+    $('lbl-show-blanks').classList.add('hidden'); $('chk-show-blanks').checked = false;
 
     if (selectedMode === 'ox') {
       ansBox.classList.remove('hidden');
@@ -1037,6 +1390,7 @@ function bindTeacherEvents() {
     } else if (selectedMode === 'typing') {
       ansBox.classList.remove('hidden');
       ansIn.innerHTML = `<input type="text" id="input-correct-ans" class="w-full p-2.5 border rounded-lg" placeholder="例如 apple 或 colour/color">`;
+      $('lbl-show-blanks').classList.remove('hidden');
     } else if (selectedMode === 'whiteboard' || selectedMode === 'material') {
       matBox.classList.remove('hidden');
     }
@@ -1077,6 +1431,7 @@ function bindTeacherEvents() {
       speak,
       choices,
       correctAnswer: ansEl && ansEl.value.trim() ? ansEl.value.trim() : null,
+      showBlanks: selectedMode === 'typing' && $('chk-show-blanks').checked,
       materialData: STATE.tempMaterialBase64 || null
     });
     $('task-modal').classList.add('hidden');
@@ -1216,6 +1571,7 @@ function bindTeacherEvents() {
   });
 
   bindSheet();
+  bindSessionAndHistory();
   $('btn-export-report').addEventListener('click', exportReport);
 }
 
@@ -1229,6 +1585,57 @@ async function addScore(seat, delta) {
   const id = `${STATE.grade}-${seat}`;
   const cur = STATE.localStudentsData[id]?.score || 0;
   await setDoc(studentRef(STATE.grade, seat), { score: Math.max(0, cur + delta) }, { merge: true });
+}
+
+/* 本堂存檔 + 歷程 的事件 */
+function bindSessionAndHistory() {
+  const setBoardTab = (t) => {
+    $$('.board-tab').forEach(b => {
+      const on = b.dataset.btab === t;
+      b.classList.toggle('bg-gray-700', on);
+      b.classList.toggle('text-white', on);
+      b.classList.toggle('text-gray-400', !on);
+    });
+    $('board-pane-records').classList.toggle('hidden', t !== 'records');
+    $('board-pane-history').classList.toggle('hidden', t !== 'history');
+  };
+  $$('.board-tab').forEach(b => b.addEventListener('click', () => setBoardTab(b.dataset.btab)));
+  setBoardTab('records');
+
+  $('btn-end-session').addEventListener('click', endSession);
+  $('btn-discard-session').addEventListener('click', async () => {
+    if (!STATE.sessionLog?.items?.length) return showToast('目前沒有暫存', 'info');
+    if (!await askConfirm(`丟棄本堂暫存的 ${STATE.sessionLog.items.length} 題？這個動作無法復原。`)) return;
+    store.del(sessionKey());
+    STATE.sessionLog = { startedAt: Date.now(), items: [] };
+    renderSessionCount();
+    showToast('已清空本堂暫存', 'info');
+  });
+  $('btn-export-term').addEventListener('click', exportTermCsv);
+
+  $('history-list').addEventListener('click', e => {
+    const it = e.target.closest('.history-item');
+    if (it) openSessionDetail(it.dataset.id);
+  });
+
+  const closeInfo = () => $('info-modal').classList.add('hidden');
+  $('info-close').addEventListener('click', closeInfo);
+  $('info-close2').addEventListener('click', closeInfo);
+  $('info-delete').addEventListener('click', async (e) => {
+    const id = e.currentTarget.dataset.id;
+    if (!await askConfirm(`刪除 ${id} 這堂的存檔？累計統計不會跟著回復。`)) return;
+    await deleteDoc(docRef(`sessions_${STATE.grade}`, id));
+    closeInfo();
+    showToast('已刪除該堂存檔', 'info');
+  });
+
+  // 關掉分頁前提醒還有沒存的暫存
+  window.addEventListener('beforeunload', (e) => {
+    if (STATE.role === 'teacher' && STATE.sessionLog?.items?.length) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
 }
 
 /* 學生操作選單 */
@@ -1253,6 +1660,7 @@ function bindSheet() {
   $('sheet-late').addEventListener('click', () => rec('late', '遲到'));
   $('sheet-hw').addEventListener('click', () => rec('hw', '缺交'));
   $('sheet-praise').addEventListener('click', () => rec('praise', '優良表現'));
+  $('sheet-profile').addEventListener('click', () => { const s = STATE.sheetSeat; close(); openProfile(s); });
   $('sheet-spotlight').addEventListener('click', async () => {
     await setDoc(stateRef(STATE.grade), { spotlightSeat: String(STATE.sheetSeat), spotlightAt: Date.now() }, { merge: true });
     showToast(`已點 ${shortNameOf(STATE.grade, STATE.sheetSeat)} 回答`, 'success');
@@ -1274,16 +1682,7 @@ function exportReport() {
   recs.slice().sort((a,b) => a.timestamp - b.timestamp).forEach(r => {
     csv += `${new Date(r.timestamp).toLocaleString('zh-TW')},${r.seat},${shortNameOf(r.grade || STATE.grade, r.seat)},${label[r.type] || r.type}\n`;
   });
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `G${STATE.grade}_class_report_${new Date().toISOString().slice(0,10)}.csv`;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
-  showToast('報表已下載', 'success');
+  downloadCsv(csv, `G${STATE.grade}_class_report_${new Date().toISOString().slice(0,10)}.csv`);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1327,6 +1726,14 @@ async function submitStudentAnswer(answer, opts = {}) {
     console.error(e);
     showToast('送出失敗，請再按一次', 'error');
   }
+}
+
+/* 依正解長度產生 _ _ _ _ _（多正解取第一個；空白處分詞顯示） */
+function buildBlanks(correctAnswer) {
+  const first = String(correctAnswer).split(/[\/|]/)[0].trim();
+  return first.split(/\s+/)
+    .map(word => `<span class="inline-block mx-3 whitespace-nowrap">${'_ '.repeat(word.replace(/[^A-Za-z]/g, '').length).trim()}</span>`)
+    .join('');
 }
 
 function renderStudentReveal(cs, myData) {
@@ -1410,6 +1817,15 @@ function applyClassStateToStudent(cs) {
       $('stu-material-content').innerHTML = `<img src="${cs.materialData}" class="max-w-full max-h-[65vh] rounded">`;
     }
     if (mode === 'whiteboard') setCanvasBackground(cs.materialData || null);
+
+    // 拼字題的格數提示 _ _ _ _ _
+    const blanksEl = $('stu-blanks');
+    if (mode === 'typing' && cs.showBlanks && cs.correctAnswer) {
+      blanksEl.innerHTML = buildBlanks(cs.correctAnswer);
+      blanksEl.classList.remove('hidden');
+    } else {
+      blanksEl.classList.add('hidden');
+    }
   }
 
   // 計時器
@@ -1781,8 +2197,12 @@ async function enterAsTeacher() {
   STATE.soundOn = store.get('nyps.sound', true);
   $('chk-sound').checked = STATE.soundOn;
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {}
+  const savedGrade = store.get('nyps.grade');
+  if (savedGrade && ROSTER[savedGrade]) STATE.grade = savedGrade;
   await initAuth();
   showView('teacher');
+  $('control-grade-select').value = STATE.grade;
+  $('control-grade-select-m').value = STATE.grade;
   $('teacher-panel-title').innerHTML = `<i class="fas fa-sliders-h mr-2"></i>${TEACHER_NAME} 老師`;
   setTeacherTab(window.innerWidth >= 1024 ? 'students' : 'tools');
   bindTeacherEvents();
