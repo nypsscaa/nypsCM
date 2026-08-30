@@ -225,6 +225,16 @@
 
     </div>
 
+    <!-- 搶答結果看板 -->
+    <div id="buzz-board" class="hidden shrink-0 mx-2.5 sm:mx-5 mt-3 p-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-lg">
+      <div class="flex items-center justify-between gap-3">
+        <div id="buzz-winner" class="text-xl sm:text-2xl font-black truncate">等待搶答…</div>
+        <button id="btn-buzz-again" class="shrink-0 px-4 py-2 bg-white text-orange-600 rounded-xl font-black shadow active:scale-95">
+          <i class="fas fa-rotate-right mr-1"></i>再來一輪</button>
+      </div>
+      <div id="buzz-list" class="mt-2 flex flex-wrap gap-1.5"></div>
+    </div>
+
     <div id="teacher-students-grid" class="flex-1 p-2.5 sm:p-5 pb-24 lg:pb-5 overflow-y-auto grid grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-4 content-start min-h-0"></div>
   </main>
 
@@ -833,8 +843,13 @@ function renderCard(seat) {
     return;
   }
   if (!answered) {
-    icon.innerHTML = '<i class="fas fa-pencil text-yellow-500 animate-pulse"></i>';
-    ans.innerHTML = '<span class="text-yellow-600 text-sm">作答中…</span>';
+    if (mode === 'buzzer') {
+      icon.innerHTML = '<i class="fas fa-bell text-gray-300"></i>';
+      ans.innerHTML = '<span class="text-gray-400 text-sm">還沒按</span>';
+    } else {
+      icon.innerHTML = '<i class="fas fa-pencil text-yellow-500 animate-pulse"></i>';
+      ans.innerHTML = '<span class="text-yellow-600 text-sm">作答中…</span>';
+    }
     return;
   }
 
@@ -851,10 +866,13 @@ function renderCard(seat) {
   }
 
   if (mode === 'buzzer') {
-    const rank = buzzRank(seat);
+    const me = buzzOrder().find(x => String(x.seat) === String(seat));
+    const rank = me ? me.rank : 0;
     const medal = ['🥇','🥈','🥉'][rank - 1] || `${rank}`;
     icon.innerHTML = `<span class="text-4xl">${medal}</span>`;
-    ans.innerHTML = `<span class="text-amber-600 font-black">第 ${rank} 個搶答</span>`;
+    ans.innerHTML = rank === 1
+      ? '<span class="text-amber-500 font-black text-lg">最快！</span>'
+      : `<span class="text-gray-500 font-bold text-sm">慢了 ${me ? me.gap.toFixed(2) : '?'} 秒</span>`;
   } else if (mode === 'whiteboard' && String(d.answer).startsWith('data:image')) {
     icon.innerHTML = '';
     ans.innerHTML = `<img src="${d.answer}" data-zoom="1" class="w-full max-h-[110px] object-contain cursor-zoom-in rounded">`;
@@ -876,17 +894,50 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
-/* 搶答名次：以伺服器時間為準，沒有就用本機時間 */
-function buzzRank(seat) {
+/* 搶答排序：以伺服器時間為準，沒有就用本機時間；回傳含名次與落後秒數 */
+function buzzOrder(data = STATE.localStudentsData, grade = STATE.grade) {
   const tid = STATE.classState?.taskId;
-  const list = Object.entries(STATE.localStudentsData)
+  const list = Object.entries(data)
     .filter(([, d]) => d.status === 'submitted' && d.answerTaskId === tid)
-    .map(([id, d]) => ({ id, t: (d.serverAt?.toMillis?.() ?? d.submitAt ?? 0) }))
+    .map(([id, d]) => ({ id, seat: id.split('-')[1], t: (d.serverAt?.toMillis?.() ?? d.submitAt ?? 0) }))
     .sort((a, b) => a.t - b.t);
-  return list.findIndex(x => x.id === `${STATE.grade}-${seat}`) + 1;
+  const first = list[0]?.t || 0;
+  return list.map((x, i) => ({ ...x, rank: i + 1, gap: (x.t - first) / 1000 }));
+}
+function buzzRank(seat) {
+  return buzzOrder().findIndex(x => String(x.seat) === String(seat)) + 1;
 }
 
 function renderAllCards() { rosterOf(STATE.grade).forEach(({ seat }) => renderCard(seat)); }
+
+/* 開一輪搶答（純按鈴，不用題目） */
+async function startBuzzRound() {
+  await publishTask({ mode: 'buzzer' });
+  setTeacherTab('students');
+  beep(1200, .06); setTimeout(() => beep(1600, .1), 70);
+  showToast('搶答開始！', 'success');
+}
+
+/* 搶答看板 */
+function renderBuzzBoard() {
+  const board = $('buzz-board');
+  if (STATE.classState?.mode !== 'buzzer') { board.classList.add('hidden'); return; }
+  board.classList.remove('hidden');
+
+  const order = buzzOrder();
+  if (!order.length) {
+    $('buzz-winner').innerHTML = '🔔 等待搶答…';
+    $('buzz-list').innerHTML = '';
+    return;
+  }
+  const w = order[0];
+  $('buzz-winner').innerHTML = `🥇 ${escapeHtml(shortNameOf(STATE.grade, w.seat))} 最快！`;
+  $('buzz-list').innerHTML = order.slice(1).map(x =>
+    `<span class="px-2.5 py-1 bg-white/25 rounded-lg text-sm font-bold">
+       ${['','','🥈','🥉'][x.rank] || x.rank + '.'} ${escapeHtml(shortNameOf(STATE.grade, x.seat))}
+       <span class="opacity-75 text-xs">+${x.gap.toFixed(2)}s</span>
+     </span>`).join('');
+}
 
 function renderProgressAndBoard() {
   const cs = STATE.classState || {};
@@ -934,7 +985,8 @@ function applyClassStateToTeacher(data) {
 
   $('task-badge').innerText = MODES[mode] || '待機';
   $('task-badge').className = `px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${mode === 'waiting' ? 'bg-gray-200 text-gray-600' : 'bg-indigo-600 text-white'}`;
-  $('current-task-title').innerText = mode === 'waiting' ? (data.locked ? '🔒 平板鎖定中' : '準備上課') : '學生作答中…';
+  $('current-task-title').innerText = mode === 'waiting' ? (data.locked ? '🔒 平板鎖定中' : '準備上課')
+    : mode === 'buzzer' ? '🔔 搶答中…' : '學生作答中…';
 
   const qd = $('teacher-question-display');
   const hasQ = !!(data.question || data.speak);
@@ -950,7 +1002,7 @@ function applyClassStateToTeacher(data) {
   $('btn-lock-screen').classList.toggle('hidden', !!data.locked);
   $('btn-unlock-screen').classList.toggle('hidden', !data.locked);
   $('btn-auto-grade').classList.toggle('hidden', !data.correctAnswer || mode === 'waiting');
-  $('btn-reveal').classList.toggle('hidden', mode === 'waiting');
+  $('btn-reveal').classList.toggle('hidden', mode === 'waiting' || mode === 'buzzer');
   $('btn-reveal').classList.toggle('opacity-50', !!data.reveal);
 
   const tEl = $('timer-display-container');
@@ -966,6 +1018,7 @@ function applyClassStateToTeacher(data) {
 
   renderAllCards();
   renderProgressAndBoard();
+  renderBuzzBoard();
 }
 
 function startTeacherListeners() {
@@ -992,6 +1045,7 @@ function startTeacherListeners() {
     });
     renderAllCards();
     renderProgressAndBoard();
+    renderBuzzBoard();
     if (newHand) { sfx.ping(); showToast('有學生舉手了 ✋', 'warning'); }
   }, e => console.error(e)));
 
@@ -1239,7 +1293,7 @@ function renderSessionCount() {
 /* 把「目前這一題」的作答收進暫存（同一題只收一次） */
 function captureCurrentTask() {
   const cs = STATE.classState;
-  if (!cs || !cs.taskId || cs.mode === 'waiting') return;
+  if (!cs || !cs.taskId || cs.mode === 'waiting' || cs.mode === 'buzzer') return;
   if (!STATE.sessionLog) loadSessionLog();
   if (STATE.sessionLog.items.some(i => i.taskId === cs.taskId)) return;
 
@@ -1366,6 +1420,8 @@ function bindTeacherEvents() {
   let selectedMode = null;
   $$('.t-tool-btn').forEach(btn => btn.addEventListener('click', () => {
     selectedMode = btn.dataset.mode;
+    // 搶答是純按鈴，不需要題目，按下去就開始
+    if (selectedMode === 'buzzer') { startBuzzRound(); return; }
     $('modal-title').innerText = `發布：${MODES[selectedMode]}`;
     $('task-question-input').value = '';
     $('task-speak-input').value = '';
@@ -1447,6 +1503,7 @@ function bindTeacherEvents() {
   $('btn-unlock-screen').addEventListener('click', () => setDoc(stateRef(STATE.grade), { locked: false }, { merge: true }));
 
   $('btn-teacher-speak').addEventListener('click', () => speak(STATE.classState.speak));
+  $('btn-buzz-again').addEventListener('click', startBuzzRound);
 
   // 盲答
   $('btn-blind-mode').addEventListener('click', () => {
@@ -1728,6 +1785,17 @@ async function submitStudentAnswer(answer, opts = {}) {
   }
 }
 
+function lockBuzzButton(locked) {
+  const b = $('btn-stu-buzz'); if (!b) return;
+  b.disabled = locked;
+  b.className = locked
+    ? 'w-56 h-56 rounded-full bg-gray-300 text-gray-500 text-4xl font-black shadow-inner border-8 border-gray-200 cursor-default'
+    : 'w-56 h-56 rounded-full bg-gradient-to-b from-amber-400 to-orange-500 text-white text-4xl font-black shadow-2xl border-8 border-amber-200 active:scale-90 transition';
+  b.innerHTML = locked
+    ? '<i class="fas fa-check block text-5xl mb-2"></i>已按'
+    : '<i class="fas fa-bolt block text-5xl mb-2"></i>BUZZ!';
+}
+
 /* 依正解長度產生 _ _ _ _ _（多正解取第一個；空白處分詞顯示） */
 function buildBlanks(correctAnswer) {
   const first = String(correctAnswer).split(/[\/|]/)[0].trim();
@@ -1776,6 +1844,7 @@ function applyClassStateToStudent(cs) {
     STATE.currentTaskId = cs.taskId;
     $('stu-typing-input').value = '';
     $('stu-buzz-result').innerText = '';
+    lockBuzzButton(false);
     $('stu-reveal').classList.add('hidden');
     resetAudioUI();
     clearCanvas();
@@ -1884,14 +1953,14 @@ function startStudentListeners() {
 
     // 搶答名次
     if (cs.mode === 'buzzer' && me.answerTaskId === cs.taskId) {
-      const list = Object.entries(STATE.localStudentsData)
-        .filter(([, d]) => d.status === 'submitted' && d.answerTaskId === cs.taskId)
-        .map(([id, d]) => ({ id, t: (d.serverAt?.toMillis?.() ?? d.submitAt ?? 0) }))
-        .sort((a, b) => a.t - b.t);
-      const r = list.findIndex(x => x.id === myId) + 1;
-      if (r > 0) $('stu-buzz-result').innerHTML = r === 1
-        ? '<span class="text-amber-500">🥇 你搶到了！</span>'
-        : `<span class="text-gray-500">第 ${r} 個</span>`;
+      const order = buzzOrder(STATE.localStudentsData, STATE.grade);
+      const mine = order.find(x => x.id === myId);
+      if (mine) {
+        $('stu-buzz-result').innerHTML = mine.rank === 1
+          ? '<span class="text-amber-500">🥇 你搶到了！</span>'
+          : `<span class="text-gray-500">第 ${mine.rank} 個　<span class="text-base">慢了 ${mine.gap.toFixed(2)} 秒</span></span>`;
+        lockBuzzButton(true);
+      }
     }
   }, e => console.error(e)));
 
@@ -1919,7 +1988,12 @@ function bindStudentEvents() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('btn-stu-submit-typing').click(); }
   });
 
-  $('btn-stu-buzz').addEventListener('click', () => { sfx.buzz(); submitStudentAnswer('BUZZ', { silent: true }); });
+  $('btn-stu-buzz').addEventListener('click', () => {
+    if ($('btn-stu-buzz').disabled) return;
+    lockBuzzButton(true);
+    sfx.buzz();
+    submitStudentAnswer('BUZZ', { silent: true });
+  });
 
   $('btn-stu-submit-board').addEventListener('click', () => {
     const d = exportCanvas();
