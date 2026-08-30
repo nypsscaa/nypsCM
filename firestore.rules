@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 只開放這個 App 用到的路徑，而且必須是已登入（匿名登入也算）的使用者
+    match /artifacts/nypscm-class-pro/public/data/{collection}/{docId=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 其他所有路徑一律拒絕
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
