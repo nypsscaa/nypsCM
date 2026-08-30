@@ -1,1395 +1,1850 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EngClass Pro - 數位互動課室</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; overflow: hidden; }
-        .student-card { transition: all 0.2s ease-in-out; }
-        .student-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .drawing-board { border: 2px dashed #cbd5e1; border-radius: 0.5rem; background: white; touch-action: none; background-size: contain; background-repeat: no-repeat; background-position: center; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        #lock-screen { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-        .toast-enter { animation: toastIn 0.3s ease-out forwards; }
-        .toast-leave { animation: toastOut 0.3s ease-in forwards; }
-        @keyframes toastIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes toastOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
-        /* 避免長單字破壞版面 */
-        .break-words { word-break: break-word; overflow-wrap: break-word; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>EngClass Pro - 數位互動課室</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<style>
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    font-family: 'Segoe UI', 'Noto Sans TC', Tahoma, sans-serif;
+    background-color: #f3f4f6;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .student-card { transition: box-shadow .2s, border-color .2s, background-color .2s; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  #lock-screen, #spotlight-overlay { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .toast-enter { animation: toastIn .25s ease-out forwards; }
+  .toast-leave { animation: toastOut .25s ease-in forwards; }
+  @keyframes toastIn { from { transform: translateY(120%); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+  @keyframes toastOut { from { transform: translateY(0); opacity: 1 } to { transform: translateY(120%); opacity: 0 } }
+  .pop-in { animation: popIn .3s cubic-bezier(.2,1.4,.5,1) forwards; }
+  @keyframes popIn { from { transform: scale(.7); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+  .break-words { word-break: break-word; overflow-wrap: break-word; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* 老師端：小螢幕（手機/直式平板）一次只顯示一個面板 */
+  @media (max-width: 1023px) {
+    .t-panel[data-active="0"] { display: none !important; }
+    .t-panel[data-active="1"] { display: flex !important; width: 100% !important; max-width: 100% !important; border: none !important; }
+  }
+  @media (min-width: 1024px) {
+    .t-panel { display: flex !important; }
+  }
+  .safe-b { padding-bottom: env(safe-area-inset-bottom); }
+</style>
 </head>
-<body class="h-screen w-screen flex flex-col text-gray-800 relative">
+<body class="text-gray-800">
 
-    <!-- 全域通知系統 (Toast) -->
-    <div id="toast-container" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+<!-- 全域通知 -->
+<div id="toast-container" class="fixed bottom-20 lg:bottom-4 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 pointer-events-none items-center w-full px-4"></div>
 
-    <div id="login-view" class="absolute inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center border border-gray-100">
-            <h1 class="text-4xl font-extrabold text-indigo-600 mb-2 tracking-tight"><i class="fas fa-chalkboard-teacher mr-2"></i>EngClass Pro</h1>
-            <p class="text-gray-500 mb-8 font-medium">英語互動課室 - 登入系統</p>
-            
-            <div id="login-selection" class="space-y-4">
-                <button id="btn-show-student-login" class="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-lg transition shadow-md flex items-center justify-center">
-                    <i class="fas fa-user-graduate mr-2 text-xl"></i> 我是學生 (Student)
-                </button>
-                <button id="btn-show-teacher-login" class="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-bold text-lg transition shadow-md flex items-center justify-center">
-                    <i class="fas fa-chalkboard mr-2 text-xl"></i> 我是老師 (Teacher)
-                </button>
-            </div>
+<!-- ══════════════════════════ 登入 ══════════════════════════ -->
+<div id="login-view" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4 overflow-y-auto">
+  <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl w-full max-w-2xl text-center border border-gray-100 my-auto">
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-600 mb-1 tracking-tight"><i class="fas fa-chalkboard-teacher mr-2"></i>EngClass Pro</h1>
+    <p class="text-gray-500 mb-6 font-medium text-sm sm:text-base">英語互動課室</p>
 
-            <!-- 學生登入表單 -->
-            <div id="student-login-form" class="hidden mt-6 text-left border-t pt-6 animate-fade-in">
-                <div class="mb-4">
-                    <label class="block text-sm font-bold text-gray-700 mb-1">選擇班級 (Class)</label>
-                    <select id="student-grade" class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none text-lg">
-                        <option value="5">五年級 (Grade 5)</option>
-                        <option value="6">六年級 (Grade 6)</option>
-                    </select>
-                </div>
-                <div class="mb-6">
-                    <label class="block text-sm font-bold text-gray-700 mb-1">選擇座號 (Number)</label>
-                    <select id="student-seat" class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none text-lg">
-                        <!-- 動態生成 -->
-                    </select>
-                </div>
-                <div class="flex gap-2">
-                    <button class="btn-back-login flex-none px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold transition">返回</button>
-                    <button id="btn-student-join" class="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-lg transition shadow">進入教室</button>
-                </div>
-            </div>
-
-            <!-- 老師登入表單 -->
-            <div id="teacher-login-form" class="hidden mt-6 text-left border-t pt-6">
-                <div class="mb-6">
-                    <label class="block text-sm font-bold text-gray-700 mb-1">教師密碼 (Password)</label>
-                    <input type="password" id="teacher-password" class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none text-lg" placeholder="請輸入 edu">
-                </div>
-                <div class="flex gap-2">
-                    <button class="btn-back-login flex-none px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold transition">返回</button>
-                    <button id="btn-teacher-join" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg transition shadow">開啟控制台</button>
-                </div>
-            </div>
-        </div>
+    <div id="login-selection" class="space-y-3">
+      <button id="btn-show-student-login" class="w-full py-5 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl font-bold text-xl transition shadow-md flex items-center justify-center active:scale-95">
+        <i class="fas fa-user-graduate mr-3 text-2xl"></i> 我是學生 Student
+      </button>
+      <button id="btn-show-teacher-login" class="w-full py-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-bold text-lg transition shadow-md flex items-center justify-center active:scale-95">
+        <i class="fas fa-chalkboard mr-3 text-xl"></i> 我是老師 Teacher
+      </button>
     </div>
 
-    <div id="teacher-view" class="hidden flex-1 flex h-full bg-gray-100 overflow-hidden">
-        
-        <!-- 左側工具列 -->
-        <div class="w-64 bg-white border-r flex flex-col shadow-lg z-20">
-            <div class="p-4 bg-indigo-700 text-white flex justify-between items-center shadow-inner">
-                <h2 class="font-bold text-lg"><i class="fas fa-sliders-h mr-2"></i>主控台</h2>
-                <select id="control-grade-select" class="bg-indigo-800 text-white border-none text-sm p-1 rounded outline-none cursor-pointer font-bold">
-                    <option value="5">5 年級</option>
-                    <option value="6">6 年級</option>
-                </select>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-3 custom-scrollbar">
-                
-                <div class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 mt-2 pl-1">互動任務 (發布題目)</div>
-                <div class="space-y-1.5">
-                    <button class="t-tool-btn w-full text-left p-3 rounded-lg bg-white border hover:bg-blue-50 hover:border-blue-300 text-gray-700 transition flex items-center shadow-sm" data-mode="ox">
-                        <div class="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-check-circle"></i></div> O/X 題
-                    </button>
-                    <button class="t-tool-btn w-full text-left p-3 rounded-lg bg-white border hover:bg-blue-50 hover:border-blue-300 text-gray-700 transition flex items-center shadow-sm" data-mode="abc">
-                        <div class="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-list-ul"></i></div> 選擇題 (A~C)
-                    </button>
-                    <button class="t-tool-btn w-full text-left p-3 rounded-lg bg-white border hover:bg-blue-50 hover:border-blue-300 text-gray-700 transition flex items-center shadow-sm" data-mode="typing">
-                        <div class="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-keyboard"></i></div> 拼字/打字題
-                    </button>
-                    <button class="t-tool-btn w-full text-left p-3 rounded-lg bg-white border hover:bg-blue-50 hover:border-blue-300 text-gray-700 transition flex items-center shadow-sm" data-mode="whiteboard">
-                        <div class="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-pen"></i></div> 小白板 (可附圖)
-                    </button>
-                    <button class="t-tool-btn w-full text-left p-3 rounded-lg bg-white border hover:bg-blue-50 hover:border-blue-300 text-gray-700 transition flex items-center shadow-sm" data-mode="audio">
-                        <div class="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-microphone"></i></div> 語音口說錄音
-                    </button>
-                    <button class="t-tool-btn w-full text-left p-3 rounded-lg bg-white border hover:bg-blue-50 hover:border-blue-300 text-gray-700 transition flex items-center shadow-sm" data-mode="material">
-                        <div class="w-8 h-8 rounded bg-purple-100 text-purple-600 flex items-center justify-center mr-3"><i class="fas fa-image"></i></div> 單純派發圖片
-                    </button>
-                </div>
-                
-                <div class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 mt-6 pl-1">班級管理工具</div>
-                <div class="space-y-1.5">
-                    <button id="btn-tool-random" class="w-full text-left p-3 rounded-lg bg-white border hover:bg-yellow-50 hover:border-yellow-300 text-gray-700 transition flex items-center shadow-sm">
-                        <div class="w-8 h-8 rounded bg-yellow-100 text-yellow-600 flex items-center justify-center mr-3"><i class="fas fa-random"></i></div> 隨機抽籤
-                    </button>
-                    <button id="btn-tool-timer" class="w-full text-left p-3 rounded-lg bg-white border hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 transition flex items-center shadow-sm">
-                        <div class="w-8 h-8 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center mr-3"><i class="fas fa-hourglass-half"></i></div> 設定倒數計時
-                    </button>
-                    <button id="btn-tool-group" class="w-full text-left p-3 rounded-lg bg-white border hover:bg-green-50 hover:border-green-300 text-gray-700 transition flex items-center shadow-sm">
-                        <div class="w-8 h-8 rounded bg-green-100 text-green-600 flex items-center justify-center mr-3"><i class="fas fa-users"></i></div> A/B 分組
-                    </button>
-                </div>
-
-                <div class="text-xs font-bold text-red-400 uppercase tracking-wider mb-2 mt-6 pl-1">秩序控管</div>
-                <button id="btn-lock-screen" class="w-full text-left p-3 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition flex items-center font-bold shadow-sm">
-                    <i class="fas fa-lock w-8 text-center"></i> 鎖定所有平板
-                </button>
-                <button id="btn-unlock-screen" class="hidden w-full text-left p-3 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 transition flex items-center font-bold shadow-sm">
-                    <i class="fas fa-unlock w-8 text-center"></i> 解除螢幕鎖定
-                </button>
-            </div>
-            
-            <div class="p-3 border-t bg-gray-50">
-                 <button id="btn-close-task" class="w-full py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center">
-                    <i class="fas fa-stop-circle mr-2"></i>收回任務 (待機)
-                </button>
-            </div>
-        </div>
-
-        <!-- 中間主視窗 (學生監控區) -->
-        <div class="flex-1 flex flex-col h-full bg-gray-100 overflow-hidden relative">
-            
-            <!-- 狀態控制列 -->
-            <div class="bg-white px-6 py-4 border-b flex justify-between items-center shadow-sm z-10">
-                <div class="flex-1">
-                    <div class="flex items-center gap-3">
-                        <span id="task-badge" class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs font-bold uppercase tracking-wider">待機中</span>
-                        <h2 class="text-2xl font-extrabold text-gray-800" id="current-task-title">準備上課</h2>
-                    </div>
-                    <!-- 顯示目前題目 -->
-                    <div id="teacher-question-display" class="hidden mt-2 text-indigo-700 font-bold bg-indigo-50 p-2 rounded border border-indigo-100 inline-block">
-                        Q: <span id="teacher-question-text"></span>
-                    </div>
-                </div>
-                
-                <div class="flex gap-2">
-                    <div id="timer-display-container" class="hidden items-center bg-gray-800 text-white px-4 py-2 rounded-lg font-mono text-xl font-bold shadow-inner mr-4">
-                        <i class="fas fa-clock mr-2 text-yellow-400"></i> <span id="timer-display-time">00:00</span>
-                    </div>
-                    
-                    <button id="btn-blind-mode" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold transition shadow-sm border">
-                        <i class="fas fa-eye-slash mr-1"></i> 盲答(隱藏)
-                    </button>
-                    <button id="btn-show-answers" class="hidden px-4 py-2 bg-yellow-400 hover:bg-yellow-500 rounded-lg text-gray-900 font-bold transition shadow border border-yellow-500">
-                        <i class="fas fa-star mr-1"></i> 一鍵開獎
-                    </button>
-                    <!-- 自動批改按鈕 (設定正解時出現) -->
-                    <button id="btn-auto-grade" class="hidden px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-white font-bold transition shadow border border-green-600">
-                        <i class="fas fa-check-double mr-1"></i> 批次給分
-                    </button>
-                </div>
-            </div>
-
-            <!-- 學生卡片網格 -->
-            <div id="teacher-students-grid" class="flex-1 p-6 overflow-y-auto grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 content-start">
-                <!-- JS 動態生成並精準更新 -->
-            </div>
-        </div>
-
-        <div class="w-80 bg-white border-l flex flex-col shadow-lg z-20">
-            <!-- 資訊與分組面板 -->
-            <div class="p-4 bg-gray-50 border-b">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="font-bold text-gray-800"><i class="fas fa-trophy mr-2 text-yellow-500"></i>小組對抗</h2>
-                    <button id="btn-reset-points" class="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded font-bold transition">歸零</button>
-                </div>
-                <div class="flex gap-2">
-                    <div class="flex-1 bg-blue-100 rounded-lg p-2 text-center border border-blue-200">
-                        <div class="text-xs font-bold text-blue-600 uppercase">Group A</div>
-                        <div class="text-2xl font-black text-blue-800" id="group-a-score">0</div>
-                    </div>
-                    <div class="flex-1 bg-red-100 rounded-lg p-2 text-center border border-red-200">
-                        <div class="text-xs font-bold text-red-600 uppercase">Group B</div>
-                        <div class="text-2xl font-black text-red-800" id="group-b-score">0</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 課堂紀錄 -->
-            <div class="p-3 border-b flex justify-between items-center bg-gray-800 text-white shadow-inner">
-                <h3 class="font-bold text-sm"><i class="fas fa-clipboard-list mr-2"></i>獎懲與缺交紀錄</h3>
-                <button id="btn-export-report" class="text-xs bg-gray-600 hover:bg-gray-500 px-2 py-1 rounded transition"><i class="fas fa-download"></i> 匯出</button>
-            </div>
-            
-            <div class="flex-1 overflow-y-auto p-3 bg-gray-50 space-y-2" id="records-container">
-                <div class="text-center text-gray-400 text-sm mt-10" id="no-records-msg">目前無任何紀錄</div>
-            </div>
-        </div>
+    <!-- 學生：選年級 → 點自己的名字 -->
+    <div id="student-login-form" class="hidden mt-4 border-t pt-5">
+      <div class="flex gap-3 mb-5">
+        <button class="grade-pick flex-1 py-4 rounded-2xl font-black text-xl border-4 transition active:scale-95" data-grade="5">五年級<div class="text-xs font-medium opacity-70">Grade 5</div></button>
+        <button class="grade-pick flex-1 py-4 rounded-2xl font-black text-xl border-4 transition active:scale-95" data-grade="6">六年級<div class="text-xs font-medium opacity-70">Grade 6</div></button>
+      </div>
+      <p class="text-sm font-bold text-gray-500 mb-3">請點你的名字 Tap your name</p>
+      <div id="student-name-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5"></div>
+      <label class="flex items-center justify-center gap-2 text-sm text-gray-600 mb-4 cursor-pointer select-none">
+        <input type="checkbox" id="chk-remember-me" class="w-5 h-5 accent-blue-600" checked>
+        這台平板記住我（下次自動進教室）
+      </label>
+      <button class="btn-back-login w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold transition">返回</button>
     </div>
 
-    <div id="student-view" class="hidden flex-1 flex flex-col h-full bg-blue-50 relative overflow-hidden">
-        
-        <!-- 學生頂部狀態列 -->
-        <div class="bg-white p-3 border-b shadow-sm flex justify-between items-center z-10">
-            <div class="flex items-center space-x-3">
-                <div class="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-2xl shadow-inner border-2 border-blue-200" id="stu-header-seat">1</div>
-                <div>
-                    <div class="font-bold text-gray-800 text-lg" id="stu-header-grade">5年級</div>
-                    <div class="text-sm text-blue-600 font-bold flex items-center gap-1">
-                        <i class="fas fa-star text-yellow-400"></i> 分數: <span id="stu-header-score" class="text-lg">0</span>
-                        <span id="stu-group-badge" class="ml-2 px-2 py-0.5 rounded text-xs text-white hidden"></span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="flex flex-col items-end gap-1">
-                <div id="stu-timer-display" class="hidden bg-gray-800 text-white px-3 py-1 rounded text-sm font-mono font-bold shadow">
-                    <i class="fas fa-clock mr-1 text-yellow-400"></i> <span>00:00</span>
-                </div>
-                <div id="stu-task-status" class="px-4 py-1.5 bg-gray-200 text-gray-600 rounded-full text-sm font-bold shadow-inner">
-                    等待老師派發任務...
-                </div>
-            </div>
-        </div>
+    <!-- 老師 -->
+    <div id="teacher-login-form" class="hidden mt-4 text-left border-t pt-5">
+      <label class="block text-sm font-bold text-gray-700 mb-1">教師密碼 Password</label>
+      <input type="password" id="teacher-password" class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none text-lg mb-3" placeholder="請輸入密碼">
+      <label class="flex items-center gap-2 text-sm text-gray-600 mb-4 cursor-pointer select-none">
+        <input type="checkbox" id="chk-remember-teacher" class="w-5 h-5 accent-indigo-600" checked>
+        記住這台裝置（手機操控免再輸入）
+      </label>
+      <div class="flex gap-2">
+        <button class="btn-back-login flex-none px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-bold transition">返回</button>
+        <button id="btn-teacher-join" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-lg transition shadow">開啟控制台</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-        <!-- 學生任務內容區 -->
-        <div id="student-task-container" class="flex-1 p-4 md:p-6 flex flex-col items-center justify-center relative overflow-y-auto">
-            
-            <!-- 題目顯示區 (若老師有設定) -->
-            <div id="stu-question-display" class="hidden w-full max-w-2xl bg-white p-4 rounded-xl shadow border-l-4 border-indigo-500 mb-6 text-center shrink-0">
-                <h3 class="text-sm font-bold text-indigo-400 uppercase mb-1">Teacher's Question</h3>
-                <p id="stu-question-text" class="text-xl md:text-2xl font-bold text-gray-800 break-words"></p>
-            </div>
+<!-- ══════════════════════════ 老師端 ══════════════════════════ -->
+<div id="teacher-view" class="hidden h-full w-full flex-col lg:flex-row bg-gray-100 overflow-hidden">
 
-            <!-- 1. 預設待機 -->
-            <div id="stu-mode-waiting" class="text-center text-gray-400 w-full">
-                <div class="relative inline-block mb-6">
-                    <i class="fas fa-book-open text-7xl text-blue-200"></i>
-                    <i class="fas fa-mug-hot text-3xl text-gray-400 absolute -bottom-2 -right-2"></i>
-                </div>
-                <h2 class="text-3xl font-black text-gray-600 mb-2 tracking-wide">Ready for English!</h2>
-                <p class="text-lg">請看老師黑板，等待下一個任務</p>
-            </div>
+  <!-- 小螢幕頂列 -->
+  <div class="lg:hidden bg-indigo-700 text-white px-3 py-2 flex items-center justify-between shadow z-30 shrink-0">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-chalkboard-teacher"></i>
+      <select id="control-grade-select-m" class="bg-indigo-800 text-white text-sm px-2 py-1 rounded outline-none font-bold">
+        <option value="5">5 年級</option><option value="6">6 年級</option>
+      </select>
+    </div>
+    <div id="m-progress" class="text-xs font-bold bg-indigo-900/60 px-2 py-1 rounded">0/0 已作答</div>
+    <button id="btn-close-task-m" class="text-xs bg-gray-900/40 px-2 py-1.5 rounded font-bold"><i class="fas fa-stop-circle mr-1"></i>收回</button>
+  </div>
 
-            <!-- 2. O/X 題 -->
-            <div id="stu-mode-ox" class="hidden w-full max-w-md space-y-6">
-                <div class="flex space-x-4">
-                    <button class="stu-ans-btn flex-1 py-16 bg-white border-4 border-blue-400 rounded-3xl text-blue-500 text-7xl font-black hover:bg-blue-50 active:bg-blue-100 transition shadow-xl active:scale-95" data-ans="O">O</button>
-                    <button class="stu-ans-btn flex-1 py-16 bg-white border-4 border-red-400 rounded-3xl text-red-500 text-7xl font-black hover:bg-red-50 active:bg-red-100 transition shadow-xl active:scale-95" data-ans="X">X</button>
-                </div>
-            </div>
-
-            <!-- 3. 選擇題 -->
-            <div id="stu-mode-abc" class="hidden w-full max-w-md space-y-4">
-                <button class="stu-ans-btn w-full py-6 bg-white border-2 border-gray-300 rounded-2xl text-3xl font-black text-gray-600 hover:border-blue-500 hover:text-blue-500 transition shadow-md active:scale-95" data-ans="A">A</button>
-                <button class="stu-ans-btn w-full py-6 bg-white border-2 border-gray-300 rounded-2xl text-3xl font-black text-gray-600 hover:border-blue-500 hover:text-blue-500 transition shadow-md active:scale-95" data-ans="B">B</button>
-                <button class="stu-ans-btn w-full py-6 bg-white border-2 border-gray-300 rounded-2xl text-3xl font-black text-gray-600 hover:border-blue-500 hover:text-blue-500 transition shadow-md active:scale-95" data-ans="C">C</button>
-            </div>
-
-            <!-- 4. 打字題 -->
-            <div id="stu-mode-typing" class="hidden w-full max-w-xl flex flex-col h-full max-h-[400px]">
-                <textarea id="stu-typing-input" class="flex-1 w-full p-5 rounded-2xl border-2 border-gray-300 focus:border-blue-500 outline-none resize-none text-2xl shadow-inner font-medium" placeholder="Type your answer here..."></textarea>
-                <button id="btn-stu-submit-typing" class="mt-4 w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xl shadow-lg transition active:scale-95">
-                    <i class="fas fa-paper-plane mr-2"></i> 送出 (Submit)
-                </button>
-            </div>
-
-            <!-- 5. 小白板 -->
-            <div id="stu-mode-whiteboard" class="hidden w-full max-w-3xl flex flex-col items-center">
-                <div class="w-full flex justify-between items-center mb-2 px-1">
-                    <div class="flex gap-2">
-                        <button class="color-picker w-8 h-8 rounded-full bg-blue-600 border-2 border-white shadow ring-2 ring-blue-300" data-color="#2563eb"></button>
-                        <button class="color-picker w-8 h-8 rounded-full bg-red-600 border-2 border-white shadow" data-color="#dc2626"></button>
-                        <button class="color-picker w-8 h-8 rounded-full bg-black border-2 border-white shadow" data-color="#000000"></button>
-                    </div>
-                    <button id="btn-stu-clear-board" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-sm font-bold text-gray-700 transition"><i class="fas fa-eraser mr-1"></i>清空重畫</button>
-                </div>
-                <!-- 畫布容器，設定相對定位以便放背景圖 -->
-                <div class="relative w-full h-[40vh] md:h-[50vh] w-full max-w-[800px] bg-white rounded-xl shadow-inner border-2 border-gray-300 overflow-hidden" id="canvas-container">
-                    <canvas id="stu-canvas" class="absolute top-0 left-0 w-full h-full touch-none"></canvas>
-                </div>
-                <button id="btn-stu-submit-board" class="mt-4 w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xl shadow-lg transition active:scale-95">
-                    <i class="fas fa-upload mr-2"></i> 送出白板 (Submit)
-                </button>
-            </div>
-
-            <!-- 6. 語音錄音 -->
-            <div id="stu-mode-audio" class="hidden w-full max-w-md flex flex-col items-center justify-center bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
-                <div class="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-6" id="audio-mic-icon">
-                    <i class="fas fa-microphone text-5xl text-blue-500"></i>
-                </div>
-                <h3 class="text-xl font-bold text-gray-700 mb-2">Speaking Practice</h3>
-                <p class="text-gray-500 text-center mb-6 text-sm">點擊按鈕開始錄音，最多 15 秒。<br>請大聲念出英語！</p>
-                
-                <button id="btn-stu-record" class="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-xl shadow-lg transition active:scale-95 flex items-center justify-center">
-                    <i class="fas fa-circle mr-2"></i> 開始錄音 (Record)
-                </button>
-                
-                <div id="audio-preview-container" class="hidden w-full flex flex-col items-center mt-4">
-                    <audio id="stu-audio-playback" controls class="w-full mb-4"></audio>
-                    <div class="flex gap-2 w-full">
-                        <button id="btn-stu-re-record" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold transition">重錄</button>
-                        <button id="btn-stu-submit-audio" class="flex-[2] py-3 bg-blue-600 text-white rounded-lg font-bold shadow transition">送出語音</button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 7. 教材展示 -->
-            <div id="stu-mode-material" class="hidden w-full max-w-4xl flex flex-col items-center">
-                <div id="stu-material-content" class="w-full bg-white p-2 rounded-2xl shadow-xl border min-h-[400px] flex items-center justify-center overflow-hidden">
-                    <!-- 圖片會顯示在這裡 -->
-                </div>
-            </div>
-        </div>
-        
-        <!-- 鎖屏覆蓋層 -->
-        <div id="lock-screen" class="hidden absolute inset-0 z-50 bg-slate-900/80 flex flex-col items-center justify-center text-white">
-            <i class="fas fa-lock text-8xl mb-8 text-red-500 drop-shadow-lg animate-pulse"></i>
-            <h1 class="text-6xl font-black tracking-widest mb-4 drop-shadow-md">Eyes on Teacher!</h1>
-            <p class="text-2xl opacity-90 font-medium">請專心看前方，平板已鎖定</p>
-        </div>
+  <!-- ── 面板 A：派題工具 ── -->
+  <aside class="t-panel w-64 bg-white lg:border-r flex-col shadow-lg z-20 min-h-0" data-tab="tools" data-active="1">
+    <div class="hidden lg:flex p-4 bg-indigo-700 text-white justify-between items-center shrink-0">
+      <h2 class="font-bold text-lg" id="teacher-panel-title"><i class="fas fa-sliders-h mr-2"></i>主控台</h2>
+      <select id="control-grade-select" class="bg-indigo-800 text-white border-none text-sm p-1 rounded outline-none cursor-pointer font-bold">
+        <option value="5">5 年級</option><option value="6">6 年級</option>
+      </select>
     </div>
 
-    <div id="task-modal" class="hidden fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
-            <div class="p-4 bg-indigo-600 text-white flex justify-between items-center shadow-md z-10">
-                <h3 class="font-bold text-xl flex items-center" id="modal-title"><i class="fas fa-cog mr-2"></i>發布任務設定</h3>
-                <button class="close-modal text-white/80 hover:text-white transition transform hover:scale-110"><i class="fas fa-times text-2xl"></i></button>
-            </div>
-            
-            <div class="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
-                
-                <!-- 題目設定 (可選) -->
-                <div id="modal-question-setup" class="space-y-2">
-                    <label class="block font-bold text-gray-700 flex justify-between">
-                        <span>題目描述 (可選)</span>
-                        <span class="text-xs text-gray-400 font-normal">留空代表老師口頭佈題</span>
-                    </label>
-                    <textarea id="task-question-input" class="w-full p-3 border rounded-xl focus:border-indigo-500 outline-none resize-none h-20" placeholder="例如：請翻譯 '蘋果'"></textarea>
-                </div>
+    <div class="flex-1 overflow-y-auto p-3 pb-24 lg:pb-3 min-h-0">
+      <div class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 pl-1">互動任務</div>
+      <div class="space-y-1.5">
+        <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="ox">
+          <span class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-check-circle"></i></span> O / X 題</button>
+        <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="abc">
+          <span class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-list-ul"></i></span> 選擇題 A~D</button>
+        <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="typing">
+          <span class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-keyboard"></i></span> 拼字 / 打字題</button>
+        <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="buzzer">
+          <span class="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mr-3"><i class="fas fa-bolt"></i></span> 搶答 Buzzer</button>
+        <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="whiteboard">
+          <span class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-pen"></i></span> 小白板（可附圖）</button>
+        <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="audio">
+          <span class="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center mr-3"><i class="fas fa-microphone"></i></span> 口說錄音</button>
+        <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="material">
+          <span class="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center mr-3"><i class="fas fa-image"></i></span> 派發圖片教材</button>
+      </div>
 
-                <!-- 正確答案設定 (動態產生) -->
-                <div id="modal-answer-setup" class="space-y-2 hidden p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <label class="block font-bold text-indigo-700 text-sm"><i class="fas fa-key mr-1"></i>設定正確答案 (系統將可自動批改)</label>
-                    <div id="answer-inputs-container">
-                        <!-- JS 會根據模式插入 select 或 input -->
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">不設定正解也可以發布任務。</p>
-                </div>
+      <div class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 mt-6 pl-1">班級工具</div>
+      <div class="space-y-1.5">
+        <button id="btn-tool-random" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-yellow-50 hover:border-yellow-300 transition flex items-center shadow-sm active:scale-[.98]">
+          <span class="w-9 h-9 rounded-lg bg-yellow-100 text-yellow-600 flex items-center justify-center mr-3"><i class="fas fa-random"></i></span> 隨機抽人（同步）</button>
+        <button id="btn-tool-group" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-green-50 hover:border-green-300 transition flex items-center shadow-sm active:scale-[.98]">
+          <span class="w-9 h-9 rounded-lg bg-green-100 text-green-600 flex items-center justify-center mr-3"><i class="fas fa-users"></i></span> A / B 隨機分組</button>
+        <button id="btn-tool-clear-group" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-gray-50 transition flex items-center shadow-sm text-sm text-gray-500 active:scale-[.98]">
+          <span class="w-9 h-9 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center mr-3"><i class="fas fa-users-slash"></i></span> 取消分組</button>
+      </div>
 
-                <!-- 圖片上傳區 (白板 / 教材 專用) -->
-                <div id="modal-material-upload" class="hidden space-y-2 p-4 bg-blue-50 rounded-xl border border-blue-100">
-                    <label class="block font-bold text-blue-700 flex items-center">
-                        <i class="fas fa-image mr-2"></i>上傳底圖 / 教材圖片
-                    </label>
-                    <input type="file" id="material-file-input" accept="image/jpeg, image/png, image/webp" class="w-full p-2 border bg-white rounded-lg text-sm">
-                    <p class="text-xs text-gray-500 mt-1">💡 白板模式下，學生可以直接在圖片上作畫。</p>
-                    <div id="modal-img-preview" class="hidden mt-2 max-h-32 overflow-hidden rounded border"></div>
-                </div>
+      <div class="text-xs font-bold text-red-400 uppercase tracking-wider mb-2 mt-6 pl-1">秩序控管</div>
+      <button id="btn-lock-screen" class="w-full text-left p-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition flex items-center font-bold shadow-sm active:scale-[.98]">
+        <i class="fas fa-lock w-8 text-center"></i> 鎖定所有平板</button>
+      <button id="btn-unlock-screen" class="hidden w-full text-left p-3 rounded-xl bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 transition flex items-center font-bold shadow-sm active:scale-[.98]">
+        <i class="fas fa-unlock w-8 text-center"></i> 解除螢幕鎖定</button>
 
-            </div>
-            
-            <div class="p-4 border-t bg-gray-50 flex justify-end gap-3 z-10">
-                <button class="close-modal px-5 py-2.5 bg-gray-200 hover:bg-gray-300 rounded-xl font-bold text-gray-700 transition">取消</button>
-                <button id="btn-confirm-task" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition flex items-center">
-                    <i class="fas fa-paper-plane mr-2"></i>確認發布
-                </button>
-            </div>
-        </div>
+      <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 pl-1">設定</div>
+      <label class="flex items-center gap-2 p-3 rounded-xl bg-white border text-sm cursor-pointer select-none">
+        <input type="checkbox" id="chk-sound" class="w-5 h-5 accent-indigo-600" checked> 提示音效
+      </label>
+      <label class="flex items-center gap-2 p-3 rounded-xl bg-white border text-sm cursor-pointer select-none mt-1.5">
+        <input type="checkbox" id="chk-autospeak" class="w-5 h-5 accent-indigo-600" checked> 學生端自動朗讀英文
+      </label>
+      <button id="btn-logout" class="w-full mt-4 p-3 rounded-xl text-sm text-gray-400 hover:text-red-500 transition"><i class="fas fa-sign-out-alt mr-1"></i>登出</button>
     </div>
 
+    <div class="hidden lg:block p-3 border-t bg-gray-50 shrink-0">
+      <button id="btn-close-task" class="w-full py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-bold transition shadow-md">
+        <i class="fas fa-stop-circle mr-2"></i>收回任務（待機）</button>
+    </div>
+  </aside>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, addDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+  <!-- ── 面板 B：學生監控 ── -->
+  <main class="t-panel flex-1 flex-col bg-gray-100 overflow-hidden relative min-h-0" data-tab="students" data-active="0">
 
-        // Firebase 金鑰
-        const firebaseConfig = {
-            apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
-            authDomain: "nypscm.firebaseapp.com",
-            projectId: "nypscm",
-            storageBucket: "nypscm.firebasestorage.app",
-            messagingSenderId: "775913301411",
-            appId: "1:775913301411:web:9d73da7688854865826616"
+    <div class="bg-white px-4 py-3 border-b shadow-sm z-10 shrink-0">
+      <div class="flex justify-between items-start gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="task-badge" class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs font-bold uppercase tracking-wider">待機中</span>
+            <h2 class="text-lg sm:text-2xl font-extrabold text-gray-800 truncate" id="current-task-title">準備上課</h2>
+          </div>
+          <div id="teacher-question-display" class="hidden mt-2 text-indigo-700 font-bold bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100">
+            <span id="teacher-question-text" class="break-words"></span>
+            <button id="btn-teacher-speak" class="hidden ml-2 text-indigo-500 hover:text-indigo-700"><i class="fas fa-volume-up"></i></button>
+            <span id="teacher-answer-hint" class="hidden ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold"></span>
+          </div>
+        </div>
+        <div id="timer-display-container" class="hidden items-center bg-gray-800 text-white px-3 py-2 rounded-xl font-mono text-lg sm:text-xl font-bold shadow shrink-0">
+          <i class="fas fa-clock mr-2 text-yellow-400"></i><span id="timer-display-time">00:00</span>
+        </div>
+      </div>
+
+      <!-- 作答進度 -->
+      <div class="mt-2 flex items-center gap-2">
+        <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div id="progress-bar" class="h-full bg-green-500 transition-all duration-300" style="width:0%"></div>
+        </div>
+        <span id="progress-text" class="text-xs font-bold text-gray-500 shrink-0">0 / 0</span>
+      </div>
+
+      <!-- 快捷工具列（可橫向捲動） -->
+      <div class="mt-2 flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
+        <button id="btn-reveal" class="shrink-0 px-3 py-2 bg-yellow-400 hover:bg-yellow-500 rounded-lg text-gray-900 font-bold text-sm shadow border border-yellow-500 active:scale-95">
+          <i class="fas fa-star mr-1"></i>公布答案</button>
+        <button id="btn-auto-grade" class="shrink-0 px-3 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-white font-bold text-sm shadow border border-green-600 active:scale-95">
+          <i class="fas fa-check-double mr-1"></i>批次給分</button>
+        <button id="btn-blind-mode" class="shrink-0 px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold text-sm border active:scale-95">
+          <i class="fas fa-eye-slash mr-1"></i>盲答</button>
+        <span class="shrink-0 w-px bg-gray-200 my-1"></span>
+        <button class="timer-btn shrink-0 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-sm border border-indigo-200 active:scale-95" data-sec="30">30秒</button>
+        <button class="timer-btn shrink-0 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-sm border border-indigo-200 active:scale-95" data-sec="60">1分</button>
+        <button class="timer-btn shrink-0 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-sm border border-indigo-200 active:scale-95" data-sec="180">3分</button>
+        <button class="timer-btn shrink-0 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg font-bold text-sm border active:scale-95" data-sec="0">停止</button>
+      </div>
+
+    </div>
+
+    <div id="teacher-students-grid" class="flex-1 p-2.5 sm:p-5 pb-24 lg:pb-5 overflow-y-auto grid grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-4 content-start min-h-0"></div>
+  </main>
+
+  <!-- ── 面板 C：計分與紀錄 ── -->
+  <aside class="t-panel w-80 bg-white lg:border-l flex-col shadow-lg z-20 min-h-0" data-tab="board" data-active="0">
+    <div class="p-3 bg-gray-50 border-b shrink-0">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="font-bold text-gray-800 text-sm"><i class="fas fa-trophy mr-1.5 text-yellow-500"></i>小組對抗</h2>
+        <button id="btn-reset-points" class="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded font-bold">分數歸零</button>
+      </div>
+      <div class="flex gap-2">
+        <div class="flex-1 bg-blue-100 rounded-xl p-2 text-center border border-blue-200">
+          <div class="text-xs font-bold text-blue-600 uppercase">Group A</div>
+          <div class="text-2xl font-black text-blue-800" id="group-a-score">0</div>
+        </div>
+        <div class="flex-1 bg-red-100 rounded-xl p-2 text-center border border-red-200">
+          <div class="text-xs font-bold text-red-600 uppercase">Group B</div>
+          <div class="text-2xl font-black text-red-800" id="group-b-score">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-3 border-b shrink-0">
+      <h3 class="font-bold text-gray-800 text-sm mb-2"><i class="fas fa-ranking-star mr-1.5 text-amber-500"></i>即時排行榜</h3>
+      <div id="leaderboard" class="space-y-1"></div>
+    </div>
+
+    <div class="p-3 border-b flex justify-between items-center bg-gray-800 text-white shrink-0">
+      <h3 class="font-bold text-sm"><i class="fas fa-clipboard-list mr-1.5"></i>獎懲與缺交紀錄</h3>
+      <button id="btn-export-report" class="text-xs bg-gray-600 hover:bg-gray-500 px-2 py-1 rounded"><i class="fas fa-download mr-1"></i>匯出</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-3 pb-24 lg:pb-3 bg-gray-50 space-y-2 min-h-0" id="records-container">
+      <div class="text-center text-gray-400 text-sm mt-8">目前無任何紀錄</div>
+    </div>
+  </aside>
+
+  <!-- 小螢幕底部分頁 -->
+  <nav class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t shadow-[0_-2px_10px_rgba(0,0,0,.06)] flex z-40 safe-b">
+    <button class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-xs font-bold" data-tab="tools"><i class="fas fa-paper-plane text-lg"></i>派題</button>
+    <button class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-xs font-bold relative" data-tab="students"><i class="fas fa-users text-lg"></i>學生<span id="tab-hand-dot" class="hidden absolute top-2 right-1/4 w-2.5 h-2.5 bg-red-500 rounded-full"></span></button>
+    <button class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-xs font-bold" data-tab="board"><i class="fas fa-trophy text-lg"></i>計分</button>
+  </nav>
+</div>
+
+<!-- ══════════════════════════ 學生端 ══════════════════════════ -->
+<div id="student-view" class="hidden h-full w-full flex-col bg-blue-50 relative overflow-hidden">
+
+  <div class="bg-white px-3 py-2 border-b shadow-sm flex justify-between items-center z-10 shrink-0">
+    <div class="flex items-center gap-2 min-w-0">
+      <div class="w-11 h-11 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-xl shadow-inner shrink-0" id="stu-header-seat">1</div>
+      <div class="min-w-0">
+        <div class="font-bold text-gray-800 text-base leading-tight truncate" id="stu-header-name">學生</div>
+        <div class="text-sm text-blue-600 font-bold flex items-center gap-1">
+          <i class="fas fa-star text-yellow-400"></i><span id="stu-header-score">0</span>
+          <span id="stu-streak" class="hidden text-orange-500 ml-1"></span>
+          <span id="stu-group-badge" class="hidden ml-1 px-2 py-0.5 rounded text-xs text-white"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div id="stu-progress" class="hidden text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">0/0</div>
+      <div id="stu-timer-display" class="hidden bg-gray-800 text-white px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold"><i class="fas fa-clock mr-1 text-yellow-400"></i><span>00:00</span></div>
+      <button id="btn-stu-hand" class="w-11 h-11 rounded-2xl bg-amber-100 text-amber-600 text-xl border border-amber-200 active:scale-95 transition" title="舉手"><i class="fas fa-hand"></i></button>
+      <button id="btn-stu-switch" class="w-9 h-9 rounded-xl bg-gray-100 text-gray-400 text-sm active:scale-95" title="切換身分"><i class="fas fa-right-left"></i></button>
+    </div>
+  </div>
+
+  <div id="stu-task-status" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-bold text-center shrink-0">等待老師派發任務…</div>
+
+  <div id="student-task-container" class="flex-1 p-3 sm:p-5 flex flex-col items-center overflow-y-auto min-h-0">
+
+    <div id="stu-question-display" class="hidden w-full max-w-2xl bg-white p-4 rounded-2xl shadow border-l-4 border-indigo-500 mb-5 text-center shrink-0">
+      <div class="flex items-center justify-center gap-3">
+        <p id="stu-question-text" class="text-xl sm:text-3xl font-bold text-gray-800 break-words"></p>
+        <button id="btn-stu-speak" class="hidden w-12 h-12 shrink-0 rounded-full bg-indigo-100 text-indigo-600 text-xl active:scale-90 transition"><i class="fas fa-volume-up"></i></button>
+      </div>
+    </div>
+
+    <!-- 公布答案 -->
+    <div id="stu-reveal" class="hidden w-full max-w-2xl mb-5 p-4 rounded-2xl text-center shrink-0 pop-in"></div>
+
+    <div class="flex-1 w-full flex flex-col items-center justify-center">
+      <!-- 待機 -->
+      <div id="stu-mode-waiting" class="text-center text-gray-400 w-full">
+        <i class="fas fa-book-open text-6xl text-blue-200 mb-5"></i>
+        <h2 class="text-2xl sm:text-3xl font-black text-gray-600 mb-1">Ready for English!</h2>
+        <p id="stu-waiting-text">請看老師，等待下一個任務</p>
+      </div>
+
+      <!-- O/X -->
+      <div id="stu-mode-ox" class="hidden w-full max-w-md gap-4 flex-col">
+        <div class="flex gap-4">
+          <button class="stu-ans-btn flex-1 py-14 bg-white border-4 border-blue-400 rounded-3xl text-blue-500 text-6xl font-black active:bg-blue-100 transition shadow-xl active:scale-95" data-ans="O">O</button>
+          <button class="stu-ans-btn flex-1 py-14 bg-white border-4 border-red-400 rounded-3xl text-red-500 text-6xl font-black active:bg-red-100 transition shadow-xl active:scale-95" data-ans="X">X</button>
+        </div>
+      </div>
+
+      <!-- A~D -->
+      <div id="stu-mode-abc" class="hidden w-full max-w-lg gap-3 flex-col"></div>
+
+      <!-- 打字 -->
+      <div id="stu-mode-typing" class="hidden w-full max-w-xl flex-col">
+        <textarea id="stu-typing-input" autocapitalize="off" autocomplete="off" spellcheck="false"
+          class="w-full h-32 p-4 rounded-2xl border-2 border-gray-300 focus:border-blue-500 outline-none resize-none text-2xl shadow-inner font-medium" placeholder="Type your answer…"></textarea>
+        <button id="btn-stu-submit-typing" class="mt-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition">
+          <i class="fas fa-paper-plane mr-2"></i>送出 Submit</button>
+      </div>
+
+      <!-- 搶答 -->
+      <div id="stu-mode-buzzer" class="hidden w-full max-w-md flex-col items-center">
+        <button id="btn-stu-buzz" class="w-56 h-56 rounded-full bg-gradient-to-b from-amber-400 to-orange-500 text-white text-4xl font-black shadow-2xl border-8 border-amber-200 active:scale-90 transition">
+          <i class="fas fa-bolt block text-5xl mb-2"></i>BUZZ!</button>
+        <div id="stu-buzz-result" class="mt-5 text-2xl font-black text-gray-600"></div>
+      </div>
+
+      <!-- 白板 -->
+      <div id="stu-mode-whiteboard" class="hidden w-full max-w-3xl flex-col items-center">
+        <div class="w-full flex justify-between items-center mb-2 gap-2">
+          <div class="flex gap-2 items-center">
+            <button class="color-picker w-9 h-9 rounded-full bg-blue-600 border-2 border-white shadow ring-2 ring-blue-300" data-color="#2563eb"></button>
+            <button class="color-picker w-9 h-9 rounded-full bg-red-600 border-2 border-white shadow" data-color="#dc2626"></button>
+            <button class="color-picker w-9 h-9 rounded-full bg-green-600 border-2 border-white shadow" data-color="#16a34a"></button>
+            <button class="color-picker w-9 h-9 rounded-full bg-black border-2 border-white shadow" data-color="#000000"></button>
+            <button id="btn-stu-eraser" class="w-9 h-9 rounded-full bg-white border-2 border-gray-300 shadow text-gray-500 text-sm"><i class="fas fa-eraser"></i></button>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-stu-undo" class="px-3 py-2 bg-gray-200 rounded-lg text-sm font-bold text-gray-700"><i class="fas fa-rotate-left"></i></button>
+            <button id="btn-stu-clear-board" class="px-3 py-2 bg-gray-200 rounded-lg text-sm font-bold text-gray-700"><i class="fas fa-trash mr-1"></i>清空</button>
+          </div>
+        </div>
+        <div class="relative w-full h-[40vh] bg-white rounded-2xl shadow-inner border-2 border-gray-300 overflow-hidden" id="canvas-container">
+          <canvas id="stu-canvas" class="absolute inset-0 w-full h-full touch-none"></canvas>
+        </div>
+        <button id="btn-stu-submit-board" class="mt-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition">
+          <i class="fas fa-upload mr-2"></i>送出白板</button>
+      </div>
+
+      <!-- 錄音 -->
+      <div id="stu-mode-audio" class="hidden w-full max-w-md flex-col items-center bg-white p-6 rounded-3xl shadow-xl border">
+        <div class="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center mb-4" id="audio-mic-icon">
+          <i class="fas fa-microphone text-5xl text-blue-500"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-700 mb-1">Speaking Practice</h3>
+        <p class="text-gray-500 text-center mb-4 text-sm">按下錄音，最多 <span id="audio-max-sec">15</span> 秒，請大聲念出來！</p>
+        <button id="btn-stu-record" class="w-full py-4 bg-red-500 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition">
+          <i class="fas fa-circle mr-2"></i>開始錄音</button>
+        <div id="audio-preview-container" class="hidden w-full flex-col items-center mt-4">
+          <audio id="stu-audio-playback" controls class="w-full mb-3"></audio>
+          <div class="flex gap-2 w-full">
+            <button id="btn-stu-re-record" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold">重錄</button>
+            <button id="btn-stu-submit-audio" class="flex-[2] py-3 bg-blue-600 text-white rounded-xl font-bold shadow">送出語音</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 教材 -->
+      <div id="stu-mode-material" class="hidden w-full max-w-4xl flex-col items-center">
+        <div id="stu-material-content" class="w-full bg-white p-2 rounded-2xl shadow-xl border min-h-[300px] flex items-center justify-center overflow-hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 被抽中 -->
+  <div id="spotlight-overlay" class="hidden absolute inset-0 z-40 bg-indigo-900/85 flex-col items-center justify-center text-white">
+    <i class="fas fa-hand-point-right text-7xl mb-6 text-yellow-300 pop-in"></i>
+    <h1 class="text-5xl font-black tracking-wide mb-2">It's your turn!</h1>
+    <p class="text-2xl opacity-90">換你回答囉 🎤</p>
+  </div>
+
+  <!-- 鎖屏 -->
+  <div id="lock-screen" class="hidden absolute inset-0 z-50 bg-slate-900/85 flex-col items-center justify-center text-white">
+    <i class="fas fa-lock text-7xl mb-7 text-red-500 animate-pulse"></i>
+    <h1 class="text-4xl sm:text-6xl font-black tracking-widest mb-3 text-center">Eyes on Teacher!</h1>
+    <p class="text-xl opacity-90">請專心看前方，平板已鎖定</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════ 彈窗 ══════════════════════════ -->
+<div id="task-modal" class="hidden fixed inset-0 bg-black/60 z-[120] flex items-end sm:items-center justify-center sm:p-4">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[92vh]">
+    <div class="p-4 bg-indigo-600 text-white flex justify-between items-center rounded-t-3xl sm:rounded-t-2xl shrink-0">
+      <h3 class="font-bold text-lg" id="modal-title">發布任務</h3>
+      <button class="close-modal text-white/80 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
+    </div>
+    <div class="p-5 space-y-4 overflow-y-auto flex-1">
+      <div>
+        <label class="block font-bold text-gray-700 text-sm mb-1">題目描述（可留空口頭佈題）</label>
+        <textarea id="task-question-input" class="w-full p-3 border rounded-xl outline-none focus:border-indigo-500 resize-none h-20" placeholder="例如：Translate「蘋果」"></textarea>
+      </div>
+      <div>
+        <label class="block font-bold text-gray-700 text-sm mb-1"><i class="fas fa-volume-up mr-1 text-indigo-500"></i>英語朗讀文字（可選）</label>
+        <input type="text" id="task-speak-input" class="w-full p-3 border rounded-xl outline-none focus:border-indigo-500" placeholder="學生按喇叭時會念這段英文">
+        <label class="flex items-center gap-2 text-xs text-gray-500 mt-1.5 cursor-pointer select-none">
+          <input type="checkbox" id="chk-hide-speak-text" class="w-4 h-4 accent-indigo-600"> 隱藏文字只播聲音（聽寫用）
+        </label>
+      </div>
+      <div id="modal-choices-setup" class="hidden">
+        <label class="block font-bold text-gray-700 text-sm mb-1">選項文字（可留空只顯示 A/B/C/D）</label>
+        <div class="space-y-1.5">
+          <input type="text" class="choice-input w-full p-2.5 border rounded-lg text-sm" data-k="A" placeholder="A.">
+          <input type="text" class="choice-input w-full p-2.5 border rounded-lg text-sm" data-k="B" placeholder="B.">
+          <input type="text" class="choice-input w-full p-2.5 border rounded-lg text-sm" data-k="C" placeholder="C.">
+          <input type="text" class="choice-input w-full p-2.5 border rounded-lg text-sm" data-k="D" placeholder="D.（留空則不顯示）">
+        </div>
+      </div>
+      <div id="modal-answer-setup" class="hidden p-4 bg-gray-50 rounded-xl border">
+        <label class="block font-bold text-indigo-700 text-sm mb-2"><i class="fas fa-key mr-1"></i>正確答案（可自動批改）</label>
+        <div id="answer-inputs-container"></div>
+        <p class="text-xs text-gray-500 mt-1.5">拼字題可用 <code class="bg-gray-200 px-1 rounded">/</code> 分隔多個正解，例如 <code class="bg-gray-200 px-1 rounded">colour/color</code>。大小寫與標點不影響判定。</p>
+      </div>
+      <div id="modal-material-upload" class="hidden p-4 bg-blue-50 rounded-xl border border-blue-100">
+        <label class="block font-bold text-blue-700 text-sm mb-2"><i class="fas fa-image mr-1"></i>上傳底圖 / 教材圖片</label>
+        <input type="file" id="material-file-input" accept="image/*" class="w-full p-2 border bg-white rounded-lg text-sm">
+        <p class="text-xs text-gray-500 mt-1.5">💡 白板模式下學生可直接在圖片上作畫。</p>
+        <div id="modal-img-preview" class="hidden mt-2 max-h-36 overflow-hidden rounded border"></div>
+      </div>
+    </div>
+    <div class="p-4 border-t bg-gray-50 flex gap-3 shrink-0 safe-b">
+      <button class="close-modal flex-1 py-3 bg-gray-200 rounded-xl font-bold text-gray-700">取消</button>
+      <button id="btn-confirm-task" class="flex-[2] py-3 bg-indigo-600 text-white rounded-xl font-bold shadow"><i class="fas fa-paper-plane mr-2"></i>發布</button>
+    </div>
+  </div>
+</div>
+
+<!-- 學生操作選單 -->
+<div id="action-sheet" class="hidden fixed inset-0 bg-black/50 z-[130] flex items-end sm:items-center justify-center sm:p-4">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-sm p-4 space-y-2 safe-b">
+    <div class="text-center font-black text-lg pb-2 border-b mb-2" id="sheet-title">學生</div>
+    <div class="grid grid-cols-4 gap-2">
+      <button class="sheet-score py-3 bg-red-100 text-red-700 rounded-xl font-bold" data-d="-1">−1</button>
+      <button class="sheet-score py-3 bg-green-100 text-green-700 rounded-xl font-bold" data-d="1">+1</button>
+      <button class="sheet-score py-3 bg-green-100 text-green-700 rounded-xl font-bold" data-d="2">+2</button>
+      <button class="sheet-score py-3 bg-green-500 text-white rounded-xl font-bold" data-d="5">+5</button>
+    </div>
+    <button id="sheet-late" class="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold border border-red-100"><i class="fas fa-user-clock mr-2"></i>登記遲到</button>
+    <button id="sheet-hw" class="w-full py-3 bg-orange-50 text-orange-600 rounded-xl font-bold border border-orange-100"><i class="fas fa-book mr-2"></i>登記缺交作業</button>
+    <button id="sheet-praise" class="w-full py-3 bg-emerald-50 text-emerald-700 rounded-xl font-bold border border-emerald-100"><i class="fas fa-thumbs-up mr-2"></i>記優良表現</button>
+    <button id="sheet-spotlight" class="w-full py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold border border-indigo-100"><i class="fas fa-hand-point-right mr-2"></i>點他回答（推播到平板）</button>
+    <button id="sheet-close" class="w-full py-3 bg-gray-200 rounded-xl font-bold text-gray-700 mt-1">關閉</button>
+  </div>
+</div>
+
+<!-- 確認框 -->
+<div id="confirm-modal" class="hidden fixed inset-0 bg-black/50 z-[150] flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-xs p-5 text-center">
+    <p id="confirm-text" class="font-bold text-gray-800 mb-5"></p>
+    <div class="flex gap-2">
+      <button id="confirm-no" class="flex-1 py-2.5 bg-gray-200 rounded-xl font-bold text-gray-700">取消</button>
+      <button id="confirm-yes" class="flex-1 py-2.5 bg-red-500 text-white rounded-xl font-bold">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 圖片放大 -->
+<div id="lightbox" class="hidden fixed inset-0 bg-black/90 z-[160] items-center justify-center p-4" onclick="this.classList.add('hidden')">
+  <img id="lightbox-img" class="max-w-full max-h-full object-contain rounded-lg">
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, addDoc,
+         writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+/* ══════════════════════════════════════════════════════════════════
+   ①  班級名單 —— 每學期只要改這一段
+      seat = 座號, name = 顯示的中文名, en = 英文名（沒有就留空 ''）
+   ══════════════════════════════════════════════════════════════════ */
+const TEACHER_NAME = 'Ruby';   // 老師名字（會顯示在控制台與學生待機畫面）
+
+const ROSTER = {
+  '5': [
+    { seat: 1, name: 'Jimmy', en: '' },
+    { seat: 2, name: 'Larry', en: '' },
+    { seat: 3, name: 'Joe',   en: '' },
+    { seat: 4, name: 'Riley', en: '' },
+    { seat: 5, name: 'Diana', en: '' }
+  ],
+  '6': [
+    { seat: 1, name: 'Lola',    en: '' },
+    { seat: 2, name: 'Charles', en: '' },
+    { seat: 3, name: 'Jenny',   en: '' },
+    { seat: 4, name: 'Irving',  en: '' },
+    { seat: 5, name: 'Tim',     en: '' },
+    { seat: 6, name: 'Joana',   en: '' }
+  ]
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   ②  基本設定
+   ══════════════════════════════════════════════════════════════════ */
+const TEACHER_PASSWORD = 'edu';          // 教師密碼
+const AUDIO_MAX_SECONDS = 15;            // 錄音上限秒數
+const FIRESTORE_SAFE_BYTES = 700 * 1024; // 單筆答案上限（Firestore 硬上限 1MB）
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
+  authDomain: "nypscm.firebaseapp.com",
+  projectId: "nypscm",
+  storageBucket: "nypscm.firebasestorage.app",
+  messagingSenderId: "775913301411",
+  appId: "1:775913301411:web:9d73da7688854865826616"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+const APP_ID = "nypscm-class-pro";
+
+const docRef = (col, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', col, id);
+const colRef = (col)     => collection(db, 'artifacts', APP_ID, 'public', 'data', col);
+const stateRef   = (g) => docRef(`classState_${g}`, 'current');
+const studentRef = (g, seat) => docRef(`students_${g}`, `${g}-${seat}`);
+
+/* ══════════════════════════════════════════════════════════════════
+   ④  共用小工具
+   ══════════════════════════════════════════════════════════════════ */
+const $  = (id) => document.getElementById(id);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+const CLASS_SIZES = { '5': ROSTER['5'].length, '6': ROSTER['6'].length };
+const MODES = { waiting:'待機', ox:'O / X', abc:'選擇題', typing:'拼字題',
+                buzzer:'搶答', whiteboard:'小白板', audio:'口說錄音', material:'教材圖片' };
+
+const STATE = {
+  role: null, grade: '5', seat: null,
+  classState: { mode:'waiting', locked:false },
+  localStudentsData: {},
+  unsubs: [],
+  isBlindMode: false, showAnswersTriggered: false,
+  tempMaterialBase64: null,
+  timerInterval: null,
+  teacherTab: 'students',
+  currentTaskId: null,
+  soundOn: true, autoSpeak: true,
+  sheetSeat: null
+};
+
+const store = {
+  get(k, d = null) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+
+const rosterOf = (g) => ROSTER[g] || [];
+const nameOf = (g, seat) => {
+  const r = rosterOf(g).find(s => String(s.seat) === String(seat));
+  if (!r) return `${seat} 號`;
+  return r.en ? `${r.name} ${r.en}` : r.name;
+};
+const shortNameOf = (g, seat) => {
+  const r = rosterOf(g).find(s => String(s.seat) === String(seat));
+  return r ? r.name : `${seat}號`;
+};
+
+function showToast(message, type = 'info') {
+  const colors = { info:'bg-gray-800', success:'bg-green-600', error:'bg-red-600', warning:'bg-amber-500' };
+  const icons  = { info:'fa-info-circle', success:'fa-check-circle', error:'fa-triangle-exclamation', warning:'fa-bell' };
+  const t = document.createElement('div');
+  t.className = `${colors[type]} text-white px-4 py-2.5 rounded-xl shadow-lg font-bold text-sm flex items-center gap-2 toast-enter max-w-full`;
+  t.innerHTML = `<i class="fas ${icons[type]}"></i><span class="break-words">${message}</span>`;
+  $('toast-container').appendChild(t);
+  setTimeout(() => { t.classList.replace('toast-enter','toast-leave'); setTimeout(() => t.remove(), 260); }, 2600);
+}
+
+function askConfirm(text) {
+  return new Promise(resolve => {
+    $('confirm-text').innerText = text;
+    $('confirm-modal').classList.remove('hidden');
+    const done = (v) => { $('confirm-modal').classList.add('hidden'); yes.removeEventListener('click', okFn); no.removeEventListener('click', noFn); resolve(v); };
+    const yes = $('confirm-yes'), no = $('confirm-no');
+    const okFn = () => done(true), noFn = () => done(false);
+    yes.addEventListener('click', okFn); no.addEventListener('click', noFn);
+  });
+}
+
+/* 音效（WebAudio，不需外部檔案） */
+let audioCtx = null;
+function beep(freq = 880, dur = 0.12, type = 'sine', vol = 0.12) {
+  if (!STATE.soundOn) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch {}
+}
+const sfx = {
+  submit:  () => beep(880, .1),
+  correct: () => { beep(880,.1); setTimeout(()=>beep(1320,.16),90); },
+  wrong:   () => beep(220, .22, 'square', .08),
+  buzz:    () => { beep(1200,.08,'square'); setTimeout(()=>beep(900,.14,'square'),80); },
+  timeup:  () => { beep(660,.15); setTimeout(()=>beep(660,.15),200); setTimeout(()=>beep(440,.3),400); },
+  ping:    () => beep(1046,.09)
+};
+
+/* 英語朗讀 */
+let voiceCache = null;
+function pickVoice() {
+  if (!window.speechSynthesis) return null;
+  if (!voiceCache) {
+    const vs = speechSynthesis.getVoices();
+    voiceCache = vs.find(v => /en[-_]US/i.test(v.lang) && /female|samantha|zira|karen/i.test(v.name))
+              || vs.find(v => /en[-_]US/i.test(v.lang))
+              || vs.find(v => /^en/i.test(v.lang)) || null;
+  }
+  return voiceCache;
+}
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => { voiceCache = null; pickVoice(); };
+
+function speak(text, rate = 0.85) {
+  if (!text || !window.speechSynthesis) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(String(text).replace(/\//g, ' or '));
+    u.lang = 'en-US'; u.rate = rate; u.pitch = 1;
+    const v = pickVoice(); if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch {}
+}
+function warmUpSpeech() { try { speechSynthesis.speak(new SpeechSynthesisUtterance(' ')); } catch {} }
+
+/* 答案比對：忽略大小寫、標點、多餘空白；支援 / 或 | 分隔多正解 */
+function normalizeAns(s) {
+  return String(s || '').toLowerCase().trim()
+    .replace(/[.,!?;:'"`’“”\-_()]/g, '')
+    .replace(/\s+/g, ' ');
+}
+function isAnswerCorrect(studentAns, correctAns) {
+  if (!correctAns) return null;
+  const target = normalizeAns(studentAns);
+  return String(correctAns).split(/[\/|]/).map(normalizeAns).filter(Boolean).includes(target);
+}
+
+function fireConfetti(big = false) {
+  if (window.confetti) confetti({ particleCount: big ? 180 : 90, spread: big ? 100 : 70, origin: { y: .6 } });
+}
+function clearListeners() { STATE.unsubs.forEach(u => { try { u(); } catch {} }); STATE.unsubs = []; }
+const newTaskId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+/* 圖片壓縮 */
+function compressImage(file, maxSize = 900, quality = .72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width: w, height: h } = img;
+        if (w > h && w > maxSize) { h *= maxSize / w; w = maxSize; }
+        else if (h > maxSize) { w *= maxSize / h; h = maxSize; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+const dataUrlBytes = (s) => Math.ceil((s.length - (s.indexOf(',') + 1)) * 3 / 4);
+
+async function initAuth() {
+  try {
+    await signInAnonymously(auth);
+    return await new Promise(res => onAuthStateChanged(auth, u => { if (u) res(u); }));
+  } catch (e) {
+    showToast('連線失敗，請檢查網路', 'error');
+    console.error(e);
+    throw e;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑤  老師端
+   ══════════════════════════════════════════════════════════════════ */
+function setTeacherTab(tab) {
+  STATE.teacherTab = tab;
+  $$('.t-panel').forEach(p => p.dataset.active = (p.dataset.tab === tab) ? '1' : '0');
+  $$('.tab-btn').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('text-indigo-600', on);
+    b.classList.toggle('text-gray-400', !on);
+  });
+}
+
+function buildTeacherGrid() {
+  const grid = $('teacher-students-grid');
+  grid.innerHTML = '';
+  rosterOf(STATE.grade).forEach(({ seat }) => {
+    const id = `${STATE.grade}-${seat}`;
+    grid.insertAdjacentHTML('beforeend', `
+      <div id="card-${id}" class="student-card bg-white rounded-2xl shadow border-2 border-gray-100 p-2 sm:p-3 flex flex-col relative overflow-hidden min-h-[175px] sm:min-h-[230px]">
+        <div id="badge-group-${id}" class="hidden absolute top-0 right-0 px-2 py-1 text-xs font-bold text-white rounded-bl-lg"></div>
+        <div id="hand-${id}" class="hidden absolute top-1.5 left-1.5 text-amber-500 text-lg animate-bounce z-10"><i class="fas fa-hand"></i></div>
+
+        <div class="flex justify-between items-center mb-1.5 border-b pb-1.5 gap-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-7 h-7 shrink-0 rounded-full bg-indigo-100 text-indigo-700 font-black flex items-center justify-center text-xs">${seat}</span>
+            <span class="font-bold text-gray-700 truncate text-sm sm:text-base">${shortNameOf(STATE.grade, seat)}</span>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <span id="streak-${id}" class="hidden text-orange-500 text-xs font-black"></span>
+            <span class="text-yellow-500 font-bold text-sm sm:text-base"><i class="fas fa-star mr-0.5 text-xs"></i><span id="score-${id}">0</span></span>
+          </div>
+        </div>
+
+        <div class="flex-1 flex flex-col justify-center items-center bg-gray-50 rounded-xl mb-1.5 p-1 overflow-hidden relative">
+          <div id="status-icon-${id}" class="text-2xl sm:text-3xl text-gray-300"><i class="fas fa-minus-circle"></i></div>
+          <div id="answer-content-${id}" class="text-sm sm:text-base font-bold text-gray-800 text-center w-full break-words max-h-full overflow-y-auto">待機中</div>
+        </div>
+
+        <div class="flex gap-1 mt-auto">
+          <button class="card-btn flex-[2] py-2.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-xl font-bold text-sm transition active:scale-95" data-act="plus" data-seat="${seat}">+1</button>
+          <button class="card-btn flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl font-bold text-sm transition active:scale-95" data-act="minus" data-seat="${seat}">−1</button>
+          <button class="card-btn flex-1 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl font-bold text-sm transition active:scale-95" data-act="more" data-seat="${seat}"><i class="fas fa-ellipsis"></i></button>
+        </div>
+      </div>`);
+  });
+}
+
+function renderCard(seat) {
+  const id = `${STATE.grade}-${seat}`;
+  const card = $(`card-${id}`); if (!card) return;
+  const d  = STATE.localStudentsData[id] || {};
+  const cs = STATE.classState || {};
+  const mode = cs.mode || 'waiting';
+  const correct = cs.correctAnswer;
+
+  $(`score-${id}`).innerText = d.score || 0;
+
+  const streakEl = $(`streak-${id}`);
+  if ((d.streak || 0) >= 2) { streakEl.classList.remove('hidden'); streakEl.innerText = `🔥${d.streak}`; }
+  else streakEl.classList.add('hidden');
+
+  const badge = $(`badge-group-${id}`);
+  if (d.group) {
+    badge.className = `absolute top-0 right-0 px-2 py-1 text-xs font-bold text-white rounded-bl-lg ${d.group === 'A' ? 'bg-blue-500' : 'bg-red-500'}`;
+    badge.innerText = d.group;
+  } else badge.className = 'hidden';
+
+  $(`hand-${id}`).classList.toggle('hidden', !d.hand);
+
+  const icon = $(`status-icon-${id}`), ans = $(`answer-content-${id}`);
+  // 只認「這一題」的作答，避免上一題的舊答案殘留
+  const answered = d.status === 'submitted' && d.answerTaskId && d.answerTaskId === cs.taskId;
+
+  card.classList.remove('border-blue-400','bg-blue-50/30','border-green-400','border-red-300');
+
+  if (mode === 'waiting') {
+    icon.innerHTML = '<i class="fas fa-mug-hot text-gray-300"></i>';
+    ans.innerHTML = '<span class="text-gray-400 text-sm">待機中</span>';
+    return;
+  }
+  if (mode === 'material') {
+    icon.innerHTML = '<i class="fas fa-image text-purple-400"></i>';
+    ans.innerHTML = '<span class="text-purple-500 text-sm">看教材中</span>';
+    return;
+  }
+  if (!answered) {
+    icon.innerHTML = '<i class="fas fa-pencil text-yellow-500 animate-pulse"></i>';
+    ans.innerHTML = '<span class="text-yellow-600 text-sm">作答中…</span>';
+    return;
+  }
+
+  card.classList.add('border-blue-400','bg-blue-50/30');
+  const ok = isAnswerCorrect(d.answer, correct);
+  if (ok === true)  card.classList.add('border-green-400');
+  if (ok === false) card.classList.add('border-red-300');
+
+  const hide = STATE.isBlindMode && !STATE.showAnswersTriggered;
+  if (hide) {
+    icon.innerHTML = '<i class="fas fa-circle-check text-green-500"></i>';
+    ans.innerHTML = '<span class="text-green-600">已作答</span>';
+    return;
+  }
+
+  if (mode === 'buzzer') {
+    const rank = buzzRank(seat);
+    const medal = ['🥇','🥈','🥉'][rank - 1] || `${rank}`;
+    icon.innerHTML = `<span class="text-4xl">${medal}</span>`;
+    ans.innerHTML = `<span class="text-amber-600 font-black">第 ${rank} 個搶答</span>`;
+  } else if (mode === 'whiteboard' && String(d.answer).startsWith('data:image')) {
+    icon.innerHTML = '';
+    ans.innerHTML = `<img src="${d.answer}" data-zoom="1" class="w-full max-h-[110px] object-contain cursor-zoom-in rounded">`;
+  } else if (mode === 'audio' && String(d.answer).startsWith('data:audio')) {
+    icon.innerHTML = '<i class="fas fa-headphones text-purple-500 text-2xl"></i>';
+    ans.innerHTML = `<audio controls src="${d.answer}" class="w-full h-8 mt-1"></audio>`;
+  } else if (mode === 'typing') {
+    icon.innerHTML = ok === true ? '<i class="fas fa-check text-green-500"></i>' : (ok === false ? '<i class="fas fa-xmark text-red-400"></i>' : '');
+    const color = ok === true ? 'text-green-600' : ok === false ? 'text-red-500' : 'text-blue-700';
+    ans.innerHTML = `<div class="${color} text-lg break-words">${escapeHtml(d.answer)}</div>`;
+  } else {
+    icon.innerHTML = ok === true ? '<i class="fas fa-check text-green-500"></i>' : (ok === false ? '<i class="fas fa-xmark text-red-400"></i>' : '');
+    const color = ok === true ? 'text-green-600' : ok === false ? 'text-red-500' : 'text-blue-600';
+    ans.innerHTML = `<span class="${color} text-4xl font-black">${escapeHtml(d.answer)}</span>`;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+/* 搶答名次：以伺服器時間為準，沒有就用本機時間 */
+function buzzRank(seat) {
+  const tid = STATE.classState?.taskId;
+  const list = Object.entries(STATE.localStudentsData)
+    .filter(([, d]) => d.status === 'submitted' && d.answerTaskId === tid)
+    .map(([id, d]) => ({ id, t: (d.serverAt?.toMillis?.() ?? d.submitAt ?? 0) }))
+    .sort((a, b) => a.t - b.t);
+  return list.findIndex(x => x.id === `${STATE.grade}-${seat}`) + 1;
+}
+
+function renderAllCards() { rosterOf(STATE.grade).forEach(({ seat }) => renderCard(seat)); }
+
+function renderProgressAndBoard() {
+  const cs = STATE.classState || {};
+  const total = CLASS_SIZES[STATE.grade];
+  const done = rosterOf(STATE.grade).filter(({ seat }) => {
+    const d = STATE.localStudentsData[`${STATE.grade}-${seat}`];
+    return d && d.status === 'submitted' && d.answerTaskId === cs.taskId;
+  }).length;
+  const pct = cs.mode === 'waiting' ? 0 : Math.round(done / total * 100);
+  $('progress-bar').style.width = pct + '%';
+  $('progress-text').innerText = cs.mode === 'waiting' ? `0 / ${total}` : `${done} / ${total}`;
+  $('m-progress').innerText = `${cs.mode === 'waiting' ? 0 : done}/${total} 已作答`;
+
+  const anyHand = rosterOf(STATE.grade).some(({ seat }) => STATE.localStudentsData[`${STATE.grade}-${seat}`]?.hand);
+  $('tab-hand-dot').classList.toggle('hidden', !anyHand);
+
+  // 小組
+  let a = 0, b = 0;
+  Object.values(STATE.localStudentsData).forEach(s => {
+    if (s.group === 'A') a += s.score || 0;
+    if (s.group === 'B') b += s.score || 0;
+  });
+  $('group-a-score').innerText = a;
+  $('group-b-score').innerText = b;
+
+  // 排行榜
+  const rows = rosterOf(STATE.grade)
+    .map(({ seat }) => ({ seat, name: shortNameOf(STATE.grade, seat), score: STATE.localStudentsData[`${STATE.grade}-${seat}`]?.score || 0 }))
+    .sort((x, y) => y.score - x.score);
+  const max = Math.max(1, rows[0]?.score || 1);
+  $('leaderboard').innerHTML = rows.map((r, i) => `
+    <div class="flex items-center gap-2 text-sm">
+      <span class="w-6 text-center">${['🥇','🥈','🥉'][i] || `<span class="text-gray-400 text-xs">${i+1}</span>`}</span>
+      <span class="w-16 truncate font-bold text-gray-700">${escapeHtml(r.name)}</span>
+      <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-full bg-amber-400" style="width:${Math.max(2, r.score / max * 100)}%"></div>
+      </div>
+      <span class="w-7 text-right font-black text-gray-700">${r.score}</span>
+    </div>`).join('');
+}
+
+function applyClassStateToTeacher(data) {
+  STATE.classState = data;
+  const mode = data.mode || 'waiting';
+
+  $('task-badge').innerText = MODES[mode] || '待機';
+  $('task-badge').className = `px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${mode === 'waiting' ? 'bg-gray-200 text-gray-600' : 'bg-indigo-600 text-white'}`;
+  $('current-task-title').innerText = mode === 'waiting' ? (data.locked ? '🔒 平板鎖定中' : '準備上課') : '學生作答中…';
+
+  const qd = $('teacher-question-display');
+  const hasQ = !!(data.question || data.speak);
+  qd.classList.toggle('hidden', !hasQ);
+  if (hasQ) {
+    $('teacher-question-text').innerText = data.question || '（聽寫題，學生看不到文字）';
+    $('btn-teacher-speak').classList.toggle('hidden', !data.speak);
+    const hint = $('teacher-answer-hint');
+    if (data.correctAnswer) { hint.classList.remove('hidden'); hint.innerText = `正解：${data.correctAnswer}`; }
+    else hint.classList.add('hidden');
+  }
+
+  $('btn-lock-screen').classList.toggle('hidden', !!data.locked);
+  $('btn-unlock-screen').classList.toggle('hidden', !data.locked);
+  $('btn-auto-grade').classList.toggle('hidden', !data.correctAnswer || mode === 'waiting');
+  $('btn-reveal').classList.toggle('hidden', mode === 'waiting');
+  $('btn-reveal').classList.toggle('opacity-50', !!data.reveal);
+
+  const tEl = $('timer-display-container');
+  if (data.timerEnd) {
+    tEl.classList.remove('hidden'); tEl.classList.add('flex');
+    runCountdown(data.timerEnd, $('timer-display-time'), true);
+  } else {
+    tEl.classList.add('hidden'); tEl.classList.remove('flex');
+    clearInterval(STATE.timerInterval);
+  }
+
+  if (data.taskId !== STATE.currentTaskId) { STATE.currentTaskId = data.taskId; STATE.showAnswersTriggered = false; }
+
+  renderAllCards();
+  renderProgressAndBoard();
+}
+
+function startTeacherListeners() {
+  clearListeners();
+  STATE.localStudentsData = {};
+  STATE.currentTaskId = null;
+  buildTeacherGrid();
+
+  STATE.unsubs.push(onSnapshot(stateRef(STATE.grade), snap => {
+    applyClassStateToTeacher(snap.exists() ? snap.data() : { mode:'waiting', locked:false });
+  }, e => console.error(e)));
+
+  STATE.unsubs.push(onSnapshot(colRef(`students_${STATE.grade}`), snap => {
+    let newHand = false;
+    snap.docChanges().forEach(ch => {
+      const prev = STATE.localStudentsData[ch.doc.id];
+      const d = ch.doc.data();
+      if (d.hand && !prev?.hand) newHand = true;
+      if (STATE.classState.mode === 'buzzer' && d.status === 'submitted' &&
+          d.answerTaskId === STATE.classState.taskId && prev?.status !== 'submitted') sfx.buzz();
+      STATE.localStudentsData[ch.doc.id] = d;
+    });
+    renderAllCards();
+    renderProgressAndBoard();
+    if (newHand) { sfx.ping(); showToast('有學生舉手了 ✋', 'warning'); }
+  }, e => console.error(e)));
+
+  STATE.unsubs.push(onSnapshot(colRef(`records_${STATE.grade}`), snap => {
+    const recs = [];
+    snap.forEach(d => recs.push({ id: d.id, ...d.data() }));
+    recs.sort((a, b) => b.timestamp - a.timestamp);
+    const box = $('records-container');
+    if (!recs.length) { box.innerHTML = '<div class="text-center text-gray-400 text-sm mt-8">目前無任何紀錄</div>'; return; }
+    const meta = { late:['遲到','border-red-500','text-red-500'], hw:['缺交作業','border-orange-500','text-orange-500'], praise:['優良表現','border-emerald-500','text-emerald-600'] };
+    box.innerHTML = recs.map(r => {
+      const [label, bc, tc] = meta[r.type] || ['紀錄','border-gray-400','text-gray-500'];
+      return `<div class="p-2 bg-white border-l-4 ${bc} rounded shadow-sm flex justify-between items-center text-sm">
+        <div class="min-w-0">
+          <span class="font-bold text-gray-700">${escapeHtml(shortNameOf(r.grade || STATE.grade, r.seat))}</span>
+          <span class="${tc} font-bold ml-1">${label}</span>
+          <span class="text-gray-400 text-xs ml-1">${new Date(r.timestamp).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}</span>
+        </div>
+        <button class="del-rec text-gray-300 hover:text-red-500 p-1 shrink-0" data-id="${r.id}"><i class="fas fa-times"></i></button>
+      </div>`;
+    }).join('');
+    STATE.records = recs;
+  }, e => console.error(e)));
+}
+
+/* 倒數計時（老師端與學生端共用） */
+function runCountdown(endTime, spanEl, isTeacher) {
+  clearInterval(STATE.timerInterval);
+  if (!spanEl) return;
+  const tick = () => {
+    const diff = endTime - Date.now();
+    if (diff <= 0) {
+      clearInterval(STATE.timerInterval);
+      spanEl.innerText = '00:00';
+      sfx.timeup();
+      showToast('⏰ 時間到！', 'warning');
+      return;
+    }
+    const m = String(Math.floor(diff / 60000)).padStart(2, '0');
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+    spanEl.innerText = `${m}:${s}`;
+    if (diff < 5500 && diff > 4500) beep(660, .08);
+  };
+  tick();
+  STATE.timerInterval = setInterval(tick, 250);
+}
+
+/* 發布任務 */
+async function publishTask(payload) {
+  const data = Object.assign({
+    mode:'waiting', locked:false, question:null, speak:null, choices:null,
+    correctAnswer:null, materialData:null, timerEnd:null, reveal:false,
+    taskId: newTaskId(), timestamp: Date.now()
+  }, payload);
+  STATE.showAnswersTriggered = false;
+  await setDoc(stateRef(STATE.grade), data, { merge: true });
+}
+
+/* ── 老師端事件綁定 ── */
+function bindTeacherEvents() {
+  $$('.tab-btn').forEach(b => b.addEventListener('click', () => setTeacherTab(b.dataset.tab)));
+
+  const switchGrade = (g) => {
+    STATE.grade = g;
+    $('control-grade-select').value = g;
+    $('control-grade-select-m').value = g;
+    startTeacherListeners();
+    showToast(`已切換至 ${g} 年級`, 'info');
+  };
+  $('control-grade-select').addEventListener('change', e => switchGrade(e.target.value));
+  $('control-grade-select-m').addEventListener('change', e => switchGrade(e.target.value));
+
+  // 開啟派題視窗
+  let selectedMode = null;
+  $$('.t-tool-btn').forEach(btn => btn.addEventListener('click', () => {
+    selectedMode = btn.dataset.mode;
+    $('modal-title').innerText = `發布：${MODES[selectedMode]}`;
+    $('task-question-input').value = '';
+    $('task-speak-input').value = '';
+    $('chk-hide-speak-text').checked = false;
+    $('material-file-input').value = '';
+    $('modal-img-preview').classList.add('hidden');
+    $$('.choice-input').forEach(i => i.value = '');
+    STATE.tempMaterialBase64 = null;
+
+    const ansBox = $('modal-answer-setup'), ansIn = $('answer-inputs-container');
+    const matBox = $('modal-material-upload'), chBox = $('modal-choices-setup');
+    ansIn.innerHTML = ''; ansBox.classList.add('hidden'); matBox.classList.add('hidden'); chBox.classList.add('hidden');
+
+    if (selectedMode === 'ox') {
+      ansBox.classList.remove('hidden');
+      ansIn.innerHTML = `<select id="input-correct-ans" class="w-full p-2.5 border rounded-lg"><option value="">不設正解</option><option value="O">O</option><option value="X">X</option></select>`;
+    } else if (selectedMode === 'abc') {
+      chBox.classList.remove('hidden');
+      ansBox.classList.remove('hidden');
+      ansIn.innerHTML = `<select id="input-correct-ans" class="w-full p-2.5 border rounded-lg"><option value="">不設正解</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select>`;
+    } else if (selectedMode === 'typing') {
+      ansBox.classList.remove('hidden');
+      ansIn.innerHTML = `<input type="text" id="input-correct-ans" class="w-full p-2.5 border rounded-lg" placeholder="例如 apple 或 colour/color">`;
+    } else if (selectedMode === 'whiteboard' || selectedMode === 'material') {
+      matBox.classList.remove('hidden');
+    }
+    $('task-modal').classList.remove('hidden');
+  }));
+
+  $$('.close-modal').forEach(b => b.addEventListener('click', () => $('task-modal').classList.add('hidden')));
+
+  $('material-file-input').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      showToast('圖片處理中…');
+      const b64 = await compressImage(f);
+      STATE.tempMaterialBase64 = b64;
+      const p = $('modal-img-preview');
+      p.innerHTML = `<img src="${b64}" class="w-full h-auto">`;
+      p.classList.remove('hidden');
+      showToast(`圖片就緒（${Math.round(dataUrlBytes(b64)/1024)} KB）`, 'success');
+    } catch { showToast('圖片處理失敗，請換一張', 'error'); }
+  });
+
+  $('btn-confirm-task').addEventListener('click', async () => {
+    if (selectedMode === 'material' && !STATE.tempMaterialBase64) return showToast('請先上傳圖片', 'warning');
+    const hideText = $('chk-hide-speak-text').checked;
+    const speak = $('task-speak-input').value.trim() || null;
+    const q = $('task-question-input').value.trim() || null;
+    const ansEl = $('input-correct-ans');
+
+    let choices = null;
+    if (selectedMode === 'abc') {
+      choices = {};
+      $$('.choice-input').forEach(i => { if (i.value.trim()) choices[i.dataset.k] = i.value.trim(); });
+      if (!Object.keys(choices).length) choices = null;
+    }
+    await publishTask({
+      mode: selectedMode,
+      question: hideText ? null : q,
+      speak,
+      choices,
+      correctAnswer: ansEl && ansEl.value.trim() ? ansEl.value.trim() : null,
+      materialData: STATE.tempMaterialBase64 || null
+    });
+    $('task-modal').classList.add('hidden');
+    setTeacherTab('students');
+    showToast('任務已發布！', 'success');
+  });
+
+  const closeTask = async () => { await publishTask({ mode:'waiting' }); showToast('已收回任務', 'info'); };
+  $('btn-close-task').addEventListener('click', closeTask);
+  $('btn-close-task-m').addEventListener('click', closeTask);
+
+  $('btn-lock-screen').addEventListener('click', () => setDoc(stateRef(STATE.grade), { locked: true }, { merge: true }));
+  $('btn-unlock-screen').addEventListener('click', () => setDoc(stateRef(STATE.grade), { locked: false }, { merge: true }));
+
+  $('btn-teacher-speak').addEventListener('click', () => speak(STATE.classState.speak));
+
+  // 盲答
+  $('btn-blind-mode').addEventListener('click', () => {
+    STATE.isBlindMode = !STATE.isBlindMode;
+    STATE.showAnswersTriggered = false;
+    const b = $('btn-blind-mode');
+    b.innerHTML = STATE.isBlindMode
+      ? '<i class="fas fa-eye-slash mr-1"></i>盲答中'
+      : '<i class="fas fa-eye mr-1"></i>盲答';
+    b.className = STATE.isBlindMode
+      ? 'shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm shadow border border-blue-700 active:scale-95'
+      : 'shrink-0 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold text-sm border active:scale-95';
+    renderAllCards();
+  });
+
+  // 公布答案（老師看見 + 同步推到學生平板）
+  $('btn-reveal').addEventListener('click', async () => {
+    STATE.showAnswersTriggered = true;
+    renderAllCards();
+    await setDoc(stateRef(STATE.grade), { reveal: true }, { merge: true });
+    if (STATE.classState.speak) speak(STATE.classState.speak);
+    showToast('已公布答案', 'success');
+  });
+
+  // 批次給分（同一題只給一次）
+  $('btn-auto-grade').addEventListener('click', async () => {
+    const cs = STATE.classState;
+    if (!cs.correctAnswer) return showToast('這題沒有設定正解', 'warning');
+    const batch = writeBatch(db);
+    let n = 0, skipped = 0;
+    rosterOf(STATE.grade).forEach(({ seat }) => {
+      const id = `${STATE.grade}-${seat}`;
+      const d = STATE.localStudentsData[id];
+      if (!d || d.status !== 'submitted' || d.answerTaskId !== cs.taskId) return;
+      if (d.gradedTaskId === cs.taskId) { skipped++; return; }
+      const ok = isAnswerCorrect(d.answer, cs.correctAnswer);
+      const upd = { gradedTaskId: cs.taskId };
+      if (ok) { upd.score = (d.score || 0) + 1; upd.streak = (d.streak || 0) + 1; n++; }
+      else { upd.streak = 0; }
+      batch.set(studentRef(STATE.grade, seat), upd, { merge: true });
+    });
+    await batch.commit();
+    if (n) { showToast(`已為 ${n} 位答對的同學加分！`, 'success'); sfx.correct(); fireConfetti(); }
+    else showToast(skipped ? '這題已經給過分了' : '目前沒有人答對', 'warning');
+  });
+
+  // 快速計時器
+  $$('.timer-btn').forEach(b => b.addEventListener('click', () => {
+    const sec = parseInt(b.dataset.sec, 10);
+    setDoc(stateRef(STATE.grade), { timerEnd: sec > 0 ? Date.now() + sec * 1000 : null }, { merge: true });
+    showToast(sec > 0 ? `倒數 ${sec} 秒開始` : '計時器已停止', 'info');
+  }));
+
+  // 隨機抽人（同步到學生平板）
+  $('btn-tool-random').addEventListener('click', async () => {
+    const list = rosterOf(STATE.grade).map(s => s.seat);
+    let i = 0;
+    const roll = setInterval(() => {
+      const r = list[Math.floor(Math.random() * list.length)];
+      const c = $(`card-${STATE.grade}-${r}`);
+      if (c) { c.classList.add('bg-yellow-200'); setTimeout(() => c.classList.remove('bg-yellow-200'), 90); }
+      beep(600 + i * 20, .04);
+      if (++i > 14) {
+        clearInterval(roll);
+        const w = list[Math.floor(Math.random() * list.length)];
+        const wc = $(`card-${STATE.grade}-${w}`);
+        if (wc) { wc.classList.add('ring-4','ring-yellow-400'); setTimeout(() => wc.classList.remove('ring-4','ring-yellow-400'), 5000); }
+        showToast(`🎉 ${shortNameOf(STATE.grade, w)}（${w}號）`, 'success');
+        fireConfetti();
+        setDoc(stateRef(STATE.grade), { spotlightSeat: String(w), spotlightAt: Date.now() }, { merge: true });
+      }
+    }, 110);
+  });
+
+  $('btn-tool-group').addEventListener('click', async () => {
+    const seats = rosterOf(STATE.grade).map(s => s.seat);
+    for (let i = seats.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [seats[i], seats[j]] = [seats[j], seats[i]]; }
+    const batch = writeBatch(db);
+    seats.forEach((seat, idx) => batch.set(studentRef(STATE.grade, seat), { group: idx % 2 === 0 ? 'A' : 'B' }, { merge: true }));
+    await batch.commit();
+    showToast('已重新隨機分組', 'success');
+  });
+
+  $('btn-tool-clear-group').addEventListener('click', async () => {
+    const batch = writeBatch(db);
+    rosterOf(STATE.grade).forEach(({ seat }) => batch.set(studentRef(STATE.grade, seat), { group: null }, { merge: true }));
+    await batch.commit();
+    showToast('已取消分組', 'info');
+  });
+
+  $('btn-reset-points').addEventListener('click', async () => {
+    if (!await askConfirm(`確定將 ${STATE.grade} 年級全班分數歸零？`)) return;
+    const batch = writeBatch(db);
+    rosterOf(STATE.grade).forEach(({ seat }) => batch.set(studentRef(STATE.grade, seat), { score: 0, streak: 0 }, { merge: true }));
+    await batch.commit();
+    showToast('全班分數已歸零', 'success');
+  });
+
+  $('chk-sound').addEventListener('change', e => { STATE.soundOn = e.target.checked; store.set('nyps.sound', e.target.checked); });
+  $('chk-autospeak').addEventListener('change', e => {
+    STATE.autoSpeak = e.target.checked;
+    setDoc(stateRef(STATE.grade), { autoSpeak: e.target.checked }, { merge: true });
+  });
+
+  $('btn-logout').addEventListener('click', () => { store.del('nyps.teacher'); location.reload(); });
+
+  // 卡片與紀錄（事件委派）
+  document.addEventListener('click', async e => {
+    if (STATE.role !== 'teacher') return;
+    const zoom = e.target.closest('img[data-zoom]');
+    if (zoom) { $('lightbox-img').src = zoom.src; $('lightbox').classList.remove('hidden'); $('lightbox').classList.add('flex'); return; }
+
+    const del = e.target.closest('.del-rec');
+    if (del) { await deleteDoc(docRef(`records_${STATE.grade}`, del.dataset.id)); return; }
+
+    const btn = e.target.closest('.card-btn');
+    if (!btn) return;
+    const seat = btn.dataset.seat;
+    if (btn.dataset.act === 'more') return openSheet(seat);
+    await addScore(seat, btn.dataset.act === 'plus' ? 1 : -1);
+    if (btn.dataset.act === 'plus') { sfx.ping(); flashBtn(btn); }
+  });
+
+  bindSheet();
+  $('btn-export-report').addEventListener('click', exportReport);
+}
+
+function flashBtn(btn) {
+  const html = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-check"></i>';
+  setTimeout(() => btn.innerHTML = html, 450);
+}
+
+async function addScore(seat, delta) {
+  const id = `${STATE.grade}-${seat}`;
+  const cur = STATE.localStudentsData[id]?.score || 0;
+  await setDoc(studentRef(STATE.grade, seat), { score: Math.max(0, cur + delta) }, { merge: true });
+}
+
+/* 學生操作選單 */
+function openSheet(seat) {
+  STATE.sheetSeat = seat;
+  $('sheet-title').innerText = `${seat} 號　${nameOf(STATE.grade, seat)}`;
+  $('action-sheet').classList.remove('hidden');
+}
+function bindSheet() {
+  const close = () => $('action-sheet').classList.add('hidden');
+  $('sheet-close').addEventListener('click', close);
+  $('action-sheet').addEventListener('click', e => { if (e.target.id === 'action-sheet') close(); });
+  $$('.sheet-score').forEach(b => b.addEventListener('click', async () => {
+    await addScore(STATE.sheetSeat, parseInt(b.dataset.d, 10));
+    sfx.ping(); close();
+  }));
+  const rec = async (type, label) => {
+    await addDoc(colRef(`records_${STATE.grade}`), { grade: STATE.grade, seat: STATE.sheetSeat, type, timestamp: Date.now() });
+    showToast(`已登記 ${shortNameOf(STATE.grade, STATE.sheetSeat)} ${label}`, 'warning');
+    close();
+  };
+  $('sheet-late').addEventListener('click', () => rec('late', '遲到'));
+  $('sheet-hw').addEventListener('click', () => rec('hw', '缺交'));
+  $('sheet-praise').addEventListener('click', () => rec('praise', '優良表現'));
+  $('sheet-spotlight').addEventListener('click', async () => {
+    await setDoc(stateRef(STATE.grade), { spotlightSeat: String(STATE.sheetSeat), spotlightAt: Date.now() }, { merge: true });
+    showToast(`已點 ${shortNameOf(STATE.grade, STATE.sheetSeat)} 回答`, 'success');
+    close();
+  });
+}
+
+/* 匯出報表 */
+function exportReport() {
+  const recs = STATE.records || [];
+  const cnt = (seat, type) => recs.filter(r => String(r.seat) === String(seat) && r.type === type).length;
+  let csv = '﻿座號,姓名,英文名,分數,組別,遲到次數,缺交次數,優良次數\n';
+  rosterOf(STATE.grade).forEach(({ seat, name, en }) => {
+    const d = STATE.localStudentsData[`${STATE.grade}-${seat}`] || {};
+    csv += `${seat},${name},${en || ''},${d.score || 0},${d.group || '-'},${cnt(seat,'late')},${cnt(seat,'hw')},${cnt(seat,'praise')}\n`;
+  });
+  csv += '\n明細\n時間,座號,姓名,項目\n';
+  const label = { late:'遲到', hw:'缺交作業', praise:'優良表現' };
+  recs.slice().sort((a,b) => a.timestamp - b.timestamp).forEach(r => {
+    csv += `${new Date(r.timestamp).toLocaleString('zh-TW')},${r.seat},${shortNameOf(r.grade || STATE.grade, r.seat)},${label[r.type] || r.type}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `G${STATE.grade}_class_report_${new Date().toISOString().slice(0,10)}.csv`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
+  showToast('報表已下載', 'success');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑥  學生端
+   ══════════════════════════════════════════════════════════════════ */
+const STU_MODES = ['waiting','ox','abc','typing','buzzer','whiteboard','audio','material'];
+
+function showStuMode(mode) {
+  STU_MODES.forEach(m => {
+    const el = $(`stu-mode-${m}`);
+    if (el) el.style.display = 'none';
+  });
+  const el = $(`stu-mode-${STU_MODES.includes(mode) ? mode : 'waiting'}`);
+  if (el) el.style.display = 'flex';
+}
+
+function setStuStatus(text, cls) {
+  const el = $('stu-task-status');
+  el.innerText = text;
+  el.className = `px-3 py-1.5 text-sm font-bold text-center shrink-0 ${cls}`;
+}
+
+async function submitStudentAnswer(answer, opts = {}) {
+  const cs = STATE.classState || {};
+  if (!cs.taskId) return showToast('目前沒有進行中的題目', 'warning');
+  if (typeof answer === 'string' && answer.length > 100 && dataUrlBytes(answer) > FIRESTORE_SAFE_BYTES) {
+    return showToast('檔案太大送不出去，請簡化內容或縮短錄音', 'error');
+  }
+  const payload = {
+    status: 'submitted', answer,
+    answerTaskId: cs.taskId,
+    submitAt: Date.now(),
+    serverAt: serverTimestamp()
+  };
+  try {
+    await setDoc(studentRef(STATE.grade, STATE.seat), payload, { merge: true });
+    setStuStatus('✅ 已送出（還可以重送）', 'bg-green-100 text-green-700');
+    sfx.submit();
+    if (!opts.silent) fireConfetti();
+  } catch (e) {
+    console.error(e);
+    showToast('送出失敗，請再按一次', 'error');
+  }
+}
+
+function renderStudentReveal(cs, myData) {
+  const box = $('stu-reveal');
+  if (!cs.reveal || !cs.correctAnswer) { box.classList.add('hidden'); return; }
+  const mine = (myData?.answerTaskId === cs.taskId) ? myData.answer : null;
+  const ok = mine != null ? isAnswerCorrect(mine, cs.correctAnswer) : null;
+  box.classList.remove('hidden');
+  box.className = `w-full max-w-2xl mb-5 p-4 rounded-2xl text-center shrink-0 pop-in border-2 ${
+    ok === true ? 'bg-green-50 border-green-400' : ok === false ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200'}`;
+  box.innerHTML = `
+    <div class="text-4xl mb-1">${ok === true ? '🎉' : ok === false ? '💪' : '📢'}</div>
+    <div class="text-sm font-bold text-gray-500 mb-1">正確答案 Answer</div>
+    <div class="text-3xl font-black text-gray-800 break-words">${escapeHtml(cs.correctAnswer)}</div>
+    ${mine != null && String(mine).length < 60 && !String(mine).startsWith('data:')
+      ? `<div class="text-sm mt-2 ${ok ? 'text-green-600' : 'text-red-500'}">你的答案：${escapeHtml(mine)}</div>` : ''}`;
+  if (ok === true) { sfx.correct(); fireConfetti(); } else if (ok === false) sfx.wrong();
+}
+
+let lastSpokenTaskId = null, lastSpotlightAt = 0, setupTaskId = null, lastStatusWrite = '';
+
+/* 同一個狀態只寫一次，避免每次快照都打一次資料庫 */
+function writeMyStatus(signature, patch) {
+  if (signature === lastStatusWrite) return;
+  lastStatusWrite = signature;
+  setDoc(studentRef(STATE.grade, STATE.seat), patch, { merge: true }).catch(() => {});
+}
+
+function applyClassStateToStudent(cs) {
+  const prevTaskId = STATE.currentTaskId;
+  STATE.classState = cs;
+  const mode = cs.mode || 'waiting';
+
+  $('lock-screen').style.display = cs.locked ? 'flex' : 'none';
+
+  const isNewTask = cs.taskId !== prevTaskId;
+
+  // 新題目 → 清空所有作答痕跡
+  if (isNewTask) {
+    STATE.currentTaskId = cs.taskId;
+    $('stu-typing-input').value = '';
+    $('stu-buzz-result').innerText = '';
+    $('stu-reveal').classList.add('hidden');
+    resetAudioUI();
+    clearCanvas();
+    if (mode !== 'waiting') {
+      writeMyStatus(`thinking:${cs.taskId}`,
+        { status: 'thinking', answer: '', answerTaskId: null, gradedTaskId: null });
+      setStuStatus('✏️ 作答中…', 'bg-amber-100 text-amber-700');
+      sfx.ping();
+    }
+  }
+  if (mode === 'waiting') {
+    setStuStatus(cs.locked ? '🔒 平板已鎖定' : '等待老師派發任務…', 'bg-gray-100 text-gray-600');
+    writeMyStatus(`waiting:${cs.taskId}`, { status: 'waiting', answer: '' });
+  }
+
+  // 題目
+  const qd = $('stu-question-display');
+  const hasQ = !!(cs.question || cs.speak);
+  qd.classList.toggle('hidden', !hasQ);
+  if (hasQ) {
+    $('stu-question-text').innerText = cs.question || '🔊 Listen carefully';
+    $('btn-stu-speak').classList.toggle('hidden', !cs.speak);
+  }
+
+  showStuMode(mode);
+
+  // 只在「換題目」時重建作答區，否則老師按公布答案/計時器會把學生畫到一半的白板洗掉
+  if (isNewTask || setupTaskId !== cs.taskId) {
+    setupTaskId = cs.taskId;
+    if (mode === 'abc') {
+      const keys = cs.choices ? Object.keys(cs.choices) : ['A','B','C'];
+      $('stu-mode-abc').innerHTML = keys.map(k => `
+        <button class="stu-ans-btn w-full py-5 px-4 bg-white border-2 border-gray-300 rounded-2xl text-left flex items-center gap-3 shadow-md active:scale-95 transition" data-ans="${k}">
+          <span class="w-11 h-11 shrink-0 rounded-xl bg-blue-100 text-blue-600 font-black text-2xl flex items-center justify-center">${k}</span>
+          <span class="text-xl font-bold text-gray-700 break-words">${escapeHtml(cs.choices?.[k] || '')}</span>
+        </button>`).join('');
+    }
+    if (mode === 'material' && cs.materialData) {
+      $('stu-material-content').innerHTML = `<img src="${cs.materialData}" class="max-w-full max-h-[65vh] rounded">`;
+    }
+    if (mode === 'whiteboard') setCanvasBackground(cs.materialData || null);
+  }
+
+  // 計時器
+  const t = $('stu-timer-display');
+  if (cs.timerEnd) { t.classList.remove('hidden'); runCountdown(cs.timerEnd, t.querySelector('span'), false); }
+  else { t.classList.add('hidden'); clearInterval(STATE.timerInterval); }
+
+  // 自動朗讀（同一題只念一次）
+  if (cs.speak && cs.autoSpeak !== false && cs.taskId !== lastSpokenTaskId) {
+    lastSpokenTaskId = cs.taskId;
+    setTimeout(() => speak(cs.speak), 350);
+  }
+
+  // 被老師點到
+  if (cs.spotlightSeat && String(cs.spotlightSeat) === String(STATE.seat)
+      && cs.spotlightAt && cs.spotlightAt !== lastSpotlightAt && Date.now() - cs.spotlightAt < 15000) {
+    lastSpotlightAt = cs.spotlightAt;
+    const ov = $('spotlight-overlay');
+    ov.style.display = 'flex';
+    sfx.correct();
+    setTimeout(() => ov.style.display = 'none', 5000);
+  }
+
+  renderStudentReveal(cs, STATE.localStudentsData[`${STATE.grade}-${STATE.seat}`]);
+}
+
+function startStudentListeners() {
+  clearListeners();
+  const myId = `${STATE.grade}-${STATE.seat}`;
+
+  STATE.unsubs.push(onSnapshot(colRef(`students_${STATE.grade}`), snap => {
+    snap.forEach(d => STATE.localStudentsData[d.id] = d.data());
+    const me = STATE.localStudentsData[myId] || {};
+    $('stu-header-score').innerText = me.score || 0;
+
+    const st = $('stu-streak');
+    if ((me.streak || 0) >= 2) { st.classList.remove('hidden'); st.innerText = `🔥${me.streak}`; }
+    else st.classList.add('hidden');
+
+    const gb = $('stu-group-badge');
+    if (me.group) { gb.classList.remove('hidden'); gb.innerText = `Group ${me.group}`; gb.className = `ml-1 px-2 py-0.5 rounded text-xs text-white ${me.group === 'A' ? 'bg-blue-500' : 'bg-red-500'}`; }
+    else gb.classList.add('hidden');
+
+    $('btn-stu-hand').className = me.hand
+      ? 'w-11 h-11 rounded-2xl bg-amber-500 text-white text-xl border border-amber-600 active:scale-95 transition'
+      : 'w-11 h-11 rounded-2xl bg-amber-100 text-amber-600 text-xl border border-amber-200 active:scale-95 transition';
+
+    // 作答進度
+    const cs = STATE.classState || {};
+    const total = CLASS_SIZES[STATE.grade];
+    const done = Object.values(STATE.localStudentsData)
+      .filter(d => d.status === 'submitted' && d.answerTaskId === cs.taskId).length;
+    const p = $('stu-progress');
+    p.classList.toggle('hidden', !cs.taskId || cs.mode === 'waiting');
+    p.innerText = `${done}/${total}`;
+
+    // 搶答名次
+    if (cs.mode === 'buzzer' && me.answerTaskId === cs.taskId) {
+      const list = Object.entries(STATE.localStudentsData)
+        .filter(([, d]) => d.status === 'submitted' && d.answerTaskId === cs.taskId)
+        .map(([id, d]) => ({ id, t: (d.serverAt?.toMillis?.() ?? d.submitAt ?? 0) }))
+        .sort((a, b) => a.t - b.t);
+      const r = list.findIndex(x => x.id === myId) + 1;
+      if (r > 0) $('stu-buzz-result').innerHTML = r === 1
+        ? '<span class="text-amber-500">🥇 你搶到了！</span>'
+        : `<span class="text-gray-500">第 ${r} 個</span>`;
+    }
+  }, e => console.error(e)));
+
+  STATE.unsubs.push(onSnapshot(stateRef(STATE.grade), snap => {
+    applyClassStateToStudent(snap.exists() ? snap.data() : { mode:'waiting', locked:false });
+  }, e => console.error(e)));
+}
+
+function bindStudentEvents() {
+  // 選項 / OX（事件委派，因為 A~D 是動態產生的）
+  $('student-task-container').addEventListener('click', e => {
+    const b = e.target.closest('.stu-ans-btn');
+    if (!b) return;
+    submitStudentAnswer(b.dataset.ans);
+    $$('.stu-ans-btn').forEach(x => x.classList.remove('ring-4','ring-blue-400'));
+    b.classList.add('ring-4','ring-blue-400');
+  });
+
+  $('btn-stu-submit-typing').addEventListener('click', () => {
+    const v = $('stu-typing-input').value.trim();
+    if (!v) return showToast('請先寫下答案', 'warning');
+    submitStudentAnswer(v);
+  });
+  $('stu-typing-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('btn-stu-submit-typing').click(); }
+  });
+
+  $('btn-stu-buzz').addEventListener('click', () => { sfx.buzz(); submitStudentAnswer('BUZZ', { silent: true }); });
+
+  $('btn-stu-submit-board').addEventListener('click', () => {
+    const d = exportCanvas();
+    if (d) submitStudentAnswer(d);
+  });
+
+  $('btn-stu-speak').addEventListener('click', () => speak(STATE.classState?.speak));
+
+  $('btn-stu-hand').addEventListener('click', async () => {
+    const me = STATE.localStudentsData[`${STATE.grade}-${STATE.seat}`] || {};
+    const next = !me.hand;
+    await setDoc(studentRef(STATE.grade, STATE.seat), { hand: next }, { merge: true });
+    showToast(next ? '已舉手，老師會看到 ✋' : '已放下手', next ? 'warning' : 'info');
+  });
+
+  $('btn-stu-switch').addEventListener('click', async () => {
+    if (!await askConfirm('要換成別人使用這台平板嗎？')) return;
+    store.del('nyps.student');
+    location.reload();
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑦  白板
+   ══════════════════════════════════════════════════════════════════ */
+let ctx = null, drawing = false, lastX = 0, lastY = 0, bgImage = null, undoStack = [], canvasReady = false;
+let penColor = '#2563eb', penWidth = 5;
+
+function initCanvas() {
+  if (canvasReady) return;
+  const canvas = $('stu-canvas'), box = $('canvas-container');
+  const fit = () => {
+    const snap = canvas.width ? canvas.toDataURL() : null;
+    canvas.width = box.clientWidth || 600;
+    canvas.height = box.clientHeight || 320;
+    ctx = canvas.getContext('2d');
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineWidth = penWidth; ctx.strokeStyle = penColor;
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (snap) { const im = new Image(); im.onload = () => ctx.drawImage(im, 0, 0, canvas.width, canvas.height); im.src = snap; }
+    else if (bgImage) drawBg(bgImage);
+  };
+  fit();
+
+  const pos = e => {
+    const r = canvas.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx - r.left) * canvas.width / r.width, y: (cy - r.top) * canvas.height / r.height };
+  };
+  const start = e => {
+    pushUndo();
+    drawing = true;
+    const p = pos(e); lastX = p.x; lastY = p.y;
+    ctx.beginPath(); ctx.arc(p.x, p.y, ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fillStyle = ctx.strokeStyle; ctx.fill();
+  };
+  const move = e => {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    lastX = p.x; lastY = p.y;
+  };
+  const end = () => drawing = false;
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+
+  $$('.color-picker').forEach(b => b.addEventListener('click', () => {
+    penColor = b.dataset.color; penWidth = 5;
+    ctx.strokeStyle = penColor; ctx.lineWidth = penWidth;
+    $$('.color-picker').forEach(x => x.classList.remove('ring-2','ring-blue-300'));
+    b.classList.add('ring-2','ring-blue-300');
+  }));
+  $('btn-stu-eraser').addEventListener('click', () => {
+    penColor = '#ffffff'; penWidth = 24;
+    ctx.strokeStyle = penColor; ctx.lineWidth = penWidth;
+    $$('.color-picker').forEach(x => x.classList.remove('ring-2','ring-blue-300'));
+  });
+  $('btn-stu-undo').addEventListener('click', popUndo);
+  $('btn-stu-clear-board').addEventListener('click', () => { pushUndo(); clearCanvas(); if (bgImage) drawBg(bgImage); });
+
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fit, 250); });
+  canvasReady = true;
+}
+
+function pushUndo() {
+  if (!ctx) return;
+  try { undoStack.push($('stu-canvas').toDataURL('image/jpeg', .5)); if (undoStack.length > 10) undoStack.shift(); } catch {}
+}
+function popUndo() {
+  if (!ctx || !undoStack.length) return;
+  const d = undoStack.pop();
+  const im = new Image();
+  im.onload = () => { const c = $('stu-canvas'); ctx.clearRect(0,0,c.width,c.height); ctx.drawImage(im, 0, 0, c.width, c.height); };
+  im.src = d;
+}
+function clearCanvas() {
+  if (!ctx) return;
+  const c = $('stu-canvas');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = ctx.strokeStyle;
+  undoStack = [];
+}
+function setCanvasBackground(b64) {
+  initCanvas();
+  bgImage = b64;
+  clearCanvas();
+  if (b64) drawBg(b64);
+}
+function drawBg(b64) {
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const c = $('stu-canvas');
+      const r = Math.min(c.width / im.width, c.height / im.height);
+      ctx.drawImage(im, 0, 0, im.width, im.height, (c.width - im.width * r) / 2, (c.height - im.height * r) / 2, im.width * r, im.height * r);
+      res();
+    };
+    im.onerror = res;
+    im.src = b64;
+  });
+}
+/* 匯出時縮到 900px 寬以內，確保不會撞到 Firestore 1MB 上限 */
+function exportCanvas() {
+  const c = $('stu-canvas');
+  if (!c || !ctx) return null;
+  const MAX = 900;
+  const scale = Math.min(1, MAX / c.width);
+  const t = document.createElement('canvas');
+  t.width = Math.round(c.width * scale); t.height = Math.round(c.height * scale);
+  const tc = t.getContext('2d');
+  tc.fillStyle = '#fff'; tc.fillRect(0, 0, t.width, t.height);
+  tc.drawImage(c, 0, 0, t.width, t.height);
+  let q = 0.7, out = t.toDataURL('image/jpeg', q);
+  while (dataUrlBytes(out) > FIRESTORE_SAFE_BYTES && q > 0.25) { q -= 0.15; out = t.toDataURL('image/jpeg', q); }
+  return out;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑧  錄音
+   ══════════════════════════════════════════════════════════════════ */
+let mediaRecorder = null, audioChunks = [], isRecording = false, audioB64 = null, recTimer = null, recCountdown = null;
+
+function initAudioRecorder() {
+  $('audio-max-sec').innerText = AUDIO_MAX_SECONDS;
+  const btn = $('btn-stu-record');
+
+  btn.addEventListener('click', async () => {
+    if (isRecording) return stopRecording();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const opts = {};
+      if (window.MediaRecorder?.isTypeSupported?.('audio/webm;codecs=opus')) {
+        opts.mimeType = 'audio/webm;codecs=opus'; opts.audioBitsPerSecond = 32000;
+      }
+      mediaRecorder = new MediaRecorder(stream, opts);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        $('stu-audio-playback').src = URL.createObjectURL(blob);
+        const fr = new FileReader();
+        fr.onloadend = () => {
+          audioB64 = fr.result;
+          if (dataUrlBytes(audioB64) > FIRESTORE_SAFE_BYTES) { audioB64 = null; showToast('錄音太長了，請重錄短一點', 'error'); }
         };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const globalAppId = "nypscm-class-pro"; 
-
-        // 取得文件路徑捷徑
-        const getDocPath = (collectionName, docId) => doc(db, 'artifacts', globalAppId, 'public', 'data', collectionName, docId);
-        const getColPath = (collectionName) => collection(db, 'artifacts', globalAppId, 'public', 'data', collectionName);
-
-        const STATE = {
-            role: null,
-            grade: '5',
-            seat: null,
-            userId: null,
-            
-            // 老師用
-            isBlindMode: false,
-            showAnswersTriggered: false,
-            taskMode: null,
-            correctAnswer: null, // 當前題目的正解
-            tempMaterialBase64: null,
-            localStudentsData: {}, 
-            unsubs: [], // 統一管理監聽器
-
-            // 工具狀態
-            timerInterval: null
-        };
-
-        const CLASS_SIZES = { '5': 5, '6': 6 };
-        const MODES = { 'waiting':'待機', 'ox': 'O/X 題', 'abc': '選擇題', 'typing': '拼字/打字', 'whiteboard': '小白板', 'audio': '口說錄音', 'material': '教材圖片' };
-
-        
-        // 自訂通知 (Toast) 取代 alert
-        const showToast = (message, type = 'info') => {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            const colors = { info: 'bg-gray-800', success: 'bg-green-600', error: 'bg-red-600', warning: 'bg-yellow-500' };
-            const icons = { info: 'fa-info-circle', success: 'fa-check-circle', error: 'fa-exclamation-triangle', warning: 'fa-bell' };
-            
-            toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg font-bold text-sm flex items-center gap-2 toast-enter`;
-            toast.innerHTML = `<i class="fas ${icons[type]}"></i> <span>${message}</span>`;
-            
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.replace('toast-enter', 'toast-leave');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        };
-
-        // 登入驗證
-        const initAuth = async () => {
-            try {
-                await signInAnonymously(auth);
-                return new Promise((resolve) => {
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) { STATE.userId = user.uid; resolve(user); }
-                    });
-                });
-            } catch (error) {
-                showToast("連線失敗，請檢查網路狀態", "error");
-                console.error(error);
-            }
-        };
-
-        // 產生座號下拉選單
-        const populateSeats = () => {
-            const grade = document.getElementById('student-grade').value;
-            const seatSelect = document.getElementById('student-seat');
-            seatSelect.innerHTML = '';
-            for(let i=1; i<=CLASS_SIZES[grade]; i++){
-                seatSelect.innerHTML += `<option value="${i}">${i} 號</option>`;
-            }
-        };
-
-        // 彩帶特效
-        const fireConfetti = () => {
-            if(window.confetti) confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-        };
-
-        // 清理所有 Firebase 監聽器
-        const clearListeners = () => {
-            STATE.unsubs.forEach(unsub => unsub());
-            STATE.unsubs = [];
-        };
-
-        // 壓縮圖片工具 (避免 Base64 過大)
-        const compressImage = (file) => {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        // 限制最大寬度或高度 800px
-                        const MAX_SIZE = 800;
-                        let width = img.width, height = img.height;
-                        if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-                        else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-                        
-                        canvas.width = width; canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.7)); // 轉 JPEG 並壓縮 70%
-                    };
-                };
-            });
-        };
-
-
-        // 初始化學生網格 (只建立框架)
-        const initTeacherGrid = () => {
-            const grid = document.getElementById('teacher-students-grid');
-            grid.innerHTML = ''; 
-            const size = CLASS_SIZES[STATE.grade];
-            
-            for(let i = 1; i <= size; i++) {
-                const stuId = `${STATE.grade}-${i}`;
-                const cardHtml = `
-                    <div id="card-${stuId}" class="student-card bg-white rounded-2xl shadow border-2 border-gray-100 p-3 flex flex-col relative overflow-hidden h-[240px]">
-                        <!-- 分組標籤預設隱藏 -->
-                        <div id="badge-group-${stuId}" class="hidden absolute top-0 right-0 px-2 py-1 text-xs font-bold text-white rounded-bl-lg"></div>
-                        
-                        <div class="flex justify-between items-start mb-2 border-b pb-2">
-                            <div class="flex items-center space-x-2">
-                                <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-black flex items-center justify-center">${i}</div>
-                                <span class="font-bold text-gray-700">座號 ${i}</span>
-                            </div>
-                            <div class="text-yellow-500 font-bold text-lg"><i class="fas fa-star mr-1"></i><span id="score-${stuId}">0</span></div>
-                        </div>
-                        
-                        <div class="flex-1 flex flex-col justify-center items-center bg-gray-50 rounded-xl mb-2 p-1 overflow-hidden relative">
-                            <div id="status-icon-${stuId}" class="text-4xl text-gray-300 mb-1 transition-all"><i class="fas fa-minus-circle"></i></div>
-                            <div id="answer-content-${stuId}" class="text-lg font-bold text-gray-800 text-center w-full break-words max-h-full overflow-y-auto">未作答</div>
-                        </div>
-
-                        <div class="flex justify-between mt-auto gap-1">
-                            <button class="action-btn flex-[2] py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-bold text-sm transition" data-action="addScore" data-stuid="${stuId}">
-                                +1 分
-                            </button>
-                            <button class="action-btn flex-1 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-bold text-sm transition border border-red-100" data-action="addLate" data-seat="${i}" title="標記遲到">
-                                <i class="fas fa-user-clock"></i>
-                            </button>
-                            <button class="action-btn flex-1 py-2 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-lg font-bold text-sm transition border border-orange-100" data-action="addHW" data-seat="${i}" title="標記缺交">
-                                <i class="fas fa-book-dead"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-                grid.insertAdjacentHTML('beforeend', cardHtml);
-            }
-        };
-
-        // 精準更新單一學生卡片
-        const patchStudentCard = (stuId, data, currentMode, sysCorrectAnswer) => {
-            const { score = 0, status = 'waiting', answer = '', group = null } = data;
-            
-            // 更新分數與分組
-            document.getElementById(`score-${stuId}`).innerText = score;
-            const badgeEl = document.getElementById(`badge-group-${stuId}`);
-            if(group) {
-                badgeEl.innerText = group;
-                badgeEl.className = `absolute top-0 right-0 px-2 py-1 text-xs font-bold text-white rounded-bl-lg ${group==='A'?'bg-blue-500':'bg-red-500'}`;
-            } else {
-                badgeEl.classList.add('hidden');
-            }
-            
-            const iconEl = document.getElementById(`status-icon-${stuId}`);
-            const ansEl = document.getElementById(`answer-content-${stuId}`);
-            const cardEl = document.getElementById(`card-${stuId}`);
-
-            // 判斷是否隱藏答案
-            const shouldHideAnswer = STATE.isBlindMode && !STATE.showAnswersTriggered && status === 'submitted';
-
-            // 判斷答案是否正確 (若有設定正解)
-            let isCorrect = false;
-            let ansColor = 'text-blue-600';
-            if (sysCorrectAnswer && status === 'submitted') {
-                isCorrect = (answer.trim().toLowerCase() === sysCorrectAnswer.trim().toLowerCase());
-                ansColor = isCorrect ? 'text-green-600' : 'text-red-500';
-            }
-
-            if (status === 'submitted') {
-                cardEl.classList.add('border-blue-400', 'bg-blue-50/20');
-                
-                if (shouldHideAnswer) {
-                    iconEl.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
-                    ansEl.innerHTML = '<span class="text-green-600">已作答</span>';
-                } else {
-                    // 顯示真實答案 (根據模式)
-                    if (currentMode === 'whiteboard' && answer.startsWith('data:image')) {
-                        iconEl.innerHTML = '';
-                        ansEl.innerHTML = `<img src="${answer}" class="w-full h-full object-contain cursor-zoom-in" onclick="window.open('${answer}')">`;
-                    } else if (currentMode === 'audio' && answer.startsWith('data:audio')) {
-                        iconEl.innerHTML = '<i class="fas fa-headphones text-purple-500 mb-2"></i>';
-                        ansEl.innerHTML = `<audio controls src="${answer}" class="w-[90%] h-8"></audio>`;
-                    } else if (currentMode === 'typing') {
-                        iconEl.innerHTML = '';
-                        ansEl.innerHTML = `<div class="text-sm text-left w-full h-full">${answer}</div>`;
-                    } else { // O/X, A-C
-                        iconEl.innerHTML = isCorrect ? '<i class="fas fa-check text-green-500 absolute top-1 left-1 opacity-50"></i>' : '';
-                        ansEl.innerHTML = `<span class="${ansColor} text-5xl font-black">${answer}</span>`;
-                    }
-                }
-            } else if (status === 'thinking') {
-                 cardEl.classList.remove('border-blue-400', 'bg-blue-50/20');
-                 iconEl.innerHTML = '<i class="fas fa-pencil-alt text-yellow-500 animate-bounce"></i>';
-                 ansEl.innerHTML = '<span class="text-yellow-600 text-sm">作答/錄音中...</span>';
-            } else { // waiting
-                 cardEl.classList.remove('border-blue-400', 'bg-blue-50/20');
-                 iconEl.innerHTML = '<i class="fas fa-minus-circle text-gray-300"></i>';
-                 ansEl.innerHTML = '<span class="text-gray-400 text-sm">待機中</span>';
-            }
-        };
-
-        // 更新小組總分
-        const updateGroupScores = () => {
-            let scoreA = 0, scoreB = 0;
-            Object.values(STATE.localStudentsData).forEach(stu => {
-                if(stu.group === 'A') scoreA += (stu.score || 0);
-                if(stu.group === 'B') scoreB += (stu.score || 0);
-            });
-            document.getElementById('group-a-score').innerText = scoreA;
-            document.getElementById('group-b-score').innerText = scoreB;
-        };
-
-        const startTeacherListeners = () => {
-            clearListeners();
-
-            // 1. 監聽全班狀態 (任務)
-            const unsubState = onSnapshot(getDocPath(`classState_${STATE.grade}`, 'current'), (docSnap) => {
-                const data = docSnap.exists() ? docSnap.data() : { mode: 'waiting', locked: false };
-                STATE.taskMode = data.mode;
-                STATE.correctAnswer = data.correctAnswer;
-                
-                // 更新標題與狀態列
-                document.getElementById('task-badge').innerText = MODES[data.mode] || '待機';
-                document.getElementById('task-badge').className = `px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${data.mode==='waiting'?'bg-gray-200 text-gray-600':'bg-indigo-600 text-white animate-pulse'}`;
-                
-                document.getElementById('current-task-title').innerText = data.mode === 'waiting' ? (data.locked ? '🔒 平板鎖定中' : '準備上課') : '學生作答中...';
-                
-                // 顯示題目
-                const qDisplay = document.getElementById('teacher-question-display');
-                if (data.question) {
-                    qDisplay.classList.remove('hidden');
-                    document.getElementById('teacher-question-text').innerText = data.question;
-                } else {
-                    qDisplay.classList.add('hidden');
-                }
-
-                // 按鈕狀態切換
-                document.getElementById('btn-lock-screen').classList.toggle('hidden', data.locked);
-                document.getElementById('btn-unlock-screen').classList.toggle('hidden', !data.locked);
-                
-                // 批次加分按鈕 (只有在有正解且非待機時顯示)
-                document.getElementById('btn-auto-grade').classList.toggle('hidden', !data.correctAnswer || data.mode === 'waiting');
-
-                // 倒數計時器
-                const timerEl = document.getElementById('timer-display-container');
-                if(data.timerEnd) {
-                    timerEl.classList.remove('hidden');
-                    timerEl.classList.add('flex');
-                    startTimerCountdown(data.timerEnd, 'teacher');
-                } else {
-                    timerEl.classList.add('hidden');
-                    timerEl.classList.remove('flex');
-                    clearInterval(STATE.timerInterval);
-                }
-
-                // 強制更新所有卡片UI
-                Object.keys(STATE.localStudentsData).forEach(stuId => {
-                    patchStudentCard(stuId, STATE.localStudentsData[stuId], data.mode, data.correctAnswer);
-                });
-            }, (err) => console.error(err));
-            STATE.unsubs.push(unsubState);
-
-            // 2. 監聽學生資料 (分數、答案)
-            const unsubStudents = onSnapshot(getColPath(`students_${STATE.grade}`), (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    const stuId = change.doc.id;
-                    const data = change.doc.data();
-                    STATE.localStudentsData[stuId] = data;
-                    patchStudentCard(stuId, data, STATE.taskMode, STATE.correctAnswer);
-                });
-                updateGroupScores();
-            }, (err) => console.error(err));
-            STATE.unsubs.push(unsubStudents);
-
-            // 3. 監聽獎懲紀錄
-            const unsubRecords = onSnapshot(getColPath(`records_${STATE.grade}`), (snapshot) => {
-                const container = document.getElementById('records-container');
-                let records = [];
-                snapshot.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
-                records.sort((a, b) => b.timestamp - a.timestamp); // 新的在上
-                
-                container.innerHTML = '';
-                if(records.length === 0) {
-                    container.innerHTML = '<div class="text-center text-gray-400 text-sm mt-10">目前無任何紀錄</div>';
-                } else {
-                    records.forEach(record => {
-                        const isLate = record.type === 'late';
-                        const el = document.createElement('div');
-                        el.className = `p-2 bg-white border-l-4 rounded shadow-sm flex justify-between items-center text-sm ${isLate?'border-red-500':'border-orange-500'}`;
-                        el.innerHTML = `
-                            <div>
-                                <span class="font-bold text-gray-700">${record.seat}號</span> 
-                                <span class="${isLate?'text-red-500':'text-orange-500'} font-bold ml-1">${isLate?'遲到':'缺交作業'}</span>
-                                <span class="text-gray-400 text-xs ml-2">${new Date(record.timestamp).toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'})}</span>
-                            </div>
-                            <button class="delete-record-btn text-gray-400 hover:text-red-500 p-1" data-id="${record.id}"><i class="fas fa-times"></i></button>
-                        `;
-                        container.appendChild(el);
-                    });
-                }
-            }, (err) => console.error(err));
-            STATE.unsubs.push(unsubRecords);
-        };
-
-
-        document.addEventListener('DOMContentLoaded', () => {
-            
-            // --- 登入流程 ---
-            document.getElementById('student-grade').addEventListener('change', populateSeats);
-            document.getElementById('btn-show-student-login').addEventListener('click', () => {
-                document.getElementById('student-login-form').classList.remove('hidden');
-                document.getElementById('login-selection').classList.add('hidden');
-                populateSeats();
-            });
-            document.getElementById('btn-show-teacher-login').addEventListener('click', () => {
-                document.getElementById('teacher-login-form').classList.remove('hidden');
-                document.getElementById('login-selection').classList.add('hidden');
-            });
-            document.querySelectorAll('.btn-back-login').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.getElementById('student-login-form').classList.add('hidden');
-                    document.getElementById('teacher-login-form').classList.add('hidden');
-                    document.getElementById('login-selection').classList.remove('hidden');
-                });
-            });
-
-            // 老師登入
-            document.getElementById('btn-teacher-join').addEventListener('click', async () => {
-                if(document.getElementById('teacher-password').value !== 'edu') return showToast('密碼錯誤！', 'error');
-                
-                document.getElementById('btn-teacher-join').innerText = '連線中...';
-                await initAuth();
-                document.getElementById('login-view').classList.add('hidden');
-                document.getElementById('teacher-view').classList.remove('hidden');
-                
-                STATE.role = 'teacher';
-                initTeacherGrid();
-                startTeacherListeners();
-                showToast(`已成功登入 ${STATE.grade}年級 控制台`, 'success');
-            });
-
-            // 老師切換班級
-            document.getElementById('control-grade-select').addEventListener('change', (e) => {
-                STATE.grade = e.target.value;
-                initTeacherGrid();
-                startTeacherListeners();
-                showToast(`已切換至 ${STATE.grade} 年級`, 'info');
-            });
-
-            // --- 任務 Modal 控制 ---
-            let selectedMode = null;
-            document.querySelectorAll('.t-tool-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    selectedMode = btn.dataset.mode;
-                    document.getElementById('modal-title').innerHTML = `<i class="fas fa-cog mr-2"></i>發布：${MODES[selectedMode]}`;
-                    
-                    // 重置 Modal 表單
-                    document.getElementById('task-question-input').value = '';
-                    document.getElementById('material-file-input').value = '';
-                    document.getElementById('modal-img-preview').classList.add('hidden');
-                    STATE.tempMaterialBase64 = null;
-
-                    const ansContainer = document.getElementById('answer-inputs-container');
-                    const ansSetup = document.getElementById('modal-answer-setup');
-                    const matSetup = document.getElementById('modal-material-upload');
-                    
-                    ansContainer.innerHTML = ''; // 清空選項
-                    ansSetup.classList.remove('hidden');
-                    matSetup.classList.add('hidden');
-
-                    if(selectedMode === 'ox') {
-                        ansContainer.innerHTML = `<select id="input-correct-ans" class="w-full p-2 border rounded"><option value="">無正解</option><option value="O">O</option><option value="X">X</option></select>`;
-                    } else if(selectedMode === 'abc') {
-                        ansContainer.innerHTML = `<select id="input-correct-ans" class="w-full p-2 border rounded"><option value="">無正解</option><option value="A">A</option><option value="B">B</option><option value="C">C</option></select>`;
-                    } else if(selectedMode === 'typing') {
-                        ansContainer.innerHTML = `<input type="text" id="input-correct-ans" class="w-full p-2 border rounded" placeholder="輸入正確文字 (選填)">`;
-                    } else {
-                        ansSetup.classList.add('hidden'); // 白板、圖片、錄音不設自動改題
-                        if(selectedMode === 'whiteboard' || selectedMode === 'material') {
-                            matSetup.classList.remove('hidden');
-                        }
-                    }
-                    
-                    document.getElementById('task-modal').classList.remove('hidden');
-                });
-            });
-
-            document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', () => document.getElementById('task-modal').classList.add('hidden')));
-
-            // 處理圖片上傳預覽與壓縮
-            document.getElementById('material-file-input').addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if(file) {
-                    try {
-                        showToast('圖片處理中...', 'info');
-                        const compressedBase64 = await compressImage(file);
-                        STATE.tempMaterialBase64 = compressedBase64;
-                        
-                        const preview = document.getElementById('modal-img-preview');
-                        preview.innerHTML = `<img src="${compressedBase64}" class="w-full h-auto">`;
-                        preview.classList.remove('hidden');
-                        showToast('圖片就緒', 'success');
-                    } catch(err) {
-                        showToast('圖片處理失敗，請換一張圖', 'error');
-                    }
-                }
-            });
-
-            // 確認發布任務
-            document.getElementById('btn-confirm-task').addEventListener('click', async () => {
-                if(selectedMode === 'material' && !STATE.tempMaterialBase64) return showToast('請先上傳圖片！', 'warning');
-                
-                const question = document.getElementById('task-question-input').value.trim();
-                const ansInput = document.getElementById('input-correct-ans');
-                const correctAns = ansInput ? ansInput.value.trim() : null;
-
-                STATE.showAnswersTriggered = false; 
-                
-                const updateData = { 
-                    mode: selectedMode, 
-                    locked: false, 
-                    timestamp: Date.now(),
-                    question: question || null,
-                    correctAnswer: correctAns || null,
-                    timerEnd: null // 發任務重置計時器
-                };
-                if (STATE.tempMaterialBase64) updateData.materialData = STATE.tempMaterialBase64;
-                
-                // 寫入資料庫
-                await setDoc(getDocPath(`classState_${STATE.grade}`, 'current'), updateData, { merge: true });
-                document.getElementById('task-modal').classList.add('hidden');
-                showToast('任務已發布！', 'success');
-            });
-
-            // 收回任務
-            document.getElementById('btn-close-task').addEventListener('click', async () => {
-                await setDoc(getDocPath(`classState_${STATE.grade}`, 'current'), { mode: 'waiting', question: null, correctAnswer: null, materialData: null, timerEnd: null }, { merge: true });
-                showToast('已收回任務', 'info');
-            });
-
-            // 鎖屏控制
-            document.getElementById('btn-lock-screen').addEventListener('click', () => setDoc(getDocPath(`classState_${STATE.grade}`, 'current'), { locked: true }, { merge: true }));
-            document.getElementById('btn-unlock-screen').addEventListener('click', () => setDoc(getDocPath(`classState_${STATE.grade}`, 'current'), { locked: false }, { merge: true }));
-
-            // 盲答控制
-            document.getElementById('btn-blind-mode').addEventListener('click', (e) => {
-                STATE.isBlindMode = !STATE.isBlindMode;
-                const btn = e.target.closest('button');
-                if(STATE.isBlindMode) {
-                    btn.innerHTML = '<i class="fas fa-eye-slash mr-1"></i> 盲答(隱藏)';
-                    btn.className = 'px-4 py-2 bg-blue-600 rounded-lg text-white font-bold shadow-sm border border-blue-700';
-                    document.getElementById('btn-show-answers').classList.remove('hidden');
-                } else {
-                    btn.innerHTML = '<i class="fas fa-eye mr-1"></i> 盲答(關閉)';
-                    btn.className = 'px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 font-bold transition shadow-sm border';
-                    document.getElementById('btn-show-answers').classList.add('hidden');
-                }
-                STATE.showAnswersTriggered = false;
-                // 刷新 UI
-                Object.keys(STATE.localStudentsData).forEach(stuId => patchStudentCard(stuId, STATE.localStudentsData[stuId], STATE.taskMode, STATE.correctAnswer));
-            });
-            document.getElementById('btn-show-answers').addEventListener('click', () => {
-                STATE.showAnswersTriggered = true;
-                Object.keys(STATE.localStudentsData).forEach(stuId => patchStudentCard(stuId, STATE.localStudentsData[stuId], STATE.taskMode, STATE.correctAnswer));
-            });
-
-            // 一鍵批次給分 (自動改題)
-            document.getElementById('btn-auto-grade').addEventListener('click', async () => {
-                if(!STATE.correctAnswer) return;
-                const batch = writeBatch(db);
-                let addedCount = 0;
-                
-                Object.keys(STATE.localStudentsData).forEach(stuId => {
-                    const stu = STATE.localStudentsData[stuId];
-                    if (stu.status === 'submitted' && stu.answer && stu.answer.trim().toLowerCase() === STATE.correctAnswer.trim().toLowerCase()) {
-                        const ref = getDocPath(`students_${STATE.grade}`, stuId);
-                        batch.update(ref, { score: (stu.score || 0) + 1 });
-                        addedCount++;
-                    }
-                });
-                
-                if(addedCount > 0) {
-                    await batch.commit();
-                    showToast(`已為 ${addedCount} 位答對學生加分！`, 'success');
-                    fireConfetti();
-                } else {
-                    showToast('目前沒有學生答對', 'warning');
-                }
-            });
-
-
-            // --- 工具列：隨機抽籤、計時器、分組 ---
-            document.getElementById('btn-tool-random').addEventListener('click', () => {
-                const size = CLASS_SIZES[STATE.grade];
-                let count = 0;
-                const interval = setInterval(() => {
-                    const r = Math.floor(Math.random() * size) + 1;
-                    document.getElementById(`card-${STATE.grade}-${r}`).classList.add('bg-yellow-200');
-                    setTimeout(() => document.getElementById(`card-${STATE.grade}-${r}`).classList.remove('bg-yellow-200'), 100);
-                    count++;
-                    if(count > 15) {
-                        clearInterval(interval);
-                        const winner = Math.floor(Math.random() * size) + 1;
-                        showToast(`🎉 恭喜 ${winner} 號中獎！`, 'success');
-                        const card = document.getElementById(`card-${STATE.grade}-${winner}`);
-                        card.classList.add('ring-4', 'ring-yellow-400', 'bg-yellow-100');
-                        setTimeout(() => card.classList.remove('ring-4', 'ring-yellow-400', 'bg-yellow-100'), 4000);
-                        fireConfetti();
-                    }
-                }, 100);
-            });
-
-            document.getElementById('btn-tool-timer').addEventListener('click', async () => {
-                const mins = prompt("請輸入倒數分鐘數 (輸入 0 關閉計時器):", "1");
-                if (mins === null) return;
-                const minInt = parseInt(mins);
-                if (isNaN(minInt)) return;
-                
-                let timerEnd = null;
-                if (minInt > 0) timerEnd = Date.now() + (minInt * 60 * 1000);
-                
-                await setDoc(getDocPath(`classState_${STATE.grade}`, 'current'), { timerEnd: timerEnd }, { merge: true });
-            });
-
-            document.getElementById('btn-tool-group').addEventListener('click', async () => {
-                const size = CLASS_SIZES[STATE.grade];
-                let students = Array.from({length: size}, (_, i) => i + 1);
-                // 打亂陣列
-                for (let i = students.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [students[i], students[j]] = [students[j], students[i]];
-                }
-                
-                const batch = writeBatch(db);
-                students.forEach((seat, index) => {
-                    const group = index % 2 === 0 ? 'A' : 'B';
-                    const ref = getDocPath(`students_${STATE.grade}`, `${STATE.grade}-${seat}`);
-                    batch.set(ref, { group: group }, { merge: true });
-                });
-                await batch.commit();
-                showToast('已重新隨機分組！', 'success');
-            });
-
-
-            // --- 卡片按鈕事件委派 (加分、遲到、缺交、刪除紀錄) ---
-            document.addEventListener('click', async (e) => {
-                if (STATE.role !== 'teacher') return;
-                
-                const target = e.target.closest('button');
-                if (!target) return;
-
-                if (target.classList.contains('action-btn')) {
-                    const action = target.dataset.action;
-                    const seat = target.dataset.seat;
-                    const stuId = target.dataset.stuid || `${STATE.grade}-${seat}`;
-                    
-                    if (action === 'addScore') {
-                        const currentScore = STATE.localStudentsData[stuId]?.score || 0;
-                        await setDoc(getDocPath(`students_${STATE.grade}`, stuId), { score: currentScore + 1 }, { merge: true });
-                        const orgHtml = target.innerHTML;
-                        target.innerHTML = '<i class="fas fa-check"></i>';
-                        target.classList.replace('bg-green-100', 'bg-green-500'); target.classList.add('text-white');
-                        setTimeout(() => { target.innerHTML = orgHtml; target.classList.replace('bg-green-500', 'bg-green-100'); target.classList.remove('text-white'); }, 500);
-                    }
-                    else if (action === 'addLate' || action === 'addHW') {
-                        const type = action === 'addLate' ? 'late' : 'hw';
-                        await addDoc(getColPath(`records_${STATE.grade}`), { grade: STATE.grade, seat: seat, type: type, timestamp: Date.now() });
-                        showToast(`已登記 ${seat}號 ${action==='addLate'?'遲到':'缺交'}`, 'warning');
-                    }
-                }
-                
-                if (target.classList.contains('delete-record-btn')) {
-                    await deleteDoc(getDocPath(`records_${STATE.grade}`, target.dataset.id));
-                    showToast('已刪除紀錄', 'info');
-                }
-            });
-
-            // 匯出報表與歸零
-            document.getElementById('btn-reset-points').addEventListener('click', async () => {
-                if(confirm(`確定要將 ${STATE.grade} 年級全班分數歸零嗎？`)) {
-                    const batch = writeBatch(db);
-                    Object.keys(STATE.localStudentsData).forEach(id => batch.update(getDocPath(`students_${STATE.grade}`, id), { score: 0 }));
-                    await batch.commit();
-                    showToast('全班分數已歸零', 'success');
-                }
-            });
-
-            document.getElementById('btn-export-report').addEventListener('click', () => {
-                let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM
-                csvContent += "座號,分數,組別\n";
-                for(let i=1; i<=CLASS_SIZES[STATE.grade]; i++) {
-                    const stu = STATE.localStudentsData[`${STATE.grade}-${i}`];
-                    csvContent += `${i},${stu?.score||0},${stu?.group||'-'}\n`;
-                }
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `${STATE.grade}年級_課堂報表_${new Date().toLocaleDateString()}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            });
-        });
-
-        
-        const submitStudentAnswer = async (answer) => {
-            const stuId = `${STATE.grade}-${STATE.seat}`;
-            await setDoc(getDocPath(`students_${STATE.grade}`, stuId), { status: 'submitted', answer: answer }, { merge: true });
-            
-            const statusEl = document.getElementById('stu-task-status');
-            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> 已送出 (可重送)';
-            statusEl.className = "px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-bold shadow-inner transition-all";
-            fireConfetti();
-        };
-
-        const startStudentListeners = () => {
-            const stuId = `${STATE.grade}-${STATE.seat}`;
-
-            // 監聽自己
-            onSnapshot(getDocPath(`students_${STATE.grade}`, stuId), (docSnap) => {
-                if(docSnap.exists()){
-                    const data = docSnap.data();
-                    document.getElementById('stu-header-score').innerText = data.score || 0;
-                    
-                    const groupBadge = document.getElementById('stu-group-badge');
-                    if(data.group) {
-                        groupBadge.innerText = data.group;
-                        groupBadge.classList.remove('hidden');
-                        groupBadge.classList.add(data.group === 'A' ? 'bg-blue-500' : 'bg-red-500');
-                    } else {
-                        groupBadge.classList.add('hidden');
-                    }
-                }
-            });
-
-            // 監聽全班狀態
-            onSnapshot(getDocPath(`classState_${STATE.grade}`, 'current'), (docSnap) => {
-                const data = docSnap.exists() ? docSnap.data() : { mode: 'waiting', locked: false };
-                
-                // 鎖屏
-                document.getElementById('lock-screen').classList.toggle('hidden', !data.locked);
-
-                // 題目顯示
-                const qDisplay = document.getElementById('stu-question-display');
-                if (data.question) {
-                    qDisplay.classList.remove('hidden');
-                    document.getElementById('stu-question-text').innerText = data.question;
-                } else {
-                    qDisplay.classList.add('hidden');
-                }
-
-                // 切換介面模式
-                Object.keys(MODES).forEach(m => {
-                    const el = document.getElementById(`stu-mode-${m}`);
-                    if(el) el.classList.add('hidden');
-                });
-                
-                const currentModeEl = document.getElementById(`stu-mode-${data.mode}`);
-                if (currentModeEl) {
-                    currentModeEl.classList.remove('hidden');
-                    currentModeEl.classList.add('flex'); // 確保 flex layout
-                } else {
-                    document.getElementById('stu-mode-waiting').classList.remove('hidden');
-                }
-
-                // 狀態列更新 & 自動清空
-                const statusEl = document.getElementById('stu-task-status');
-                if(data.mode === 'waiting') {
-                    statusEl.innerText = "等待任務...";
-                    statusEl.className = "px-4 py-1.5 bg-gray-200 text-gray-600 rounded-full text-sm font-bold shadow-inner";
-                    setDoc(getDocPath(`students_${STATE.grade}`, stuId), { status: 'waiting', answer: '' }, { merge: true });
-                } else {
-                    statusEl.innerText = "✏️ 作答中...";
-                    statusEl.className = "px-4 py-1.5 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold shadow-inner";
-                    setDoc(getDocPath(`students_${STATE.grade}`, stuId), { status: 'thinking' }, { merge: true });
-                }
-
-                // 白板與教材處理 (含背景圖片)
-                if (data.mode === 'material' && data.materialData) {
-                    document.getElementById('stu-material-content').innerHTML = `<img src="${data.materialData}" class="max-w-full h-auto max-h-[60vh] rounded shadow">`;
-                }
-                
-                if (data.mode === 'whiteboard') {
-                    setCanvasBackground(data.materialData || null);
-                } else {
-                    clearCanvas();
-                }
-
-                if (data.mode !== 'typing') document.getElementById('stu-typing-input').value = '';
-                
-                // 錄音重置
-                if (data.mode !== 'audio') resetAudioUI();
-
-                // 計時器
-                const timerEl = document.getElementById('stu-timer-display');
-                if(data.timerEnd) {
-                    timerEl.classList.remove('hidden');
-                    startTimerCountdown(data.timerEnd, 'student');
-                } else {
-                    timerEl.classList.add('hidden');
-                    clearInterval(STATE.timerInterval);
-                }
-
-            }, (err) => console.error(err));
-        };
-
-        // 計時器共用邏輯
-        const startTimerCountdown = (endTime, role) => {
-            clearInterval(STATE.timerInterval);
-            const displayEl = document.getElementById(role === 'teacher' ? 'timer-display-time' : 'stu-timer-display').querySelector('span');
-            
-            STATE.timerInterval = setInterval(() => {
-                const now = Date.now();
-                const diff = endTime - now;
-                if (diff <= 0) {
-                    clearInterval(STATE.timerInterval);
-                    displayEl.innerText = "00:00";
-                    if(role === 'student') showToast('時間到！', 'warning');
-                    return;
-                }
-                const m = Math.floor(diff / 60000).toString().padStart(2, '0');
-                const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-                displayEl.innerText = `${m}:${s}`;
-            }, 1000);
-        };
-
-
-        // 學生登入與作答事件
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('btn-student-join').addEventListener('click', async () => {
-                STATE.grade = document.getElementById('student-grade').value;
-                STATE.seat = document.getElementById('student-seat').value;
-                document.getElementById('btn-student-join').innerText = '連線中...';
-                
-                await initAuth();
-                STATE.role = 'student';
-                
-                // 初始化資料
-                const stuRef = getDocPath(`students_${STATE.grade}`, `${STATE.grade}-${STATE.seat}`);
-                const snap = await getDoc(stuRef);
-                if(!snap.exists()) {
-                    await setDoc(stuRef, { grade: STATE.grade, seat: STATE.seat, score: 0, status: 'waiting', group: null });
-                }
-
-                document.getElementById('login-view').classList.add('hidden');
-                document.getElementById('student-view').classList.remove('hidden');
-                document.getElementById('student-view').classList.add('flex');
-                
-                document.getElementById('stu-header-grade').innerText = `${STATE.grade}年級`;
-                document.getElementById('stu-header-seat').innerText = STATE.seat;
-                
-                initCanvas(); 
-                initAudioRecorder();
-                startStudentListeners();
-                showToast('成功進入教室', 'success');
-            });
-
-            // 點擊選項按鈕
-            document.querySelectorAll('.stu-ans-btn').forEach(btn => {
-                btn.addEventListener('click', () => submitStudentAnswer(btn.dataset.ans));
-            });
-            // 打字題
-            document.getElementById('btn-stu-submit-typing').addEventListener('click', () => {
-                const val = document.getElementById('stu-typing-input').value.trim();
-                if(val) submitStudentAnswer(val);
-            });
-            // 白板
-            document.getElementById('btn-stu-submit-board').addEventListener('click', () => {
-                const canvas = document.getElementById('stu-canvas');
-                submitStudentAnswer(canvas.toDataURL('image/jpeg', 0.8)); // 降低品質加速傳輸
-            });
-        });
-
-        let ctx, isDrawing = false, lastX = 0, lastY = 0, currentBgImage = null;
-        
-        function initCanvas() {
-            const canvas = document.getElementById('stu-canvas');
-            const container = document.getElementById('canvas-container');
-            // 設定畫布內部解析度與容器一致
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-            
-            ctx = canvas.getContext('2d');
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = '#2563eb';
-
-            // 顏色選擇器
-            document.querySelectorAll('.color-picker').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    ctx.strokeStyle = e.target.dataset.color;
-                    document.querySelectorAll('.color-picker').forEach(b => b.classList.remove('ring-2', 'ring-blue-300'));
-                    e.target.classList.add('ring-2', 'ring-blue-300');
-                });
-            });
-
-            const getPos = (e) => {
-                const rect = canvas.getBoundingClientRect();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                // 考量 CSS 縮放比例
-                const scaleX = canvas.width / rect.width;
-                const scaleY = canvas.height / rect.height;
-                return {
-                    x: (clientX - rect.left) * scaleX,
-                    y: (clientY - rect.top) * scaleY
-                };
-            };
-
-            const startDraw = (e) => { isDrawing = true; const pos = getPos(e); [lastX, lastY] = [pos.x, pos.y]; };
-            const draw = (e) => {
-                if (!isDrawing) return;
-                e.preventDefault(); 
-                const pos = getPos(e);
-                ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(pos.x, pos.y); ctx.stroke();
-                [lastX, lastY] = [pos.x, pos.y];
-            };
-            const endDraw = () => isDrawing = false;
-
-            canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw);
-            canvas.addEventListener('mouseup', endDraw); canvas.addEventListener('mouseout', endDraw);
-            canvas.addEventListener('touchstart', startDraw, {passive: false}); canvas.addEventListener('touchmove', draw, {passive: false});
-            canvas.addEventListener('touchend', endDraw);
-            
-            document.getElementById('btn-stu-clear-board').addEventListener('click', () => {
-                clearCanvas();
-                if(currentBgImage) drawBgImage(currentBgImage);
-            });
-            
-            // 處理視窗大小改變
-            window.addEventListener('resize', () => {
-                if(STATE.role !== 'student') return;
-                const temp = canvas.toDataURL();
-                canvas.width = container.clientWidth; canvas.height = container.clientHeight;
-                if(currentBgImage) {
-                    drawBgImage(currentBgImage).then(() => {
-                        const img = new Image();
-                        img.onload = () => ctx.drawImage(img, 0, 0);
-                        img.src = temp;
-                    });
-                } else {
-                    const img = new Image();
-                    img.onload = () => ctx.drawImage(img, 0, 0);
-                    img.src = temp;
-                }
-            });
-        }
-
-        function clearCanvas() {
-            if(!ctx) return;
-            const canvas = document.getElementById('stu-canvas');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-
-        function setCanvasBackground(base64Str) {
-            clearCanvas();
-            currentBgImage = base64Str;
-            if (base64Str) drawBgImage(base64Str);
-        }
-
-        function drawBgImage(base64Str) {
-            return new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.getElementById('stu-canvas');
-                    // 計算置中縮放比例 (類似 object-fit: contain)
-                    const hRatio = canvas.width / img.width;
-                    const vRatio = canvas.height / img.height;
-                    const ratio  = Math.min( hRatio, vRatio );
-                    const centerShift_x = ( canvas.width - img.width*ratio ) / 2;
-                    const centerShift_y = ( canvas.height - img.height*ratio ) / 2;  
-                    
-                    ctx.drawImage(img, 0, 0, img.width, img.height, centerShift_x, centerShift_y, img.width*ratio, img.height*ratio);
-                    resolve();
-                };
-                img.src = base64Str;
-            });
-        }
-
-
-        let mediaRecorder;
-        let audioChunks = [];
-        let isRecording = false;
-
-        function initAudioRecorder() {
-            const btnRecord = document.getElementById('btn-stu-record');
-            const previewContainer = document.getElementById('audio-preview-container');
-            const audioPlayback = document.getElementById('stu-audio-playback');
-            let currentAudioBase64 = null;
-            let recordTimeout = null;
-
-            btnRecord.addEventListener('click', async () => {
-                if (!isRecording) {
-                    // 開始錄音
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        mediaRecorder = new MediaRecorder(stream);
-                        audioChunks = [];
-                        
-                        mediaRecorder.ondataavailable = e => { if(e.data.size > 0) audioChunks.push(e.data); };
-                        mediaRecorder.onstop = () => {
-                            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                            const audioUrl = URL.createObjectURL(audioBlob);
-                            audioPlayback.src = audioUrl;
-                            
-                            // 轉 Base64 準備上傳
-                            const reader = new FileReader();
-                            reader.readAsDataURL(audioBlob);
-                            reader.onloadend = () => { currentAudioBase64 = reader.result; };
-
-                            btnRecord.classList.add('hidden');
-                            previewContainer.classList.remove('hidden');
-                            
-                            // 停止麥克風使用
-                            stream.getTracks().forEach(track => track.stop());
-                        };
-
-                        mediaRecorder.start();
-                        isRecording = true;
-                        btnRecord.innerHTML = '<i class="fas fa-stop mr-2"></i> 停止錄音';
-                        btnRecord.classList.replace('bg-red-500', 'bg-gray-800');
-                        btnRecord.classList.replace('hover:bg-red-600', 'hover:bg-gray-900');
-                        document.getElementById('audio-mic-icon').classList.add('animate-pulse', 'bg-red-100');
-                        document.getElementById('audio-mic-icon').querySelector('i').classList.replace('text-blue-500', 'text-red-500');
-
-                        // 限制 15 秒自動停止
-                        recordTimeout = setTimeout(() => {
-                            if(isRecording) stopRecording();
-                        }, 15000);
-
-                    } catch (err) {
-                        showToast('無法存取麥克風，請確認權限設定。', 'error');
-                    }
-                } else {
-                    stopRecording();
-                }
-            });
-
-            function stopRecording() {
-                if(mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-                isRecording = false;
-                clearTimeout(recordTimeout);
-                document.getElementById('audio-mic-icon').classList.remove('animate-pulse', 'bg-red-100');
-                document.getElementById('audio-mic-icon').querySelector('i').classList.replace('text-red-500', 'text-blue-500');
-            }
-
-            document.getElementById('btn-stu-re-record').addEventListener('click', () => {
-                previewContainer.classList.add('hidden');
-                btnRecord.classList.remove('hidden');
-                btnRecord.innerHTML = '<i class="fas fa-circle mr-2"></i> 開始錄音 (Record)';
-                btnRecord.classList.replace('bg-gray-800', 'bg-red-500');
-                btnRecord.classList.replace('hover:bg-gray-900', 'hover:bg-red-600');
-                currentAudioBase64 = null;
-            });
-
-            document.getElementById('btn-stu-submit-audio').addEventListener('click', () => {
-                if(currentAudioBase64) submitStudentAnswer(currentAudioBase64);
-            });
-        }
-
-        function resetAudioUI() {
-            document.getElementById('audio-preview-container').classList.add('hidden');
-            const btn = document.getElementById('btn-stu-record');
-            btn.classList.remove('hidden');
-            btn.innerHTML = '<i class="fas fa-circle mr-2"></i> 開始錄音 (Record)';
-            btn.classList.replace('bg-gray-800', 'bg-red-500');
-            btn.classList.replace('hover:bg-gray-900', 'hover:bg-red-600');
-            if(isRecording && mediaRecorder) mediaRecorder.stop();
-            isRecording = false;
-        }
-
-    </script>
+        fr.readAsDataURL(blob);
+        btn.classList.add('hidden');
+        $('audio-preview-container').classList.remove('hidden');
+        $('audio-preview-container').classList.add('flex');
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+      isRecording = true;
+      let left = AUDIO_MAX_SECONDS;
+      btn.innerHTML = `<i class="fas fa-stop mr-2"></i>停止（${left}）`;
+      btn.classList.replace('bg-red-500', 'bg-gray-800');
+      $('audio-mic-icon').classList.add('animate-pulse', 'bg-red-100');
+      recCountdown = setInterval(() => { btn.innerHTML = `<i class="fas fa-stop mr-2"></i>停止（${--left}）`; }, 1000);
+      recTimer = setTimeout(() => { if (isRecording) stopRecording(); }, AUDIO_MAX_SECONDS * 1000);
+    } catch {
+      showToast('無法使用麥克風，請允許權限', 'error');
+    }
+  });
+
+  $('btn-stu-re-record').addEventListener('click', resetAudioUI);
+  $('btn-stu-submit-audio').addEventListener('click', () => {
+    if (!audioB64) return showToast('還沒有錄音內容', 'warning');
+    submitStudentAnswer(audioB64);
+  });
+}
+
+function stopRecording() {
+  try { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); } catch {}
+  isRecording = false;
+  clearTimeout(recTimer); clearInterval(recCountdown);
+  $('audio-mic-icon').classList.remove('animate-pulse', 'bg-red-100');
+}
+
+function resetAudioUI() {
+  stopRecording();
+  audioB64 = null;
+  const p = $('audio-preview-container');
+  p.classList.add('hidden'); p.classList.remove('flex');
+  const b = $('btn-stu-record');
+  b.classList.remove('hidden');
+  b.innerHTML = '<i class="fas fa-circle mr-2"></i>開始錄音';
+  b.classList.replace('bg-gray-800', 'bg-red-500');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑨  登入與啟動
+   ══════════════════════════════════════════════════════════════════ */
+function showView(which) {
+  $('login-view').style.display = which === 'login' ? 'flex' : 'none';
+  $('teacher-view').style.display = which === 'teacher' ? 'flex' : 'none';
+  $('student-view').style.display = which === 'student' ? 'flex' : 'none';
+  $('teacher-view').classList.remove('hidden');
+  $('student-view').classList.remove('hidden');
+}
+
+let loginGrade = '5';
+function paintGradePick() {
+  $$('.grade-pick').forEach(b => {
+    const on = b.dataset.grade === loginGrade;
+    b.className = `grade-pick flex-1 py-4 rounded-2xl font-black text-xl border-4 transition active:scale-95 ${
+      on ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`;
+  });
+  $('student-name-grid').innerHTML = rosterOf(loginGrade).map(s => `
+    <button class="name-pick py-4 px-2 rounded-2xl bg-white border-2 border-gray-200 hover:border-blue-400 shadow-sm active:scale-95 transition" data-seat="${s.seat}">
+      <div class="w-10 h-10 mx-auto mb-1 rounded-full bg-blue-100 text-blue-600 font-black flex items-center justify-center">${s.seat}</div>
+      <div class="font-bold text-gray-800 text-base truncate">${escapeHtml(s.name)}</div>
+      ${s.en ? `<div class="text-xs text-gray-400 truncate">${escapeHtml(s.en)}</div>` : ''}
+    </button>`).join('');
+}
+
+async function enterAsStudent(grade, seat) {
+  STATE.grade = String(grade);
+  STATE.seat = String(seat);
+  STATE.role = 'student';
+  warmUpSpeech();
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {}
+
+  await initAuth();
+  const ref = studentRef(STATE.grade, STATE.seat);
+  const snap = await getDoc(ref);
+  const info = rosterOf(STATE.grade).find(s => String(s.seat) === STATE.seat) || {};
+  if (!snap.exists()) {
+    await setDoc(ref, { grade: STATE.grade, seat: STATE.seat, name: info.name || '', en: info.en || '',
+                        score: 0, streak: 0, status: 'waiting', answer: '', group: null, hand: false });
+  } else {
+    await setDoc(ref, { name: info.name || '', en: info.en || '', hand: false }, { merge: true });
+  }
+
+  showView('student');
+  $('stu-header-seat').innerText = STATE.seat;
+  $('stu-header-name').innerText = nameOf(STATE.grade, STATE.seat);
+  $('stu-waiting-text').innerText = `請看 ${TEACHER_NAME} 老師，等待下一個任務`;
+  initCanvas();
+  initAudioRecorder();
+  bindStudentEvents();
+  startStudentListeners();
+  showToast(`歡迎，${shortNameOf(STATE.grade, STATE.seat)}！`, 'success');
+}
+
+async function enterAsTeacher() {
+  STATE.role = 'teacher';
+  STATE.soundOn = store.get('nyps.sound', true);
+  $('chk-sound').checked = STATE.soundOn;
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {}
+  await initAuth();
+  showView('teacher');
+  $('teacher-panel-title').innerHTML = `<i class="fas fa-sliders-h mr-2"></i>${TEACHER_NAME} 老師`;
+  setTeacherTab(window.innerWidth >= 1024 ? 'students' : 'tools');
+  bindTeacherEvents();
+  startTeacherListeners();
+  showToast(`${TEACHER_NAME} 老師，控制台已就緒`, 'success');
+}
+
+function boot() {
+  showView('login');
+
+  $('btn-show-student-login').addEventListener('click', () => {
+    $('login-selection').classList.add('hidden');
+    $('student-login-form').classList.remove('hidden');
+    paintGradePick();
+  });
+  $('btn-show-teacher-login').addEventListener('click', () => {
+    $('login-selection').classList.add('hidden');
+    $('teacher-login-form').classList.remove('hidden');
+  });
+  $$('.btn-back-login').forEach(b => b.addEventListener('click', () => {
+    $('student-login-form').classList.add('hidden');
+    $('teacher-login-form').classList.add('hidden');
+    $('login-selection').classList.remove('hidden');
+  }));
+
+  $('student-login-form').addEventListener('click', e => {
+    const g = e.target.closest('.grade-pick');
+    if (g) { loginGrade = g.dataset.grade; paintGradePick(); return; }
+    const n = e.target.closest('.name-pick');
+    if (n) {
+      if ($('chk-remember-me').checked) store.set('nyps.student', { grade: loginGrade, seat: n.dataset.seat });
+      enterAsStudent(loginGrade, n.dataset.seat);
+    }
+  });
+
+  $('btn-teacher-join').addEventListener('click', async () => {
+    if ($('teacher-password').value !== TEACHER_PASSWORD) { sfx.wrong(); return showToast('密碼錯誤', 'error'); }
+    if ($('chk-remember-teacher').checked) store.set('nyps.teacher', true);
+    $('btn-teacher-join').innerText = '連線中…';
+    await enterAsTeacher();
+  });
+  $('teacher-password').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-teacher-join').click(); });
+
+  // 自動登入（固定平板 / 手機操控）
+  const savedStu = store.get('nyps.student');
+  const savedTea = store.get('nyps.teacher');
+  if (savedStu && rosterOf(savedStu.grade).some(s => String(s.seat) === String(savedStu.seat))) {
+    enterAsStudent(savedStu.grade, savedStu.seat).catch(() => showView('login'));
+  } else if (savedTea) {
+    enterAsTeacher().catch(() => showView('login'));
+  }
+
+  // 離開時放下手、避免殘留舉手狀態
+  window.addEventListener('pagehide', () => {
+    if (STATE.role === 'student' && STATE.seat) {
+      try { setDoc(studentRef(STATE.grade, STATE.seat), { hand: false }, { merge: true }); } catch {}
+    }
+  });
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
 </body>
 </html>
