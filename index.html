@@ -157,10 +157,10 @@
         <div class="text-sm text-sky-800 font-bold flex items-center justify-between">
           <span>已記錄題數</span><span id="session-count" class="text-2xl font-black">0</span>
         </div>
-        <p id="session-hint" class="text-[11px] text-sky-700/70 leading-snug">每收回一題就自動記一筆，暫存在這台裝置上。</p>
+        <p id="session-hint" class="text-[11px] text-sky-700/70 leading-snug">每收回一題就自動記一筆，手機與電腦共用同一份。</p>
         <button id="btn-end-session" class="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-bold text-sm shadow active:scale-95">
           <i class="fas fa-box-archive mr-1"></i>結束本堂並存檔</button>
-        <button id="btn-discard-session" class="w-full py-1.5 text-[11px] text-sky-700/60 hover:text-red-500">丟棄本堂暫存（不存檔）</button>
+        <button id="btn-discard-session" class="w-full py-1.5 text-[11px] text-sky-700/60 hover:text-red-500">丟棄本堂草稿（不存檔）</button>
       </div>
 
       <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6 pl-1">設定</div>
@@ -540,7 +540,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, addDoc,
-         writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+         writeBatch, serverTimestamp, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 /* ══════════════════════════════════════════════════════════════════
    ①  班級名單 —— 每學期只要改這一段
@@ -590,6 +590,10 @@ const APP_ID = "nypscm-class-pro";
 const docRef = (col, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', col, id);
 const colRef = (col)     => collection(db, 'artifacts', APP_ID, 'public', 'data', col);
 const stateRef   = (g) => docRef(`classState_${g}`, 'current');
+// 本堂草稿：改放雲端，手機與電腦兩台控制台共用同一份
+const draftMetaRef  = (g)     => docRef(`sessionDraft_${g}`, 'current');
+const draftItemsCol = (g)     => collection(db, 'artifacts', APP_ID, 'public', 'data', `sessionDraft_${g}`, 'current', 'items');
+const draftItemRef  = (g, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', `sessionDraft_${g}`, 'current', 'items', id);
 const studentRef = (g, seat) => docRef(`students_${g}`, `${g}-${seat}`);
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1034,7 +1038,8 @@ function startTeacherListeners() {
   STATE.currentTaskId = null;
   STATE.sessions = [];
   buildTeacherGrid();
-  loadSessionLog();          // 每個年級各有自己的本堂暫存
+  STATE.sessionLog = { startedAt: Date.now(), items: [] };
+  renderSessionCount();
 
   STATE.unsubs.push(onSnapshot(stateRef(STATE.grade), snap => {
     applyClassStateToTeacher(snap.exists() ? snap.data() : { mode:'waiting', locked:false });
@@ -1077,7 +1082,21 @@ function startTeacherListeners() {
     STATE.records = recs;
   }, e => console.error(e)));
 
-  // 4. 監聽已存檔的課堂
+  // 4. 監聽本堂草稿（雲端共用，手機與電腦看到同一份）
+  STATE.unsubs.push(onSnapshot(draftItemsCol(STATE.grade), snap => {
+    const items = [];
+    snap.forEach(d => items.push(d.data()));
+    items.sort((a, b) => (a.at || 0) - (b.at || 0));
+    STATE.sessionLog = { startedAt: STATE.sessionLog?.startedAt || items[0]?.at || Date.now(), items };
+    renderSessionCount();
+  }, e => console.error(e)));
+
+  STATE.unsubs.push(onSnapshot(draftMetaRef(STATE.grade), snap => {
+    const m = snap.exists() ? snap.data() : null;
+    if (m?.startedAt && STATE.sessionLog) { STATE.sessionLog.startedAt = m.startedAt; renderSessionCount(); }
+  }, e => console.error(e)));
+
+  // 5. 監聽已存檔的課堂
   STATE.unsubs.push(onSnapshot(colRef(`sessions_${STATE.grade}`), snap => {
     const list = [];
     snap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -1099,7 +1118,7 @@ function renderHistory() {
     const pct = att ? Math.round(cor / att * 100) : null;
     return `<button class="history-item w-full text-left p-3 bg-white rounded-xl border hover:border-sky-300 shadow-sm transition" data-id="${s.id}">
       <div class="flex justify-between items-center">
-        <span class="font-black text-gray-800">${s.date}<span class="ml-2 text-xs font-bold text-gray-400">${fmtTime(s.startedAt)}</span></span>
+        <span class="font-black text-gray-800">${s.date}&nbsp;<span class="ml-1 text-xs font-bold text-gray-400">${fmtTime(s.startedAt)}</span></span>
         <span class="text-xs font-bold px-2 py-0.5 rounded ${pct === null ? 'bg-gray-100 text-gray-500' : pct >= 70 ? 'bg-green-100 text-green-700' : pct >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}">
           ${pct === null ? '—' : pct + '%'}
         </span>
@@ -1262,7 +1281,7 @@ function runCountdown(endTime, spanEl, isTeacher) {
 
 /* 發布任務 */
 async function publishTask(payload) {
-  captureCurrentTask();          // 先把上一題的作答收進本堂暫存
+  await captureCurrentTask();    // 先把上一題的作答寫進雲端草稿
   const data = Object.assign({
     mode:'waiting', locked:false, question:null, speak:null, choices:null,
     correctAnswer:null, materialData:null, timerEnd:null, reveal:false,
@@ -1277,32 +1296,30 @@ async function publishTask(payload) {
    本堂課暫存與存檔
    上課中先記在這台裝置（localStorage），按「結束本堂並存檔」才寫進資料庫
    ══════════════════════════════════════════════════════════════════ */
-const sessionKey = () => `nyps.session.${STATE.grade}`;
 const MEDIA_PLACEHOLDER = { whiteboard: '［白板作品］', audio: '［語音錄音］', material: '［看教材］' };
 
-function loadSessionLog() {
-  STATE.sessionLog = store.get(sessionKey(), null) || { startedAt: Date.now(), items: [] };
-  renderSessionCount();
+/* 這台裝置的識別碼，用來判斷「是不是別台正在存檔」 */
+function deviceId() {
+  let id = store.get('nyps.deviceId');
+  if (!id) { id = Math.random().toString(36).slice(2, 10); store.set('nyps.deviceId', id); }
+  return id;
 }
-function saveSessionLog() {
-  store.set(sessionKey(), STATE.sessionLog);
-  renderSessionCount();
-}
+
 function renderSessionCount() {
   const n = STATE.sessionLog?.items?.length || 0;
   const el = $('session-count'); if (el) el.innerText = n;
   const hint = $('session-hint');
-  if (hint) hint.innerText = n
-    ? `本堂從 ${new Date(STATE.sessionLog.startedAt).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})} 開始，暫存在這台裝置上。`
-    : '每收回一題就自動記一筆，暫存在這台裝置上。';
+  if (!hint) return;
+  hint.innerText = n
+    ? `本堂從 ${fmtTime(STATE.sessionLog.startedAt)} 開始，手機與電腦共用同一份。`
+    : '每收回一題就自動記一筆，手機與電腦共用同一份。';
 }
 
-/* 把「目前這一題」的作答收進暫存（同一題只收一次） */
-function captureCurrentTask() {
+/* 把「目前這一題」的作答寫進雲端草稿（每題一份文件，taskId 當文件 id，天然去重） */
+async function captureCurrentTask() {
   const cs = STATE.classState;
   if (!cs || !cs.taskId || cs.mode === 'waiting' || cs.mode === 'buzzer') return;
-  if (!STATE.sessionLog) loadSessionLog();
-  if (STATE.sessionLog.items.some(i => i.taskId === cs.taskId)) return;
+  if (STATE.sessionLog?.items?.some(i => i.taskId === cs.taskId)) return;
 
   const answers = {};
   let answered = 0;
@@ -1317,7 +1334,7 @@ function captureCurrentTask() {
   });
   if (!answered && cs.mode !== 'material') return;   // 沒人作答就不記
 
-  STATE.sessionLog.items.push({
+  const item = {
     taskId: cs.taskId,
     at: Date.now(),
     mode: cs.mode,
@@ -1325,17 +1342,50 @@ function captureCurrentTask() {
     speak: (cs.speak || '').slice(0, 120) || null,
     correctAnswer: cs.correctAnswer || null,
     answers
-  });
-  saveSessionLog();
+  };
+  try {
+    await setDoc(draftItemRef(STATE.grade, cs.taskId), item);
+    await setDoc(draftMetaRef(STATE.grade), { startedAt: STATE.sessionLog?.startedAt || Date.now() }, { merge: true });
+  } catch (e) {
+    console.error(e);
+    showToast('這一題沒記錄成功，請檢查網路', 'error');
+  }
+}
+
+/* 清空雲端草稿 */
+async function clearDraft() {
+  const snap = await getDocs(draftItemsCol(STATE.grade));
+  const batch = writeBatch(db);
+  snap.forEach(d => batch.delete(d.ref));
+  batch.set(draftMetaRef(STATE.grade), { startedAt: Date.now(), endingBy: null, endingAt: null });
+  await batch.commit();
 }
 
 /* 結束本堂：寫入 sessions_{年級} + 更新每位學生的累計檔案 */
 async function endSession() {
-  captureCurrentTask();
+  await captureCurrentTask();
   const log = STATE.sessionLog;
   if (!log || !log.items.length) return showToast('本堂還沒有任何作答紀錄', 'warning');
 
   if (!await askConfirm(`結束本堂並存檔？\n共 ${log.items.length} 題，存檔後全班分數會歸零，準備下一堂。`)) return;
+
+  // 搶佔存檔權：另一台控制台若正在存，這裡會擋下來，避免重複存檔與重複計數
+  const me = deviceId();
+  try {
+    await runTransaction(db, async (tx) => {
+      const ref = draftMetaRef(STATE.grade);
+      const snap = await tx.get(ref);
+      const m = snap.exists() ? snap.data() : {};
+      if (m.endingAt && m.endingBy && m.endingBy !== me && Date.now() - m.endingAt < 60000) {
+        throw new Error('BUSY');
+      }
+      tx.set(ref, { endingBy: me, endingAt: Date.now() }, { merge: true });
+    });
+  } catch (e) {
+    if (e.message === 'BUSY') return showToast('另一台控制台正在存檔，請稍等一下', 'warning');
+    console.error(e);
+    return showToast('存檔失敗，請檢查網路', 'error');
+  }
 
   const today = new Date();
   const dateStr = today.toLocaleDateString('sv-SE');   // YYYY-MM-DD
@@ -1397,14 +1447,14 @@ async function endSession() {
     // 先收回任務再清暫存：publishTask 內的 captureCurrentTask 會因為 taskId 已存在而略過，
     // 順序反了會把最後一題重複記進下一堂
     await publishTask({ mode: 'waiting' });
-    store.del(sessionKey());
-    STATE.sessionLog = { startedAt: Date.now(), items: [] };
-    renderSessionCount();
+    await clearDraft();
     showToast(`本堂已存檔（${log.items.length} 題）`, 'success');
     fireConfetti(true);
   } catch (e) {
     console.error(e);
-    showToast('存檔失敗，本堂暫存還在，請檢查網路後再按一次', 'error');
+    // 解除存檔權，讓自己或另一台可以再試
+    setDoc(draftMetaRef(STATE.grade), { endingBy: null, endingAt: null }, { merge: true }).catch(() => {});
+    showToast('存檔失敗，本堂草稿還在，請檢查網路後再按一次', 'error');
   }
 }
 
@@ -1669,10 +1719,8 @@ function bindSessionAndHistory() {
   $('btn-end-session').addEventListener('click', endSession);
   $('btn-discard-session').addEventListener('click', async () => {
     if (!STATE.sessionLog?.items?.length) return showToast('目前沒有暫存', 'info');
-    if (!await askConfirm(`丟棄本堂暫存的 ${STATE.sessionLog.items.length} 題？這個動作無法復原。`)) return;
-    store.del(sessionKey());
-    STATE.sessionLog = { startedAt: Date.now(), items: [] };
-    renderSessionCount();
+    if (!await askConfirm(`丟棄本堂暫存的 ${STATE.sessionLog.items.length} 題？這個動作無法復原，兩台控制台都會清掉。`)) return;
+    await clearDraft();
     showToast('已清空本堂暫存', 'info');
   });
   $('btn-export-term').addEventListener('click', exportTermCsv);
@@ -1693,13 +1741,6 @@ function bindSessionAndHistory() {
     showToast('已刪除該堂存檔', 'info');
   });
 
-  // 關掉分頁前提醒還有沒存的暫存
-  window.addEventListener('beforeunload', (e) => {
-    if (STATE.role === 'teacher' && STATE.sessionLog?.items?.length) {
-      e.preventDefault();
-      e.returnValue = '';
-    }
-  });
 }
 
 /* 學生操作選單 */
