@@ -189,10 +189,12 @@
             <span id="task-badge" class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs font-bold uppercase tracking-wider">待機中</span>
             <h2 class="text-lg sm:text-2xl font-extrabold text-gray-800 truncate" id="current-task-title">準備上課</h2>
           </div>
-          <div id="teacher-question-display" class="hidden mt-2 text-indigo-700 font-bold bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100">
-            <span id="teacher-question-text" class="break-words"></span>
-            <button id="btn-teacher-speak" class="hidden ml-2 text-indigo-500 hover:text-indigo-700"><i class="fas fa-volume-up"></i></button>
-            <span id="teacher-answer-hint" class="hidden ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold"></span>
+          <div id="teacher-question-display" class="hidden mt-2 flex items-center gap-2 flex-wrap bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100">
+            <span id="teacher-question-text" class="text-indigo-800 font-bold break-words flex-1 min-w-0"></span>
+            <button id="btn-teacher-speak" class="hidden w-9 h-9 shrink-0 rounded-lg bg-indigo-100 text-indigo-600"><i class="fas fa-volume-up"></i></button>
+            <span id="teacher-answer-hint" class="hidden shrink-0 bg-green-600 text-white px-3 py-1.5 rounded-lg font-black text-base sm:text-lg">
+              <i class="fas fa-key text-xs mr-1 opacity-70"></i><span id="teacher-answer-text"></span>
+            </span>
           </div>
         </div>
         <div id="timer-display-container" class="hidden items-center bg-gray-800 text-white px-3 py-2 rounded-xl font-mono text-lg sm:text-xl font-bold shadow shrink-0">
@@ -347,6 +349,8 @@
           <button class="stu-ans-btn flex-1 py-14 bg-white border-4 border-blue-400 rounded-3xl text-blue-500 text-6xl font-black active:bg-blue-100 transition shadow-xl active:scale-95" data-ans="O">O</button>
           <button class="stu-ans-btn flex-1 py-14 bg-white border-4 border-red-400 rounded-3xl text-red-500 text-6xl font-black active:bg-red-100 transition shadow-xl active:scale-95" data-ans="X">X</button>
         </div>
+        <button class="btn-choice-submit w-full py-4 bg-gray-200 text-gray-400 rounded-2xl font-bold text-xl transition" disabled>
+          <i class="fas fa-paper-plane mr-2"></i>先選一個答案</button>
       </div>
 
       <!-- A~D -->
@@ -495,6 +499,7 @@
     <button id="sheet-hw" class="w-full py-3 bg-orange-50 text-orange-600 rounded-xl font-bold border border-orange-100"><i class="fas fa-book mr-2"></i>登記缺交作業</button>
     <button id="sheet-praise" class="w-full py-3 bg-emerald-50 text-emerald-700 rounded-xl font-bold border border-emerald-100"><i class="fas fa-thumbs-up mr-2"></i>記優良表現</button>
     <button id="sheet-spotlight" class="w-full py-3 bg-indigo-50 text-indigo-700 rounded-xl font-bold border border-indigo-100"><i class="fas fa-hand-point-right mr-2"></i>點他回答（推播到平板）</button>
+    <button id="sheet-retry" class="w-full py-3 bg-amber-50 text-amber-700 rounded-xl font-bold border border-amber-100"><i class="fas fa-rotate-left mr-2"></i>允許重答（清掉這題的作答）</button>
     <button id="sheet-profile" class="w-full py-3 bg-sky-50 text-sky-700 rounded-xl font-bold border border-sky-100"><i class="fas fa-address-card mr-2"></i>學習檔案</button>
     <button id="sheet-close" class="w-full py-3 bg-gray-200 rounded-xl font-bold text-gray-700 mt-1">關閉</button>
   </div>
@@ -988,14 +993,16 @@ function applyClassStateToTeacher(data) {
   $('current-task-title').innerText = mode === 'waiting' ? (data.locked ? '🔒 平板鎖定中' : '準備上課')
     : mode === 'buzzer' ? '🔔 搶答中…' : '學生作答中…';
 
+  // 只要在出題中就一直顯示這一列，方便對答案（沒打題目也會顯示題型）
   const qd = $('teacher-question-display');
-  const hasQ = !!(data.question || data.speak);
-  qd.classList.toggle('hidden', !hasQ);
-  if (hasQ) {
-    $('teacher-question-text').innerText = data.question || '（聽寫題，學生看不到文字）';
+  const showQ = mode !== 'waiting' && mode !== 'buzzer';
+  qd.classList.toggle('hidden', !showQ);
+  if (showQ) {
+    $('teacher-question-text').innerText =
+      data.question || (data.speak ? `🔊 聽寫：${data.speak}` : `${MODES[mode]}（口頭佈題）`);
     $('btn-teacher-speak').classList.toggle('hidden', !data.speak);
     const hint = $('teacher-answer-hint');
-    if (data.correctAnswer) { hint.classList.remove('hidden'); hint.innerText = `正解：${data.correctAnswer}`; }
+    if (data.correctAnswer) { hint.classList.remove('hidden'); $('teacher-answer-text').innerText = data.correctAnswer; }
     else hint.classList.add('hidden');
   }
 
@@ -1717,6 +1724,13 @@ function bindSheet() {
   $('sheet-late').addEventListener('click', () => rec('late', '遲到'));
   $('sheet-hw').addEventListener('click', () => rec('hw', '缺交'));
   $('sheet-praise').addEventListener('click', () => rec('praise', '優良表現'));
+  $('sheet-retry').addEventListener('click', async () => {
+    const seat = STATE.sheetSeat;
+    await setDoc(studentRef(STATE.grade, seat),
+      { status: 'thinking', answer: '', answerTaskId: null, gradedTaskId: null }, { merge: true });
+    showToast(`${shortNameOf(STATE.grade, seat)} 可以重答了`, 'info');
+    close();
+  });
   $('sheet-profile').addEventListener('click', () => { const s = STATE.sheetSeat; close(); openProfile(s); });
   $('sheet-spotlight').addEventListener('click', async () => {
     await setDoc(stateRef(STATE.grade), { spotlightSeat: String(STATE.sheetSeat), spotlightAt: Date.now() }, { merge: true });
@@ -1776,13 +1790,62 @@ async function submitStudentAnswer(answer, opts = {}) {
   };
   try {
     await setDoc(studentRef(STATE.grade, STATE.seat), payload, { merge: true });
-    setStuStatus('✅ 已送出（還可以重送）', 'bg-green-100 text-green-700');
+    if (cs.mode !== 'buzzer') setAnswerLock(true);
+    setStuStatus('✅ 已送出，等老師公布答案', 'bg-green-100 text-green-700');
     sfx.submit();
     if (!opts.silent) fireConfetti();
   } catch (e) {
     console.error(e);
     showToast('送出失敗，請再按一次', 'error');
   }
+}
+
+let answerLocked = false, pendingChoice = null;
+
+/* 送出後鎖住作答，避免看到別人答案再改；老師可從卡片「⋯ → 允許重答」解鎖 */
+function setAnswerLock(locked) {
+  answerLocked = locked;
+  if (!locked) pendingChoice = null;
+
+  $$('.stu-ans-btn').forEach(b => {
+    b.disabled = locked;
+    b.classList.toggle('opacity-40', locked && !b.classList.contains('ring-4'));
+    b.classList.toggle('cursor-default', locked);
+  });
+  $$('.btn-choice-submit').forEach(b => {
+    b.disabled = locked || !pendingChoice;
+    if (locked) {
+      b.className = 'btn-choice-submit w-full py-4 mt-1 bg-green-100 text-green-700 rounded-2xl font-bold text-xl border-2 border-green-200 cursor-default';
+      b.innerHTML = '<i class="fas fa-lock mr-2"></i>已送出，不能更改';
+    } else if (!pendingChoice) {
+      b.className = 'btn-choice-submit w-full py-4 mt-1 bg-gray-200 text-gray-400 rounded-2xl font-bold text-xl transition';
+      b.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>先選一個答案';
+    }
+  });
+
+  const ta = $('stu-typing-input');
+  if (ta) { ta.readOnly = locked; ta.classList.toggle('bg-gray-100', locked); }
+  const bt = $('btn-stu-submit-typing');
+  if (bt) {
+    bt.disabled = locked;
+    bt.className = locked
+      ? 'mt-3 w-full py-4 bg-green-100 text-green-700 rounded-2xl font-bold text-xl border-2 border-green-200 cursor-default'
+      : 'mt-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition';
+    bt.innerHTML = locked ? '<i class="fas fa-lock mr-2"></i>已送出，不能更改' : '<i class="fas fa-paper-plane mr-2"></i>送出 Submit';
+  }
+
+  const bb = $('btn-stu-submit-board');
+  if (bb) {
+    bb.disabled = locked;
+    bb.className = locked
+      ? 'mt-3 w-full py-4 bg-green-100 text-green-700 rounded-2xl font-bold text-xl border-2 border-green-200 cursor-default'
+      : 'mt-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition';
+    bb.innerHTML = locked ? '<i class="fas fa-lock mr-2"></i>已送出' : '<i class="fas fa-upload mr-2"></i>送出白板';
+  }
+  const cv = $('canvas-container');
+  if (cv) cv.style.pointerEvents = locked ? 'none' : '';
+  const ba = $('btn-stu-submit-audio');
+  if (ba) ba.disabled = locked;
 }
 
 function lockBuzzButton(locked) {
@@ -1845,6 +1908,7 @@ function applyClassStateToStudent(cs) {
     $('stu-typing-input').value = '';
     $('stu-buzz-result').innerText = '';
     lockBuzzButton(false);
+    setAnswerLock(false);
     $('stu-reveal').classList.add('hidden');
     resetAudioUI();
     clearCanvas();
@@ -1880,7 +1944,10 @@ function applyClassStateToStudent(cs) {
         <button class="stu-ans-btn w-full py-5 px-4 bg-white border-2 border-gray-300 rounded-2xl text-left flex items-center gap-3 shadow-md active:scale-95 transition" data-ans="${k}">
           <span class="w-11 h-11 shrink-0 rounded-xl bg-blue-100 text-blue-600 font-black text-2xl flex items-center justify-center">${k}</span>
           <span class="text-xl font-bold text-gray-700 break-words">${escapeHtml(cs.choices?.[k] || '')}</span>
-        </button>`).join('');
+        </button>`).join('') +
+        `<button class="btn-choice-submit w-full py-4 mt-1 bg-gray-200 text-gray-400 rounded-2xl font-bold text-xl transition" disabled>
+           <i class="fas fa-paper-plane mr-2"></i>先選一個答案</button>`;
+      setAnswerLock(answerLocked);
     }
     if (mode === 'material' && cs.materialData) {
       $('stu-material-content').innerHTML = `<img src="${cs.materialData}" class="max-w-full max-h-[65vh] rounded">`;
@@ -1928,6 +1995,7 @@ function startStudentListeners() {
   STATE.unsubs.push(onSnapshot(colRef(`students_${STATE.grade}`), snap => {
     snap.forEach(d => STATE.localStudentsData[d.id] = d.data());
     const me = STATE.localStudentsData[myId] || {};
+    const cs = STATE.classState || {};
     $('stu-header-score').innerText = me.score || 0;
 
     const st = $('stu-streak');
@@ -1938,12 +2006,18 @@ function startStudentListeners() {
     if (me.group) { gb.classList.remove('hidden'); gb.innerText = `Group ${me.group}`; gb.className = `ml-1 px-2 py-0.5 rounded text-xs text-white ${me.group === 'A' ? 'bg-blue-500' : 'bg-red-500'}`; }
     else gb.classList.add('hidden');
 
+    // 老師按了「允許重答」→ 自己的作答被清掉，解鎖讓學生重來
+    if (answerLocked && cs.mode !== 'buzzer' && me.answerTaskId !== cs.taskId) {
+      setAnswerLock(false);
+      setStuStatus('✏️ 老師開放重答，請再作答一次', 'bg-amber-100 text-amber-700');
+      showToast('老師讓你重答一次', 'info');
+    }
+
     $('btn-stu-hand').className = me.hand
       ? 'w-11 h-11 rounded-2xl bg-amber-500 text-white text-xl border border-amber-600 active:scale-95 transition'
       : 'w-11 h-11 rounded-2xl bg-amber-100 text-amber-600 text-xl border border-amber-200 active:scale-95 transition';
 
     // 作答進度
-    const cs = STATE.classState || {};
     const total = CLASS_SIZES[STATE.grade];
     const done = Object.values(STATE.localStudentsData)
       .filter(d => d.status === 'submitted' && d.answerTaskId === cs.taskId).length;
@@ -1970,16 +2044,28 @@ function startStudentListeners() {
 }
 
 function bindStudentEvents() {
-  // 選項 / OX（事件委派，因為 A~D 是動態產生的）
+  // 選項 / OX：先選起來，再按送出（事件委派，因為 A~D 是動態產生的）
   $('student-task-container').addEventListener('click', e => {
     const b = e.target.closest('.stu-ans-btn');
-    if (!b) return;
-    submitStudentAnswer(b.dataset.ans);
-    $$('.stu-ans-btn').forEach(x => x.classList.remove('ring-4','ring-blue-400'));
-    b.classList.add('ring-4','ring-blue-400');
+    if (b) {
+      if (answerLocked) return;
+      pendingChoice = b.dataset.ans;
+      $$('.stu-ans-btn').forEach(x => x.classList.remove('ring-4', 'ring-blue-500', 'bg-blue-50'));
+      b.classList.add('ring-4', 'ring-blue-500', 'bg-blue-50');
+      $$('.btn-choice-submit').forEach(btn => {
+        btn.disabled = false;
+        btn.className = 'btn-choice-submit w-full py-4 mt-1 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition';
+        btn.innerHTML = `<i class="fas fa-paper-plane mr-2"></i>送出「${pendingChoice}」`;
+      });
+      beep(700, .05);
+      return;
+    }
+    const sb = e.target.closest('.btn-choice-submit');
+    if (sb && !sb.disabled && pendingChoice) submitStudentAnswer(pendingChoice);
   });
 
   $('btn-stu-submit-typing').addEventListener('click', () => {
+    if (answerLocked) return;
     const v = $('stu-typing-input').value.trim();
     if (!v) return showToast('請先寫下答案', 'warning');
     submitStudentAnswer(v);
