@@ -322,6 +322,9 @@
   </div>
 
   <div id="stu-task-status" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-bold text-center shrink-0">等待老師派發任務…</div>
+  <button id="stu-offline" class="hidden w-full px-3 py-2 bg-red-500 text-white text-sm font-bold text-center shrink-0 active:bg-red-600">
+    <i class="fas fa-wifi-slash mr-1"></i>連線中斷，正在重新連線…（點一下重新整理）
+  </button>
 
   <div id="student-task-container" class="flex-1 p-3 sm:p-5 flex flex-col items-center overflow-y-auto min-h-0">
 
@@ -420,7 +423,7 @@
   </div>
 
   <!-- 被抽中 -->
-  <div id="spotlight-overlay" class="hidden absolute inset-0 z-40 bg-indigo-900/85 flex-col items-center justify-center text-white">
+  <div id="spotlight-overlay" onclick="this.style.display='none'" class="hidden absolute inset-0 z-40 bg-indigo-900/85 flex-col items-center justify-center text-white cursor-pointer">
     <i class="fas fa-hand-point-right text-7xl mb-6 text-yellow-300 pop-in"></i>
     <h1 class="text-5xl font-black tracking-wide mb-2">It's your turn!</h1>
     <p class="text-2xl opacity-90">換你回答囉 🎤</p>
@@ -1042,8 +1045,9 @@ function startTeacherListeners() {
   renderSessionCount();
 
   STATE.unsubs.push(onSnapshot(stateRef(STATE.grade), snap => {
-    applyClassStateToTeacher(snap.exists() ? snap.data() : { mode:'waiting', locked:false });
-  }, e => console.error(e)));
+    try { applyClassStateToTeacher(snap.exists() ? snap.data() : { mode:'waiting', locked:false }); }
+    catch (err) { console.error('applyClassStateToTeacher 失敗', err); }
+  }, e => scheduleReconnect(e?.code || e)));
 
   STATE.unsubs.push(onSnapshot(colRef(`students_${STATE.grade}`), snap => {
     let newHand = false;
@@ -2025,22 +2029,57 @@ function applyClassStateToStudent(cs) {
     setTimeout(() => speak(cs.speak), 350);
   }
 
-  // 被老師點到
-  if (cs.spotlightSeat && String(cs.spotlightSeat) === String(STATE.seat)
-      && cs.spotlightAt && cs.spotlightAt !== lastSpotlightAt && Date.now() - cs.spotlightAt < 15000) {
+  // 被老師點到（覆蓋層會蓋住整個畫面，所以每次快照都重新判斷一次是否該收起來，
+  // 就算 setTimeout 因為 iPad 休眠沒有觸發也不會卡住）
+  const ov = $('spotlight-overlay');
+  const spotMine = cs.spotlightSeat && String(cs.spotlightSeat) === String(STATE.seat);
+  const spotFresh = spotMine && cs.spotlightAt && Date.now() - cs.spotlightAt < 6000;
+  if (spotFresh && cs.spotlightAt !== lastSpotlightAt) {
     lastSpotlightAt = cs.spotlightAt;
-    const ov = $('spotlight-overlay');
     ov.style.display = 'flex';
     sfx.correct();
-    setTimeout(() => ov.style.display = 'none', 5000);
+    setTimeout(() => { ov.style.display = 'none'; }, 5000);
+  } else if (!spotFresh) {
+    ov.style.display = 'none';
   }
 
   renderStudentReveal(cs, STATE.localStudentsData[`${STATE.grade}-${STATE.seat}`]);
 }
 
+let offlineSince = 0, reconnectTimer = null, watchdog = null;
+
+function setOffline(isOffline) {
+  const bar = $('stu-offline'); if (!bar) return;
+  if (isOffline) {
+    if (!offlineSince) offlineSince = Date.now();
+    bar.classList.remove('hidden');
+  } else {
+    offlineSince = 0;
+    bar.classList.add('hidden');
+  }
+}
+
+/* 監聽器掛掉就不會再收到任何更新，學生會一直卡在上一題 → 自動重建 */
+function scheduleReconnect(why) {
+  console.warn('reconnect:', why);
+  if (reconnectTimer) return;
+  setOffline(true);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (STATE.role === 'student') startStudentListeners();
+    else if (STATE.role === 'teacher') startTeacherListeners();
+  }, 3000);
+}
+
 function startStudentListeners() {
   clearListeners();
+  clearInterval(watchdog);
   const myId = `${STATE.grade}-${STATE.seat}`;
+
+  // 離線超過 20 秒就整個重建監聽器
+  watchdog = setInterval(() => {
+    if (offlineSince && Date.now() - offlineSince > 20000) { offlineSince = 0; scheduleReconnect('offline too long'); }
+  }, 5000);
 
   STATE.unsubs.push(onSnapshot(colRef(`students_${STATE.grade}`), snap => {
     snap.forEach(d => STATE.localStudentsData[d.id] = d.data());
@@ -2086,11 +2125,17 @@ function startStudentListeners() {
         lockBuzzButton(true);
       }
     }
-  }, e => console.error(e)));
+  }, e => scheduleReconnect(e?.code || e)));
 
-  STATE.unsubs.push(onSnapshot(stateRef(STATE.grade), snap => {
-    applyClassStateToStudent(snap.exists() ? snap.data() : { mode:'waiting', locked:false });
-  }, e => console.error(e)));
+  STATE.unsubs.push(onSnapshot(stateRef(STATE.grade), { includeMetadataChanges: true }, snap => {
+    setOffline(snap.metadata.fromCache);
+    try {
+      applyClassStateToStudent(snap.exists() ? snap.data() : { mode:'waiting', locked:false });
+    } catch (err) {
+      // 單次渲染出錯不能讓學生從此卡住，下一次快照還要能正常處理
+      console.error('applyClassStateToStudent 失敗', err);
+    }
+  }, e => scheduleReconnect(e?.code || e)));
 }
 
 function bindStudentEvents() {
@@ -2145,6 +2190,8 @@ function bindStudentEvents() {
     await setDoc(studentRef(STATE.grade, STATE.seat), { hand: next }, { merge: true });
     showToast(next ? '已舉手，老師會看到 ✋' : '已放下手', next ? 'warning' : 'info');
   });
+
+  $('stu-offline').addEventListener('click', () => location.reload());
 
   $('btn-stu-switch').addEventListener('click', async () => {
     if (!await askConfirm('要換成別人使用這台平板嗎？')) return;
@@ -2284,74 +2331,161 @@ function exportCanvas() {
 /* ══════════════════════════════════════════════════════════════════
    ⑧  錄音
    ══════════════════════════════════════════════════════════════════ */
-let mediaRecorder = null, audioChunks = [], isRecording = false, audioB64 = null, recTimer = null, recCountdown = null;
+let mediaRecorder = null, audioChunks = [], audioB64 = null;
+let recTimer = null, recCountdown = null, recStream = null;
+let isRecording = false, isStartingRecord = false, recGeneration = 0;
+
+/* 徹底收乾淨：計時器、麥克風串流、錄音器。重錄與換題都會呼叫 */
+function teardownRecording() {
+  clearTimeout(recTimer); clearInterval(recCountdown);
+  recTimer = recCountdown = null;
+  try { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); } catch {}
+  mediaRecorder = null;
+  // 一定要把麥克風放掉，否則下一次 getUserMedia 會拿不到而「錄不起來」
+  try { recStream?.getTracks().forEach(t => t.stop()); } catch {}
+  recStream = null;
+  isRecording = false;
+  isStartingRecord = false;
+  const icon = $('audio-mic-icon');
+  if (icon) {
+    icon.classList.remove('animate-pulse', 'bg-red-100');
+    icon.querySelector('i')?.classList.replace('text-red-500', 'text-blue-500');
+  }
+}
+
+function setRecordBtn(state) {
+  const b = $('btn-stu-record'); if (!b) return;
+  const base = 'w-full py-4 rounded-2xl font-bold text-xl shadow-lg transition ';
+  if (state === 'idle') {
+    b.disabled = false; b.classList.remove('hidden');
+    b.className = base + 'bg-red-500 text-white active:scale-95';
+    b.innerHTML = '<i class="fas fa-circle mr-2"></i>開始錄音';
+  } else if (state === 'starting') {
+    b.disabled = true; b.classList.remove('hidden');
+    b.className = base + 'bg-gray-400 text-white cursor-wait';
+    b.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>準備中…';
+  } else if (state === 'hidden') {
+    b.disabled = true; b.classList.add('hidden');
+  }
+}
+function setRecordCountdown(secLeft) {
+  const b = $('btn-stu-record'); if (!b) return;
+  b.disabled = false; b.classList.remove('hidden');
+  b.className = 'w-full py-4 rounded-2xl font-bold text-xl shadow-lg transition bg-gray-800 text-white active:scale-95';
+  b.innerHTML = `<i class="fas fa-stop mr-2"></i>停止（${secLeft}）`;
+}
+
+async function startRecording() {
+  // 這個旗標是同步設定的：學生連點兩下也只會啟動一次
+  if (isRecording || isStartingRecord) return;
+  isStartingRecord = true;
+  const gen = ++recGeneration;          // 這一輪的編號，舊的一輪不准再動 UI
+  setRecordBtn('starting');
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    isStartingRecord = false;
+    setRecordBtn('idle');
+    showToast('無法使用麥克風，請允許權限', 'error');
+    return;
+  }
+  if (gen !== recGeneration) {          // 等待期間換題或按了重錄 → 直接丟掉
+    stream.getTracks().forEach(t => t.stop());
+    return;
+  }
+
+  recStream = stream;
+  const opts = {};
+  if (window.MediaRecorder?.isTypeSupported?.('audio/webm;codecs=opus')) {
+    opts.mimeType = 'audio/webm;codecs=opus'; opts.audioBitsPerSecond = 32000;
+  }
+  try {
+    mediaRecorder = new MediaRecorder(stream, opts);
+  } catch {
+    teardownRecording(); setRecordBtn('idle');
+    showToast('這台裝置不支援錄音', 'error');
+    return;
+  }
+
+  audioChunks = [];
+  audioB64 = null;
+  mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const mime = mediaRecorder?.mimeType || 'audio/webm';
+    const chunks = audioChunks;
+    teardownRecording();
+    if (gen !== recGeneration || !chunks.length) return;   // 過期的錄音，不要蓋掉畫面
+
+    const blob = new Blob(chunks, { type: mime });
+    $('stu-audio-playback').src = URL.createObjectURL(blob);
+    const fr = new FileReader();
+    fr.onloadend = () => {
+      if (gen !== recGeneration) return;
+      audioB64 = fr.result;
+      if (dataUrlBytes(audioB64) > FIRESTORE_SAFE_BYTES) {
+        audioB64 = null;
+        showToast('錄音太長了，請重錄短一點', 'error');
+      }
+    };
+    fr.readAsDataURL(blob);
+    setRecordBtn('hidden');
+    const p = $('audio-preview-container');
+    p.classList.remove('hidden'); p.classList.add('flex');
+  };
+
+  try { mediaRecorder.start(); } catch { teardownRecording(); setRecordBtn('idle'); return; }
+
+  isRecording = true;
+  isStartingRecord = false;
+  $('audio-mic-icon').classList.add('animate-pulse', 'bg-red-100');
+  $('audio-mic-icon').querySelector('i')?.classList.replace('text-blue-500', 'text-red-500');
+
+  // 倒數改用結束時間換算，不再靠遞減變數，就算有殘留計時器也不會亂跳
+  const endAt = Date.now() + AUDIO_MAX_SECONDS * 1000;
+  setRecordCountdown(AUDIO_MAX_SECONDS);
+  recCountdown = setInterval(() => {
+    if (gen !== recGeneration) return clearInterval(recCountdown);
+    setRecordCountdown(Math.max(0, Math.ceil((endAt - Date.now()) / 1000)));
+  }, 250);
+  recTimer = setTimeout(() => { if (isRecording && gen === recGeneration) stopRecording(); }, AUDIO_MAX_SECONDS * 1000);
+}
+
+function stopRecording() {
+  if (!isRecording) return;
+  clearTimeout(recTimer); clearInterval(recCountdown);
+  try { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }
+  catch { teardownRecording(); setRecordBtn('idle'); }
+  isRecording = false;   // onstop 會接手做完整的收尾
+}
 
 function initAudioRecorder() {
   $('audio-max-sec').innerText = AUDIO_MAX_SECONDS;
-  const btn = $('btn-stu-record');
-
-  btn.addEventListener('click', async () => {
-    if (isRecording) return stopRecording();
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const opts = {};
-      if (window.MediaRecorder?.isTypeSupported?.('audio/webm;codecs=opus')) {
-        opts.mimeType = 'audio/webm;codecs=opus'; opts.audioBitsPerSecond = 32000;
-      }
-      mediaRecorder = new MediaRecorder(stream, opts);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-        $('stu-audio-playback').src = URL.createObjectURL(blob);
-        const fr = new FileReader();
-        fr.onloadend = () => {
-          audioB64 = fr.result;
-          if (dataUrlBytes(audioB64) > FIRESTORE_SAFE_BYTES) { audioB64 = null; showToast('錄音太長了，請重錄短一點', 'error'); }
-        };
-        fr.readAsDataURL(blob);
-        btn.classList.add('hidden');
-        $('audio-preview-container').classList.remove('hidden');
-        $('audio-preview-container').classList.add('flex');
-        stream.getTracks().forEach(t => t.stop());
-      };
-      mediaRecorder.start();
-      isRecording = true;
-      let left = AUDIO_MAX_SECONDS;
-      btn.innerHTML = `<i class="fas fa-stop mr-2"></i>停止（${left}）`;
-      btn.classList.replace('bg-red-500', 'bg-gray-800');
-      $('audio-mic-icon').classList.add('animate-pulse', 'bg-red-100');
-      recCountdown = setInterval(() => { btn.innerHTML = `<i class="fas fa-stop mr-2"></i>停止（${--left}）`; }, 1000);
-      recTimer = setTimeout(() => { if (isRecording) stopRecording(); }, AUDIO_MAX_SECONDS * 1000);
-    } catch {
-      showToast('無法使用麥克風，請允許權限', 'error');
-    }
+  $('btn-stu-record').addEventListener('click', () => {
+    if (answerLocked) return;
+    if (isRecording) stopRecording();
+    else startRecording();
   });
-
   $('btn-stu-re-record').addEventListener('click', () => { if (answerLocked) return; resetAudioUI(); });
   $('btn-stu-submit-audio').addEventListener('click', () => {
     if (answerLocked) return;
-    if (!audioB64) return showToast('還沒有錄音內容', 'warning');
+    if (!audioB64) return showToast('還沒有錄音內容，請先錄一段', 'warning');
     submitStudentAnswer(audioB64);
   });
 }
 
-function stopRecording() {
-  try { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); } catch {}
-  isRecording = false;
-  clearTimeout(recTimer); clearInterval(recCountdown);
-  $('audio-mic-icon').classList.remove('animate-pulse', 'bg-red-100');
-}
-
+/* 重錄 / 換題：把上一輪整個作廢 */
 function resetAudioUI() {
-  stopRecording();
+  recGeneration++;
+  teardownRecording();
   audioB64 = null;
+  audioChunks = [];
   const p = $('audio-preview-container');
-  p.classList.add('hidden'); p.classList.remove('flex');
-  const b = $('btn-stu-record');
-  b.classList.remove('hidden');
-  b.innerHTML = '<i class="fas fa-circle mr-2"></i>開始錄音';
-  b.classList.replace('bg-gray-800', 'bg-red-500');
+  if (p) { p.classList.add('hidden'); p.classList.remove('flex'); }
+  const pb = $('stu-audio-playback');
+  if (pb) { try { pb.pause(); } catch {} pb.removeAttribute('src'); }
+  setRecordBtn('idle');
 }
 
 /* ══════════════════════════════════════════════════════════════════
