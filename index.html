@@ -1884,9 +1884,18 @@ function setAnswerLock(locked) {
     bb.innerHTML = locked ? '<i class="fas fa-lock mr-2"></i>已送出' : '<i class="fas fa-upload mr-2"></i>送出白板';
   }
   const cv = $('canvas-container');
-  if (cv) cv.style.pointerEvents = locked ? 'none' : '';
+  if (cv) {
+    cv.style.pointerEvents = locked ? 'none' : '';
+    cv.classList.toggle('opacity-60', locked);
+  }
+  // 白板工具列也要一起鎖，否則送出後還能按「清空」把畫好的擦掉
+  [...$$('.color-picker'), $('btn-stu-eraser'), $('btn-stu-undo'), $('btn-stu-clear-board')]
+    .forEach(b => { if (!b) return; b.disabled = locked; b.classList.toggle('opacity-40', locked); b.classList.toggle('pointer-events-none', locked); });
+
   const ba = $('btn-stu-submit-audio');
   if (ba) ba.disabled = locked;
+  const br = $('btn-stu-re-record');
+  if (br) { br.disabled = locked; br.classList.toggle('opacity-40', locked); }
 }
 
 function lockBuzzButton(locked) {
@@ -2123,6 +2132,7 @@ function bindStudentEvents() {
   });
 
   $('btn-stu-submit-board').addEventListener('click', () => {
+    if (answerLocked) return;
     const d = exportCanvas();
     if (d) submitStudentAnswer(d);
   });
@@ -2195,18 +2205,23 @@ function initCanvas() {
   canvas.addEventListener('touchend', end);
 
   $$('.color-picker').forEach(b => b.addEventListener('click', () => {
+    if (answerLocked) return;
     penColor = b.dataset.color; penWidth = 5;
     ctx.strokeStyle = penColor; ctx.lineWidth = penWidth;
     $$('.color-picker').forEach(x => x.classList.remove('ring-2','ring-blue-300'));
     b.classList.add('ring-2','ring-blue-300');
   }));
   $('btn-stu-eraser').addEventListener('click', () => {
+    if (answerLocked) return;
     penColor = '#ffffff'; penWidth = 24;
     ctx.strokeStyle = penColor; ctx.lineWidth = penWidth;
     $$('.color-picker').forEach(x => x.classList.remove('ring-2','ring-blue-300'));
   });
-  $('btn-stu-undo').addEventListener('click', popUndo);
-  $('btn-stu-clear-board').addEventListener('click', () => { pushUndo(); clearCanvas(); if (bgImage) drawBg(bgImage); });
+  $('btn-stu-undo').addEventListener('click', () => { if (answerLocked) return; popUndo(); });
+  $('btn-stu-clear-board').addEventListener('click', () => {
+    if (answerLocked) return;
+    pushUndo(); clearCanvas(); if (bgImage) drawBg(bgImage);
+  });
 
   let rt;
   window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fit, 250); });
@@ -2313,8 +2328,9 @@ function initAudioRecorder() {
     }
   });
 
-  $('btn-stu-re-record').addEventListener('click', resetAudioUI);
+  $('btn-stu-re-record').addEventListener('click', () => { if (answerLocked) return; resetAudioUI(); });
   $('btn-stu-submit-audio').addEventListener('click', () => {
+    if (answerLocked) return;
     if (!audioB64) return showToast('還沒有錄音內容', 'warning');
     submitStudentAnswer(audioB64);
   });
