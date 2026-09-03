@@ -132,6 +132,8 @@
           <span class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-pen"></i></span> 小白板（可附圖）</button>
         <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="audio">
           <span class="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center mr-3"><i class="fas fa-microphone"></i></span> 口說錄音</button>
+        <button id="btn-teacher-board" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-rose-50 hover:border-rose-300 transition flex items-center shadow-sm active:scale-[.98]">
+          <span class="w-9 h-9 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center mr-3"><i class="fas fa-marker"></i></span> 句型小白板（手寫）</button>
         <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="material">
           <span class="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center mr-3"><i class="fas fa-image"></i></span> 派發圖片教材</button>
       </div>
@@ -151,6 +153,18 @@
         <i class="fas fa-lock w-8 text-center"></i> 鎖定所有平板</button>
       <button id="btn-unlock-screen" class="hidden w-full text-left p-3 rounded-xl bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 transition flex items-center font-bold shadow-sm active:scale-[.98]">
         <i class="fas fa-unlock w-8 text-center"></i> 解除螢幕鎖定</button>
+
+      <div class="text-xs font-bold text-amber-500 uppercase tracking-wider mb-2 mt-6 pl-1">今日公告</div>
+      <div class="p-3 bg-amber-50 rounded-xl border border-amber-100 space-y-2">
+        <textarea id="notice-input" rows="4" class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-amber-400 resize-none"
+          placeholder="今天的待辦事項，一行一項：&#10;1. 訂正作業本 p.12&#10;2. 背 Unit 2 單字&#10;3. 帶回家長通知單"></textarea>
+        <div class="flex gap-2">
+          <button id="btn-notice-post" class="flex-[2] py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-sm shadow active:scale-95">
+            <i class="fas fa-bullhorn mr-1"></i>發布公告</button>
+          <button id="btn-notice-clear" class="flex-1 py-2.5 bg-white hover:bg-gray-50 text-gray-500 border rounded-lg font-bold text-sm active:scale-95">清除</button>
+        </div>
+        <p id="notice-status" class="text-[11px] text-amber-700/70 leading-snug">學生在等待任務的畫面會看到大字公告。</p>
+      </div>
 
       <div class="text-xs font-bold text-sky-500 uppercase tracking-wider mb-2 mt-6 pl-1">本堂課</div>
       <div class="p-3 bg-sky-50 rounded-xl border border-sky-100 space-y-2">
@@ -222,6 +236,7 @@
         <button class="timer-btn shrink-0 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-sm border border-indigo-200 active:scale-95" data-sec="30">30秒</button>
         <button class="timer-btn shrink-0 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-sm border border-indigo-200 active:scale-95" data-sec="60">1分</button>
         <button class="timer-btn shrink-0 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-sm border border-indigo-200 active:scale-95" data-sec="180">3分</button>
+        <button id="btn-timer-custom" class="shrink-0 px-3 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm shadow active:scale-95"><i class="fas fa-stopwatch mr-1"></i>自訂</button>
         <button class="timer-btn shrink-0 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg font-bold text-sm border active:scale-95" data-sec="0">停止</button>
       </div>
 
@@ -340,6 +355,11 @@
 
     <div class="flex-1 w-full flex flex-col items-center justify-center">
       <!-- 待機 -->
+      <div id="stu-notice" class="hidden w-full max-w-3xl bg-amber-50 border-4 border-amber-300 rounded-3xl p-5 sm:p-7 shadow-lg">
+        <div class="flex items-center gap-2 text-amber-600 font-black mb-3 text-lg"><i class="fas fa-bullhorn"></i>今日公告</div>
+        <div id="stu-notice-text" class="space-y-2 text-2xl sm:text-3xl font-bold text-gray-800 leading-relaxed break-words"></div>
+      </div>
+
       <div id="stu-mode-waiting" class="text-center text-gray-400 w-full">
         <i class="fas fa-book-open text-6xl text-blue-200 mb-5"></i>
         <h2 class="text-2xl sm:text-3xl font-black text-gray-600 mb-1">Ready for English!</h2>
@@ -422,6 +442,11 @@
     </div>
   </div>
 
+  <!-- 放大計時器 -->
+  <div id="stu-big-timer" class="hidden absolute top-2 left-1/2 -translate-x-1/2 z-30 px-8 py-3 rounded-3xl bg-gray-900/90 text-white shadow-2xl pointer-events-none">
+    <div id="stu-big-timer-time" class="font-mono text-6xl sm:text-7xl font-black tabular-nums leading-none">00:00</div>
+  </div>
+
   <!-- 被抽中 -->
   <div id="spotlight-overlay" onclick="this.style.display='none'" class="hidden absolute inset-0 z-40 bg-indigo-900/85 flex-col items-center justify-center text-white cursor-pointer">
     <i class="fas fa-hand-point-right text-7xl mb-6 text-yellow-300 pop-in"></i>
@@ -477,7 +502,10 @@
       <div id="modal-material-upload" class="hidden p-4 bg-blue-50 rounded-xl border border-blue-100">
         <label class="block font-bold text-blue-700 text-sm mb-2"><i class="fas fa-image mr-1"></i>上傳底圖 / 教材圖片</label>
         <input type="file" id="material-file-input" accept="image/*" class="w-full p-2 border bg-white rounded-lg text-sm">
-        <p class="text-xs text-gray-500 mt-1.5">💡 白板模式下學生可直接在圖片上作畫。</p>
+        <label id="lbl-draw-on-image" class="hidden mt-2 flex items-center gap-2 text-sm text-blue-800 cursor-pointer select-none bg-white p-2.5 rounded-lg border border-blue-200">
+          <input type="checkbox" id="chk-draw-on-image" class="w-5 h-5 accent-blue-600">
+          <span><b>讓學生在圖片上畫，並回傳給我</b><br><span class="text-xs text-gray-500">不勾就只是給他們看</span></span>
+        </label>
         <div id="modal-img-preview" class="hidden mt-2 max-h-36 overflow-hidden rounded border"></div>
       </div>
     </div>
@@ -515,6 +543,93 @@
     <div class="flex gap-2">
       <button id="confirm-no" class="flex-1 py-2.5 bg-gray-200 rounded-xl font-bold text-gray-700">取消</button>
       <button id="confirm-yes" class="flex-1 py-2.5 bg-red-500 text-white rounded-xl font-bold">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 老師手寫白板 -->
+<div id="board-modal" class="hidden fixed inset-0 bg-black/60 z-[125] flex items-end sm:items-center justify-center sm:p-4">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[95vh]">
+    <div class="p-3 sm:p-4 bg-rose-600 text-white flex justify-between items-center rounded-t-3xl sm:rounded-t-2xl shrink-0">
+      <h3 class="font-bold text-lg"><i class="fas fa-marker mr-2"></i>句型小白板</h3>
+      <button id="board-close" class="text-white/80 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
+    </div>
+
+    <div class="p-3 flex flex-wrap items-center gap-2 border-b shrink-0">
+      <button class="tb-color w-9 h-9 rounded-full bg-gray-900 border-2 border-white shadow ring-2 ring-rose-300" data-color="#111827"></button>
+      <button class="tb-color w-9 h-9 rounded-full bg-blue-600 border-2 border-white shadow" data-color="#2563eb"></button>
+      <button class="tb-color w-9 h-9 rounded-full bg-red-600 border-2 border-white shadow" data-color="#dc2626"></button>
+      <button class="tb-color w-9 h-9 rounded-full bg-green-600 border-2 border-white shadow" data-color="#16a34a"></button>
+      <span class="w-px h-7 bg-gray-200 mx-1"></span>
+      <button class="tb-size px-3 py-2 rounded-lg border-2 text-sm font-bold" data-size="4">細</button>
+      <button class="tb-size px-3 py-2 rounded-lg border-2 text-sm font-bold" data-size="8">中</button>
+      <button class="tb-size px-3 py-2 rounded-lg border-2 text-sm font-bold" data-size="16">粗</button>
+      <button id="tb-eraser" class="px-3 py-2 rounded-lg border-2 border-gray-200 bg-white text-gray-600 text-sm font-bold"><i class="fas fa-eraser mr-1"></i>擦</button>
+      <span class="flex-1"></span>
+      <button id="tb-undo" class="px-3 py-2 bg-gray-100 rounded-lg text-sm font-bold text-gray-700"><i class="fas fa-rotate-left"></i></button>
+      <button id="tb-clear" class="px-3 py-2 bg-gray-100 rounded-lg text-sm font-bold text-gray-700"><i class="fas fa-trash mr-1"></i>清空</button>
+    </div>
+
+    <div class="p-3 flex-1 overflow-hidden min-h-0">
+      <div id="tb-container" class="relative w-full h-[45vh] bg-white rounded-xl border-2 border-gray-300 overflow-hidden">
+        <canvas id="tb-canvas" class="absolute inset-0 w-full h-full touch-none"></canvas>
+      </div>
+    </div>
+
+    <div class="p-3 sm:p-4 border-t bg-gray-50 shrink-0 safe-b space-y-2">
+      <div class="flex gap-2">
+        <button id="tb-send-view" class="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow active:scale-95">
+          <i class="fas fa-eye mr-1"></i>只給他們看</button>
+        <button id="tb-send-draw" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow active:scale-95">
+          <i class="fas fa-pen mr-1"></i>讓他們在上面寫</button>
+      </div>
+      <p class="text-[11px] text-gray-500 text-center">「讓他們在上面寫」＝學生可以在你的句型上作答，寫完回傳給你。</p>
+    </div>
+  </div>
+</div>
+
+<!-- 計時器自訂 -->
+<div id="timer-modal" class="hidden fixed inset-0 bg-black/60 z-[125] flex items-end sm:items-center justify-center sm:p-4">
+  <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-sm shadow-2xl safe-b">
+    <div class="p-4 bg-indigo-600 text-white flex justify-between items-center rounded-t-3xl sm:rounded-t-2xl">
+      <h3 class="font-bold text-lg"><i class="fas fa-stopwatch mr-2"></i>設定倒數計時</h3>
+      <button id="timer-close" class="text-white/80 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
+    </div>
+    <div class="p-5 space-y-4">
+      <div class="flex items-end justify-center gap-3">
+        <div class="text-center">
+          <div class="text-xs font-bold text-gray-500 mb-1">分</div>
+          <div class="flex flex-col items-center gap-1">
+            <button class="tm-step w-14 h-9 bg-gray-100 rounded-lg font-black text-gray-600" data-f="min" data-d="1">+</button>
+            <input id="tm-min" type="number" min="0" max="60" value="1" class="w-20 p-2 text-center text-3xl font-black border-2 rounded-xl outline-none focus:border-indigo-500">
+            <button class="tm-step w-14 h-9 bg-gray-100 rounded-lg font-black text-gray-600" data-f="min" data-d="-1">−</button>
+          </div>
+        </div>
+        <div class="text-3xl font-black text-gray-400 pb-11">:</div>
+        <div class="text-center">
+          <div class="text-xs font-bold text-gray-500 mb-1">秒</div>
+          <div class="flex flex-col items-center gap-1">
+            <button class="tm-step w-14 h-9 bg-gray-100 rounded-lg font-black text-gray-600" data-f="sec" data-d="10">+</button>
+            <input id="tm-sec" type="number" min="0" max="59" value="0" class="w-20 p-2 text-center text-3xl font-black border-2 rounded-xl outline-none focus:border-indigo-500">
+            <button class="tm-step w-14 h-9 bg-gray-100 rounded-lg font-black text-gray-600" data-f="sec" data-d="-10">−</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-1.5 justify-center">
+        <button class="tm-preset px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-200" data-sec="20">20秒</button>
+        <button class="tm-preset px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-200" data-sec="45">45秒</button>
+        <button class="tm-preset px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-200" data-sec="90">1分30</button>
+        <button class="tm-preset px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold border border-indigo-200" data-sec="300">5分</button>
+      </div>
+
+      <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border cursor-pointer select-none">
+        <input type="checkbox" id="tm-big" class="w-6 h-6 accent-indigo-600">
+        <span><b>放大顯示給學生看</b><br><span class="text-xs text-gray-500">學生平板會出現大字倒數，最後 10 秒變紅</span></span>
+      </label>
+
+      <button id="tm-start" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xl shadow active:scale-95">
+        <i class="fas fa-play mr-2"></i>開始倒數</button>
     </div>
   </div>
 </div>
@@ -594,6 +709,7 @@ const docRef = (col, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', col, 
 const colRef = (col)     => collection(db, 'artifacts', APP_ID, 'public', 'data', col);
 const stateRef   = (g) => docRef(`classState_${g}`, 'current');
 // 本堂草稿：改放雲端，手機與電腦兩台控制台共用同一份
+const noticeRef     = (g)     => docRef(`notice_${g}`, 'current');
 const draftMetaRef  = (g)     => docRef(`sessionDraft_${g}`, 'current');
 const draftItemsCol = (g)     => collection(db, 'artifacts', APP_ID, 'public', 'data', `sessionDraft_${g}`, 'current', 'items');
 const draftItemRef  = (g, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', `sessionDraft_${g}`, 'current', 'items', id);
@@ -622,6 +738,7 @@ const STATE = {
   soundOn: true, autoSpeak: true,
   sheetSeat: null,
   sessionLog: null,   // 本堂暫存 { startedAt, items[] }
+  notice: '',         // 今日公告
   sessions: [],       // 已存檔的課堂
   records: []
 };
@@ -1086,7 +1203,15 @@ function startTeacherListeners() {
     STATE.records = recs;
   }, e => console.error(e)));
 
-  // 4. 監聽本堂草稿（雲端共用，手機與電腦看到同一份）
+  // 4. 監聽今日公告
+  STATE.unsubs.push(onSnapshot(noticeRef(STATE.grade), snap => {
+    const text = snap.exists() ? (snap.data().text || '') : '';
+    STATE.notice = text;
+    if (document.activeElement !== $('notice-input')) $('notice-input').value = text;
+    renderNoticeStatus(text);
+  }, e => console.error(e)));
+
+  // 5. 監聽本堂草稿（雲端共用，手機與電腦看到同一份）
   STATE.unsubs.push(onSnapshot(draftItemsCol(STATE.grade), snap => {
     const items = [];
     snap.forEach(d => items.push(d.data()));
@@ -1100,7 +1225,7 @@ function startTeacherListeners() {
     if (m?.startedAt && STATE.sessionLog) { STATE.sessionLog.startedAt = m.startedAt; renderSessionCount(); }
   }, e => console.error(e)));
 
-  // 5. 監聽已存檔的課堂
+  // 6. 監聽已存檔的課堂
   STATE.unsubs.push(onSnapshot(colRef(`sessions_${STATE.grade}`), snap => {
     const list = [];
     snap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -1261,6 +1386,111 @@ function downloadCsv(csv, filename) {
   showToast('報表已下載', 'success');
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   今日公告
+   ══════════════════════════════════════════════════════════════════ */
+function renderNoticeStatus(text) {
+  const el = $('notice-status'); if (!el) return;
+  el.innerText = text
+    ? `目前公告中（${String(text).split('\n').filter(Boolean).length} 項），學生待機畫面看得到。`
+    : '學生在等待任務的畫面會看到大字公告。';
+  el.className = text ? 'text-[11px] text-amber-800 font-bold leading-snug' : 'text-[11px] text-amber-700/70 leading-snug';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   可重複使用的手寫畫板
+   ══════════════════════════════════════════════════════════════════ */
+function makeBoard(canvasId, containerId) {
+  const canvas = $(canvasId), box = $(containerId);
+  let bctx = null, drawing = false, lx = 0, ly = 0, stack = [], color = '#111827', width = 8, bg = null;
+
+  const fit = () => {
+    const snap = canvas.width ? canvas.toDataURL('image/png') : null;
+    canvas.width = Math.max(300, box.clientWidth);
+    canvas.height = Math.max(200, box.clientHeight);
+    bctx = canvas.getContext('2d');
+    bctx.lineCap = 'round'; bctx.lineJoin = 'round';
+    bctx.fillStyle = '#fff'; bctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (snap) { const im = new Image(); im.onload = () => bctx.drawImage(im, 0, 0, canvas.width, canvas.height); im.src = snap; }
+    else if (bg) paintBg();
+    bctx.strokeStyle = color; bctx.lineWidth = width;
+  };
+  const paintBg = () => new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const r = Math.min(canvas.width / im.width, canvas.height / im.height);
+      bctx.drawImage(im, 0, 0, im.width, im.height,
+        (canvas.width - im.width * r) / 2, (canvas.height - im.height * r) / 2, im.width * r, im.height * r);
+      res();
+    };
+    im.onerror = res; im.src = bg;
+  });
+  const pos = e => {
+    const r = canvas.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx - r.left) * canvas.width / r.width, y: (cy - r.top) * canvas.height / r.height };
+  };
+  const push = () => { try { stack.push(canvas.toDataURL('image/jpeg', .5)); if (stack.length > 12) stack.shift(); } catch {} };
+  const start = e => {
+    push(); drawing = true;
+    const p = pos(e); lx = p.x; ly = p.y;
+    bctx.beginPath(); bctx.arc(p.x, p.y, width / 2, 0, Math.PI * 2); bctx.fillStyle = color; bctx.fill();
+  };
+  const move = e => {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = pos(e);
+    bctx.beginPath(); bctx.moveTo(lx, ly); bctx.lineTo(p.x, p.y); bctx.stroke();
+    lx = p.x; ly = p.y;
+  };
+  const end = () => drawing = false;
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+
+  return {
+    fit,
+    ready: () => !!bctx,
+    setPen(c, w) { color = c; width = w; if (bctx) { bctx.strokeStyle = c; bctx.lineWidth = w; } },
+    clear() {
+      if (!bctx) return;
+      stack = [];
+      bctx.fillStyle = '#fff'; bctx.fillRect(0, 0, canvas.width, canvas.height);
+      bctx.fillStyle = color;
+      if (bg) paintBg();
+    },
+    undo() {
+      if (!bctx || !stack.length) return;
+      const d = stack.pop(); const im = new Image();
+      im.onload = () => { bctx.clearRect(0, 0, canvas.width, canvas.height); bctx.drawImage(im, 0, 0, canvas.width, canvas.height); };
+      im.src = d;
+    },
+    isBlank() {
+      if (!bctx) return true;
+      const d = bctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      for (let i = 0; i < d.length; i += 4) if (d[i] < 240 || d[i+1] < 240 || d[i+2] < 240) return false;
+      return true;
+    },
+    export(maxW = 1000, q = .8) {
+      const t = document.createElement('canvas');
+      const scale = Math.min(1, maxW / canvas.width);
+      t.width = Math.round(canvas.width * scale); t.height = Math.round(canvas.height * scale);
+      const tc = t.getContext('2d');
+      tc.fillStyle = '#fff'; tc.fillRect(0, 0, t.width, t.height);
+      tc.drawImage(canvas, 0, 0, t.width, t.height);
+      let out = t.toDataURL('image/jpeg', q), qq = q;
+      while (dataUrlBytes(out) > FIRESTORE_SAFE_BYTES && qq > .3) { qq -= .15; out = t.toDataURL('image/jpeg', qq); }
+      return out;
+    }
+  };
+}
+
 /* 倒數計時（老師端與學生端共用） */
 function runCountdown(endTime, spanEl, isTeacher) {
   clearInterval(STATE.timerInterval);
@@ -1270,6 +1500,8 @@ function runCountdown(endTime, spanEl, isTeacher) {
     if (diff <= 0) {
       clearInterval(STATE.timerInterval);
       spanEl.innerText = '00:00';
+      const bb = $('stu-big-timer');
+      if (bb) { bb.classList.remove('animate-pulse'); }
       sfx.timeup();
       showToast('⏰ 時間到！', 'warning');
       return;
@@ -1277,6 +1509,13 @@ function runCountdown(endTime, spanEl, isTeacher) {
     const m = String(Math.floor(diff / 60000)).padStart(2, '0');
     const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
     spanEl.innerText = `${m}:${s}`;
+    const bigBox = $('stu-big-timer');
+    if (bigBox && !bigBox.classList.contains('hidden')) {
+      const urgent = diff <= 10000;
+      bigBox.classList.toggle('bg-red-600/95', urgent);
+      bigBox.classList.toggle('bg-gray-900/90', !urgent);
+      bigBox.classList.toggle('animate-pulse', urgent);
+    }
     if (diff < 5500 && diff > 4500) beep(660, .08);
   };
   tick();
@@ -1288,7 +1527,7 @@ async function publishTask(payload) {
   await captureCurrentTask();    // 先把上一題的作答寫進雲端草稿
   const data = Object.assign({
     mode:'waiting', locked:false, question:null, speak:null, choices:null,
-    correctAnswer:null, materialData:null, timerEnd:null, reveal:false,
+    correctAnswer:null, materialData:null, timerEnd:null, timerBig:false, reveal:false,
     showBlanks:false,
     taskId: newTaskId(), timestamp: Date.now()
   }, payload);
@@ -1510,6 +1749,9 @@ function bindTeacherEvents() {
       $('lbl-show-blanks').classList.remove('hidden');
     } else if (selectedMode === 'whiteboard' || selectedMode === 'material') {
       matBox.classList.remove('hidden');
+      // 只有「派發圖片教材」需要問要不要讓學生在上面畫；小白板本來就是要畫的
+      $('lbl-draw-on-image').classList.toggle('hidden', selectedMode !== 'material');
+      $('chk-draw-on-image').checked = false;
     }
     $('task-modal').classList.remove('hidden');
   }));
@@ -1531,6 +1773,8 @@ function bindTeacherEvents() {
 
   $('btn-confirm-task').addEventListener('click', async () => {
     if (selectedMode === 'material' && !STATE.tempMaterialBase64) return showToast('請先上傳圖片', 'warning');
+    // 勾了「讓學生在圖片上畫」就改用小白板模式（底圖＝這張圖）
+    const finalMode = (selectedMode === 'material' && $('chk-draw-on-image').checked) ? 'whiteboard' : selectedMode;
     const hideText = $('chk-hide-speak-text').checked;
     const speak = $('task-speak-input').value.trim() || null;
     const q = $('task-question-input').value.trim() || null;
@@ -1543,12 +1787,12 @@ function bindTeacherEvents() {
       if (!Object.keys(choices).length) choices = null;
     }
     await publishTask({
-      mode: selectedMode,
+      mode: finalMode,
       question: hideText ? null : q,
       speak,
       choices,
       correctAnswer: ansEl && ansEl.value.trim() ? ansEl.value.trim() : null,
-      showBlanks: selectedMode === 'typing' && $('chk-show-blanks').checked,
+      showBlanks: finalMode === 'typing' && $('chk-show-blanks').checked,
       materialData: STATE.tempMaterialBase64 || null
     });
     $('task-modal').classList.add('hidden');
@@ -1614,7 +1858,7 @@ function bindTeacherEvents() {
   // 快速計時器
   $$('.timer-btn').forEach(b => b.addEventListener('click', () => {
     const sec = parseInt(b.dataset.sec, 10);
-    setDoc(stateRef(STATE.grade), { timerEnd: sec > 0 ? Date.now() + sec * 1000 : null }, { merge: true });
+    setDoc(stateRef(STATE.grade), { timerEnd: sec > 0 ? Date.now() + sec * 1000 : null, timerBig: false }, { merge: true });
     showToast(sec > 0 ? `倒數 ${sec} 秒開始` : '計時器已停止', 'info');
   }));
 
@@ -1690,6 +1934,9 @@ function bindTeacherEvents() {
 
   bindSheet();
   bindSessionAndHistory();
+  bindNotice();
+  bindTimerModal();
+  bindTeacherBoard();
   $('btn-export-report').addEventListener('click', exportReport);
 }
 
@@ -1745,6 +1992,116 @@ function bindSessionAndHistory() {
     showToast('已刪除該堂存檔', 'info');
   });
 
+}
+
+/* ── 今日公告 ── */
+function bindNotice() {
+  $('btn-notice-post').addEventListener('click', async () => {
+    const text = $('notice-input').value.trim();
+    if (!text) return showToast('公告是空的', 'warning');
+    await setDoc(noticeRef(STATE.grade), { text, updatedAt: Date.now() });
+    showToast('公告已發布，學生待機畫面看得到', 'success');
+  });
+  $('btn-notice-clear').addEventListener('click', async () => {
+    await setDoc(noticeRef(STATE.grade), { text: '', updatedAt: Date.now() });
+    $('notice-input').value = '';
+    showToast('已清除公告', 'info');
+  });
+}
+
+/* ── 計時器自訂 ── */
+function bindTimerModal() {
+  const open = () => {
+    $('tm-big').checked = !!STATE.classState?.timerBig;
+    $('timer-modal').classList.remove('hidden');
+  };
+  const close = () => $('timer-modal').classList.add('hidden');
+  $('btn-timer-custom').addEventListener('click', open);
+  $('timer-close').addEventListener('click', close);
+  $('timer-modal').addEventListener('click', e => { if (e.target.id === 'timer-modal') close(); });
+
+  const clampInputs = () => {
+    const m = $('tm-min'), sec = $('tm-sec');
+    m.value = Math.min(60, Math.max(0, parseInt(m.value, 10) || 0));
+    sec.value = Math.min(59, Math.max(0, parseInt(sec.value, 10) || 0));
+  };
+  $$('.tm-step').forEach(b => b.addEventListener('click', () => {
+    const el = $(b.dataset.f === 'min' ? 'tm-min' : 'tm-sec');
+    el.value = (parseInt(el.value, 10) || 0) + parseInt(b.dataset.d, 10);
+    clampInputs();
+  }));
+  $$('.tm-preset').forEach(b => b.addEventListener('click', () => {
+    const t = parseInt(b.dataset.sec, 10);
+    $('tm-min').value = Math.floor(t / 60);
+    $('tm-sec').value = t % 60;
+  }));
+  $('tm-min').addEventListener('change', clampInputs);
+  $('tm-sec').addEventListener('change', clampInputs);
+
+  $('tm-start').addEventListener('click', async () => {
+    clampInputs();
+    const total = (parseInt($('tm-min').value, 10) || 0) * 60 + (parseInt($('tm-sec').value, 10) || 0);
+    if (total <= 0) return showToast('時間要大於 0 秒', 'warning');
+    await setDoc(stateRef(STATE.grade), {
+      timerEnd: Date.now() + total * 1000,
+      timerBig: $('tm-big').checked
+    }, { merge: true });
+    close();
+    showToast(`開始倒數 ${Math.floor(total/60)}:${String(total%60).padStart(2,'0')}`, 'success');
+  });
+}
+
+/* ── 老師手寫白板 ── */
+let teacherBoard = null;
+function bindTeacherBoard() {
+  const modal = $('board-modal');
+  let tbColor = '#111827', tbWidth = 8;
+  const paintTools = () => {
+    $$('.tb-color').forEach(b => b.classList.toggle('ring-2', b.dataset.color === tbColor));
+    $$('.tb-color').forEach(b => b.classList.toggle('ring-rose-300', b.dataset.color === tbColor));
+    $$('.tb-size').forEach(b => {
+      const on = parseInt(b.dataset.size, 10) === tbWidth && tbColor !== '#ffffff';
+      b.className = `tb-size px-3 py-2 rounded-lg border-2 text-sm font-bold ${on ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-gray-600 border-gray-200'}`;
+    });
+    $('tb-eraser').className = `px-3 py-2 rounded-lg border-2 text-sm font-bold ${tbColor === '#ffffff' ? 'bg-rose-600 text-white border-rose-600' : 'border-gray-200 bg-white text-gray-600'}`;
+  };
+
+  $('btn-teacher-board').addEventListener('click', () => {
+    modal.classList.remove('hidden');
+    if (!teacherBoard) teacherBoard = makeBoard('tb-canvas', 'tb-container');
+    // 要等 modal 顯示出來、容器有寬高之後才能算畫布尺寸
+    requestAnimationFrame(() => { teacherBoard.fit(); teacherBoard.setPen(tbColor, tbWidth); paintTools(); });
+  });
+  const close = () => modal.classList.add('hidden');
+  $('board-close').addEventListener('click', close);
+
+  $$('.tb-color').forEach(b => b.addEventListener('click', () => {
+    tbColor = b.dataset.color; if (tbWidth > 16) tbWidth = 8;
+    teacherBoard?.setPen(tbColor, tbWidth); paintTools();
+  }));
+  $$('.tb-size').forEach(b => b.addEventListener('click', () => {
+    tbWidth = parseInt(b.dataset.size, 10);
+    if (tbColor === '#ffffff') tbColor = '#111827';
+    teacherBoard?.setPen(tbColor, tbWidth); paintTools();
+  }));
+  $('tb-eraser').addEventListener('click', () => {
+    tbColor = '#ffffff'; tbWidth = 28;
+    teacherBoard?.setPen(tbColor, tbWidth); paintTools();
+  });
+  $('tb-undo').addEventListener('click', () => teacherBoard?.undo());
+  $('tb-clear').addEventListener('click', () => teacherBoard?.clear());
+
+  const send = async (mode) => {
+    if (!teacherBoard?.ready()) return;
+    if (teacherBoard.isBlank()) return showToast('白板還是空白的', 'warning');
+    const img = teacherBoard.export();
+    await publishTask({ mode, materialData: img });
+    close();
+    setTeacherTab('students');
+    showToast(mode === 'material' ? '已發送給學生觀看' : '已發送，學生可以在上面作答', 'success');
+  };
+  $('tb-send-view').addEventListener('click', () => send('material'));
+  $('tb-send-draw').addEventListener('click', () => send('whiteboard'));
 }
 
 /* 學生操作選單 */
@@ -1921,6 +2278,26 @@ function buildBlanks(correctAnswer) {
     .join('');
 }
 
+/* 今日公告：只在待機（還沒發題）時出現，發題後自動收起來不佔空間 */
+function renderStudentNotice() {
+  const box = $('stu-notice'); if (!box) return;
+  const waitEl = $('stu-mode-waiting');
+  const waiting = !STATE.classState || STATE.classState.mode === 'waiting';
+  const lines = String(STATE.notice || '').split('\n').map(l => l.trim()).filter(Boolean);
+
+  if (!waiting || !lines.length) {
+    box.classList.add('hidden');
+    // showStuMode 是用 inline style 控制的，這裡也要用 inline style 才蓋得過去
+    if (waitEl && waiting) waitEl.style.display = 'flex';
+    return;
+  }
+  box.classList.remove('hidden');
+  $('stu-notice-text').innerHTML = lines
+    .map(l => `<div class="flex gap-2"><span class="text-amber-500 shrink-0">•</span><span>${escapeHtml(l)}</span></div>`)
+    .join('');
+  if (waitEl) waitEl.style.display = 'none';   // 有公告就不用再喊 Ready for English
+}
+
 function renderStudentReveal(cs, myData) {
   const box = $('stu-reveal');
   if (!cs.reveal || !cs.correctAnswer) { box.classList.add('hidden'); return; }
@@ -1988,6 +2365,7 @@ function applyClassStateToStudent(cs) {
   }
 
   showStuMode(mode);
+  renderStudentNotice();
 
   // 只在「換題目」時重建作答區，否則老師按公布答案/計時器會把學生畫到一半的白板洗掉
   if (isNewTask || setupTaskId !== cs.taskId) {
@@ -2018,10 +2396,19 @@ function applyClassStateToStudent(cs) {
     }
   }
 
-  // 計時器
+  // 計時器：小的固定在標題列，老師勾了「放大顯示」就再開一個大字浮層
   const t = $('stu-timer-display');
-  if (cs.timerEnd) { t.classList.remove('hidden'); runCountdown(cs.timerEnd, t.querySelector('span'), false); }
-  else { t.classList.add('hidden'); clearInterval(STATE.timerInterval); }
+  const big = $('stu-big-timer');
+  if (cs.timerEnd) {
+    const useBig = !!cs.timerBig;
+    t.classList.toggle('hidden', useBig);
+    big.classList.toggle('hidden', !useBig);
+    runCountdown(cs.timerEnd, useBig ? $('stu-big-timer-time') : t.querySelector('span'), false);
+  } else {
+    t.classList.add('hidden');
+    big.classList.add('hidden');
+    clearInterval(STATE.timerInterval);
+  }
 
   // 自動朗讀（同一題只念一次）
   if (cs.speak && cs.autoSpeak !== false && cs.taskId !== lastSpokenTaskId) {
@@ -2126,6 +2513,11 @@ function startStudentListeners() {
       }
     }
   }, e => scheduleReconnect(e?.code || e)));
+
+  STATE.unsubs.push(onSnapshot(noticeRef(STATE.grade), snap => {
+    STATE.notice = snap.exists() ? (snap.data().text || '') : '';
+    renderStudentNotice();
+  }, e => console.error(e)));
 
   STATE.unsubs.push(onSnapshot(stateRef(STATE.grade), { includeMetadataChanges: true }, snap => {
     setOffline(snap.metadata.fromCache);
