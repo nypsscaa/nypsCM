@@ -132,6 +132,8 @@
           <span class="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i class="fas fa-pen"></i></span> 小白板（可附圖）</button>
         <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="audio">
           <span class="w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center mr-3"><i class="fas fa-microphone"></i></span> 口說錄音</button>
+        <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-teal-50 hover:border-teal-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="photo">
+          <span class="w-9 h-9 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center mr-3"><i class="fas fa-camera"></i></span> 拍照上傳作品</button>
         <button id="btn-teacher-board" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-rose-50 hover:border-rose-300 transition flex items-center shadow-sm active:scale-[.98]">
           <span class="w-9 h-9 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center mr-3"><i class="fas fa-marker"></i></span> 句型小白板（手寫）</button>
         <button class="t-tool-btn w-full text-left p-3 rounded-xl bg-white border hover:bg-blue-50 hover:border-blue-300 transition flex items-center shadow-sm active:scale-[.98]" data-mode="material">
@@ -435,6 +437,42 @@
         </div>
       </div>
 
+      <!-- 拍照作品 -->
+      <div id="stu-mode-photo" class="hidden w-full max-w-xl flex-col items-center">
+        <div id="photo-empty" class="w-full flex flex-col items-center">
+          <div class="w-24 h-24 rounded-full bg-teal-50 flex items-center justify-center mb-4">
+            <i class="fas fa-camera text-5xl text-teal-500"></i>
+          </div>
+          <h3 class="text-xl font-bold text-gray-700 mb-1">拍下你的作品</h3>
+          <p class="text-gray-500 text-center mb-5 text-sm">拍好之後可以先看看，滿意再送出</p>
+          <div class="w-full flex gap-3">
+            <button id="btn-photo-cam" class="flex-1 py-5 bg-teal-600 text-white rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition">
+              <i class="fas fa-camera mr-2"></i>拍照</button>
+            <button id="btn-photo-lib" class="flex-1 py-5 bg-white border-2 border-teal-300 text-teal-700 rounded-2xl font-bold text-lg shadow active:scale-95 transition">
+              <i class="fas fa-images mr-2"></i>從相簿選</button>
+          </div>
+          <input type="file" id="photo-cam-input" accept="image/*" capture="environment" class="hidden">
+          <input type="file" id="photo-lib-input" accept="image/*" class="hidden">
+        </div>
+
+        <div id="photo-preview-wrap" class="hidden w-full flex-col items-center">
+          <div class="w-full bg-white p-2 rounded-2xl shadow border mb-3">
+            <img id="photo-preview" class="w-full max-h-[45vh] object-contain rounded-lg">
+          </div>
+          <div class="flex gap-2 w-full">
+            <button id="btn-photo-retake" class="flex-1 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold">重拍</button>
+            <button id="btn-photo-submit" class="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition">
+              <i class="fas fa-paper-plane mr-2"></i>送出作品</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 全班作品展示牆 -->
+      <div id="stu-gallery" class="hidden w-full max-w-4xl flex-col">
+        <h3 class="text-center text-xl font-black text-teal-700 mb-3"><i class="fas fa-star mr-2 text-amber-400"></i>全班作品</h3>
+        <div id="stu-gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+      </div>
+
       <!-- 教材 -->
       <div id="stu-mode-material" class="hidden w-full max-w-4xl flex-col items-center">
         <div id="stu-material-content" class="w-full bg-white p-2 rounded-2xl shadow-xl border min-h-[300px] flex items-center justify-center overflow-hidden"></div>
@@ -723,7 +761,7 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 const CLASS_SIZES = { '5': ROSTER['5'].length, '6': ROSTER['6'].length };
 const MODES = { waiting:'待機', ox:'O / X', abc:'選擇題', typing:'拼字題',
-                buzzer:'搶答', whiteboard:'小白板', audio:'口說錄音', material:'教材圖片' };
+                buzzer:'搶答', whiteboard:'小白板', audio:'口說錄音', material:'教材圖片', photo:'拍照作品' };
 
 const STATE = {
   role: null, grade: '5', seat: null,
@@ -1002,7 +1040,7 @@ function renderCard(seat) {
     ans.innerHTML = rank === 1
       ? '<span class="text-amber-500 font-black text-lg">最快！</span>'
       : `<span class="text-gray-500 font-bold text-sm">慢了 ${me ? me.gap.toFixed(2) : '?'} 秒</span>`;
-  } else if (mode === 'whiteboard' && String(d.answer).startsWith('data:image')) {
+  } else if ((mode === 'whiteboard' || mode === 'photo') && String(d.answer).startsWith('data:image')) {
     icon.innerHTML = '';
     ans.innerHTML = `<img src="${d.answer}" data-zoom="1" class="w-full max-h-[110px] object-contain cursor-zoom-in rounded">`;
   } else if (mode === 'audio' && String(d.answer).startsWith('data:audio')) {
@@ -1135,6 +1173,9 @@ function applyClassStateToTeacher(data) {
   $('btn-auto-grade').classList.toggle('hidden', !data.correctAnswer || mode === 'waiting');
   $('btn-reveal').classList.toggle('hidden', mode === 'waiting' || mode === 'buzzer');
   $('btn-reveal').classList.toggle('opacity-50', !!data.reveal);
+  $('btn-reveal').innerHTML = mode === 'photo'
+    ? '<i class="fas fa-images mr-1"></i>展示給全班'
+    : '<i class="fas fa-star mr-1"></i>公布答案';
 
   const tEl = $('timer-display-container');
   if (data.timerEnd) {
@@ -1539,7 +1580,7 @@ async function publishTask(payload) {
    本堂課暫存與存檔
    上課中先記在這台裝置（localStorage），按「結束本堂並存檔」才寫進資料庫
    ══════════════════════════════════════════════════════════════════ */
-const MEDIA_PLACEHOLDER = { whiteboard: '［白板作品］', audio: '［語音錄音］', material: '［看教材］' };
+const MEDIA_PLACEHOLDER = { whiteboard: '［白板作品］', audio: '［語音錄音］', material: '［看教材］', photo: '［拍照作品］' };
 
 /* 這台裝置的識別碼，用來判斷「是不是別台正在存檔」 */
 function deviceId() {
@@ -1747,6 +1788,8 @@ function bindTeacherEvents() {
       ansBox.classList.remove('hidden');
       ansIn.innerHTML = `<input type="text" id="input-correct-ans" class="w-full p-2.5 border rounded-lg" placeholder="例如 apple 或 colour/color">`;
       $('lbl-show-blanks').classList.remove('hidden');
+    } else if (selectedMode === 'photo') {
+      // 拍照任務只需要一句題目說明
     } else if (selectedMode === 'whiteboard' || selectedMode === 'material') {
       matBox.classList.remove('hidden');
       // 只有「派發圖片教材」需要問要不要讓學生在上面畫；小白板本來就是要畫的
@@ -2161,7 +2204,7 @@ function exportReport() {
 /* ══════════════════════════════════════════════════════════════════
    ⑥  學生端
    ══════════════════════════════════════════════════════════════════ */
-const STU_MODES = ['waiting','ox','abc','typing','buzzer','whiteboard','audio','material'];
+const STU_MODES = ['waiting','ox','abc','typing','buzzer','whiteboard','audio','material','photo'];
 
 function showStuMode(mode) {
   STU_MODES.forEach(m => {
@@ -2253,6 +2296,13 @@ function setAnswerLock(locked) {
   [...$$('.color-picker'), $('btn-stu-eraser'), $('btn-stu-undo'), $('btn-stu-clear-board')]
     .forEach(b => { if (!b) return; b.disabled = locked; b.classList.toggle('opacity-40', locked); b.classList.toggle('pointer-events-none', locked); });
 
+  [$('btn-photo-cam'), $('btn-photo-lib'), $('btn-photo-retake'), $('btn-photo-submit')].forEach(b => {
+    if (!b) return; b.disabled = locked; b.classList.toggle('opacity-40', locked);
+  });
+  const bps = $('btn-photo-submit');
+  if (bps && locked) bps.innerHTML = '<i class="fas fa-lock mr-2"></i>已送出';
+  else if (bps) bps.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>送出作品';
+
   const ba = $('btn-stu-submit-audio');
   if (ba) ba.disabled = locked;
   const br = $('btn-stu-re-record');
@@ -2300,7 +2350,7 @@ function renderStudentNotice() {
 
 function renderStudentReveal(cs, myData) {
   const box = $('stu-reveal');
-  if (!cs.reveal || !cs.correctAnswer) { box.classList.add('hidden'); return; }
+  if (!cs.reveal || !cs.correctAnswer || cs.mode === 'photo') { box.classList.add('hidden'); return; }
   const mine = (myData?.answerTaskId === cs.taskId) ? myData.answer : null;
   const ok = mine != null ? isAnswerCorrect(mine, cs.correctAnswer) : null;
   box.classList.remove('hidden');
@@ -2342,7 +2392,9 @@ function applyClassStateToStudent(cs) {
     setAnswerLock(false);
     $('stu-reveal').classList.add('hidden');
     resetAudioUI();
+    resetPhotoUI();
     clearCanvas();
+    $('lightbox').classList.add('hidden');
     if (mode !== 'waiting') {
       writeMyStatus(`thinking:${cs.taskId}`,
         { status: 'thinking', answer: '', answerTaskId: null, gradedTaskId: null });
@@ -2366,6 +2418,9 @@ function applyClassStateToStudent(cs) {
 
   showStuMode(mode);
   renderStudentNotice();
+  // 展示牆開著時就把拍照介面讓開，整個畫面留給作品
+  if (mode === 'photo' && cs.reveal) $('stu-mode-photo').style.display = 'none';
+  renderStudentGallery();
 
   // 只在「換題目」時重建作答區，否則老師按公布答案/計時器會把學生畫到一半的白板洗掉
   if (isNewTask || setupTaskId !== cs.taskId) {
@@ -2501,6 +2556,8 @@ function startStudentListeners() {
     p.classList.toggle('hidden', !cs.taskId || cs.mode === 'waiting');
     p.innerText = `${done}/${total}`;
 
+    if (cs.mode === 'photo' && cs.reveal) renderStudentGallery();
+
     // 搶答名次
     if (cs.mode === 'buzzer' && me.answerTaskId === cs.taskId) {
       const order = buzzOrder(STATE.localStudentsData, STATE.grade);
@@ -2530,7 +2587,88 @@ function startStudentListeners() {
   }, e => scheduleReconnect(e?.code || e)));
 }
 
+let photoB64 = null;
+
+function setPhotoStage(stage) {
+  const empty = $('photo-empty'), prev = $('photo-preview-wrap');
+  if (!empty || !prev) return;
+  empty.classList.toggle('hidden', stage !== 'empty');
+  empty.classList.toggle('flex', stage === 'empty');
+  prev.classList.toggle('hidden', stage !== 'preview');
+  prev.classList.toggle('flex', stage === 'preview');
+}
+
+function resetPhotoUI() {
+  photoB64 = null;
+  const img = $('photo-preview'); if (img) img.removeAttribute('src');
+  ['photo-cam-input', 'photo-lib-input'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+  setPhotoStage('empty');
+}
+
+async function handlePhotoPick(file) {
+  if (!file) return;
+  if (answerLocked) return;
+  try {
+    showToast('照片處理中…');
+    // 直接壓到 1000px / JPEG，手機原圖動輒好幾 MB，不壓會超過 Firestore 上限
+    let b64 = await compressImage(file, 1000, .72);
+    let q = .72;
+    while (dataUrlBytes(b64) > FIRESTORE_SAFE_BYTES && q > .35) { q -= .12; b64 = await compressImage(file, 900, q); }
+    if (dataUrlBytes(b64) > FIRESTORE_SAFE_BYTES) return showToast('這張照片太大了，請再拍一張', 'error');
+    photoB64 = b64;
+    $('photo-preview').src = b64;
+    setPhotoStage('preview');
+    sfx.ping();
+  } catch (e) {
+    console.error(e);
+    showToast('照片讀取失敗，請再試一次', 'error');
+  }
+}
+
+/* 全班作品展示牆：老師按「展示給全班」之後才出現 */
+function renderStudentGallery() {
+  const box = $('stu-gallery'); if (!box) return;
+  const cs = STATE.classState || {};
+  const show = cs.mode === 'photo' && cs.reveal;
+  box.style.display = show ? 'flex' : 'none';
+  if (!show) return;
+
+  const cells = rosterOf(STATE.grade).map(({ seat }) => {
+    const d = STATE.localStudentsData[`${STATE.grade}-${seat}`];
+    const ok = d && d.status === 'submitted' && d.answerTaskId === cs.taskId && String(d.answer || '').startsWith('data:image');
+    const mine = String(seat) === String(STATE.seat);
+    return `<div class="bg-white rounded-2xl border-2 ${mine ? 'border-blue-400' : 'border-gray-200'} p-2 shadow-sm">
+      ${ok
+        ? `<img src="${d.answer}" data-zoom="1" class="w-full h-32 sm:h-40 object-contain rounded-lg cursor-zoom-in">`
+        : `<div class="w-full h-32 sm:h-40 flex items-center justify-center text-gray-300 text-sm bg-gray-50 rounded-lg">還沒上傳</div>`}
+      <div class="text-center font-bold text-sm mt-1.5 ${mine ? 'text-blue-600' : 'text-gray-700'}">
+        ${escapeHtml(shortNameOf(STATE.grade, seat))}${mine ? '（你）' : ''}</div>
+    </div>`;
+  }).join('');
+  $('stu-gallery-grid').innerHTML = cells;
+}
+
 function bindStudentEvents() {
+  $('btn-photo-cam').addEventListener('click', () => { if (!answerLocked) $('photo-cam-input').click(); });
+  $('btn-photo-lib').addEventListener('click', () => { if (!answerLocked) $('photo-lib-input').click(); });
+  $('photo-cam-input').addEventListener('change', e => handlePhotoPick(e.target.files[0]));
+  $('photo-lib-input').addEventListener('change', e => handlePhotoPick(e.target.files[0]));
+  $('btn-photo-retake').addEventListener('click', () => { if (!answerLocked) resetPhotoUI(); });
+  $('btn-photo-submit').addEventListener('click', () => {
+    if (answerLocked) return;
+    if (!photoB64) return showToast('還沒有照片', 'warning');
+    submitStudentAnswer(photoB64);
+  });
+
+  // 展示牆點圖放大
+  $('stu-gallery-grid').addEventListener('click', e => {
+    const img = e.target.closest('img[data-zoom]');
+    if (!img) return;
+    $('lightbox-img').src = img.src;
+    $('lightbox').classList.remove('hidden');
+    $('lightbox').classList.add('flex');
+  });
+
   // 選項 / OX：先選起來，再按送出（事件委派，因為 A~D 是動態產生的）
   $('student-task-container').addEventListener('click', e => {
     const b = e.target.closest('.stu-ans-btn');
