@@ -427,7 +427,7 @@
           <i class="fas fa-microphone text-5xl text-blue-500"></i>
         </div>
         <h3 class="text-xl font-bold text-gray-700 mb-1">Speaking Practice</h3>
-        <p class="text-gray-500 text-center mb-4 text-sm">按下錄音，最多 <span id="audio-max-sec">15</span> 秒，請大聲念出來！</p>
+        <p class="text-gray-500 text-center mb-4 text-sm">按一下開始，念完再按一次停止。請大聲念出來！</p>
         <button id="btn-stu-record" class="w-full py-4 bg-red-500 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition">
           <i class="fas fa-circle mr-2"></i>開始錄音</button>
         <button id="btn-audio-reset" class="mt-3 text-sm text-gray-400 hover:text-red-500 underline">
@@ -730,7 +730,8 @@ const ROSTER = {
    ②  基本設定
    ══════════════════════════════════════════════════════════════════ */
 const TEACHER_PASSWORD = 'edu';          // 教師密碼
-const AUDIO_MAX_SECONDS = 15;            // 錄音上限秒數
+const AUDIO_MAX_SECONDS = 90;            // 安全上限（避免檔案大到存不進資料庫），畫面不顯示倒數
+const AUDIO_BITS_PER_SEC = 24000;        // 語音用 24kbps 就很清楚，90 秒約 270KB
 const FIRESTORE_SAFE_BYTES = 560 * 1024; // 壓縮後的原始資料上限
 const MAX_ANSWER_CHARS   = 780 * 1024; // 實際存進 Firestore 的字串上限（硬上限 1MB）
 
@@ -894,27 +895,65 @@ function clearListeners() { STATE.unsubs.forEach(u => { try { u(); } catch {} })
 const newTaskId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 /* 圖片壓縮 */
-function compressImage(file, maxSize = 900, quality = .72) {
+/* 把檔案解碼成可以畫到 canvas 的來源。
+   iPad 的照片動輒 12MP／好幾 MB，舊寫法先轉成十幾 MB 的 base64 再餵給 <img>，
+   記憶體吃緊時 onload 可能永遠不觸發，畫面就一直沒反應。
+   createImageBitmap 走原生解碼、不經過 base64，也會自動處理 iPhone 的方向資訊。 */
+function decodeImageFile(file, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = e => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) { done = true; reject(new Error('decode-timeout')); }
+    }, timeoutMs);
+    const ok = (src, cleanup) => { if (done) { cleanup?.(); return; } done = true; clearTimeout(timer); resolve({ src, cleanup }); };
+    const fail = (e) => { if (done) return; done = true; clearTimeout(timer); reject(e || new Error('decode-failed')); };
+
+    if (window.createImageBitmap) {
+      createImageBitmap(file)
+        .then(bmp => ok(bmp, () => { try { bmp.close(); } catch {} }))
+        .catch(() => fallback());
+    } else fallback();
+
+    function fallback() {
+      // 退路：用 object URL，不要用 base64，省掉一次巨大的字串
+      let url;
+      try { url = URL.createObjectURL(file); } catch (e) { return fail(e); }
       const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        let { width: w, height: h } = img;
-        if (w > h && w > maxSize) { h *= maxSize / w; w = maxSize; }
-        else if (h > maxSize) { w *= maxSize / h; h = maxSize; }
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', quality));
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+      img.onload = () => ok(img, () => { try { URL.revokeObjectURL(url); } catch {} });
+      img.onerror = () => { try { URL.revokeObjectURL(url); } catch {} ; fail(new Error('image-decode-failed')); };
+      img.src = url;
+    }
   });
 }
+
+/* 把解碼好的來源縮圖並輸出 JPEG */
+function encodeJpeg(src, maxSize, quality) {
+  let w = src.width, h = src.height;
+  if (w > h && w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
+  else if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; }
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, w); c.height = Math.max(1, h);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', quality);
+}
+
+/* 縮到指定大小以內；解碼只做一次，之後只重新編碼 */
+async function compressImage(file, maxSize = 900, quality = .72, budget = null) {
+  const { src, cleanup } = await decodeImageFile(file);
+  try {
+    let out = encodeJpeg(src, maxSize, quality);
+    const cap = budget || FIRESTORE_SAFE_BYTES;
+    let q = quality, size = maxSize;
+    while (dataUrlBytes(out) > cap && (q > .35 || size > 600)) {
+      if (q > .4) q -= .12; else { size = Math.max(600, Math.round(size * 0.8)); q = .5; }
+      out = encodeJpeg(src, size, q);
+    }
+    return out;
+  } finally { cleanup?.(); }
+}
+
 const dataUrlBytes = (s) => Math.ceil((s.length - (s.indexOf(',') + 1)) * 3 / 4);
 
 async function initAuth() {
@@ -2652,21 +2691,36 @@ function resetPhotoUI() {
 async function handlePhotoPick(file) {
   if (!file) return;
   if (answerLocked) return;
+  setPhotoBusy(true);
   try {
-    showToast('照片處理中…');
-    // 直接壓到 1000px / JPEG，手機原圖動輒好幾 MB，不壓會超過 Firestore 上限
-    let b64 = await compressImage(file, 1000, .72);
-    let q = .72;
-    while (dataUrlBytes(b64) > FIRESTORE_SAFE_BYTES && q > .35) { q -= .12; b64 = await compressImage(file, 900, q); }
-    if (dataUrlBytes(b64) > FIRESTORE_SAFE_BYTES) return showToast('這張照片太大了，請再拍一張', 'error');
+    const b64 = await compressImage(file, 1000, .72);
+    if (dataUrlBytes(b64) > FIRESTORE_SAFE_BYTES) {
+      setPhotoBusy(false);
+      return showToast('這張照片太大了，請靠近一點重拍', 'error');
+    }
     photoB64 = b64;
     $('photo-preview').src = b64;
     setPhotoStage('preview');
+    setPhotoBusy(false);
     sfx.ping();
   } catch (e) {
-    console.error(e);
-    showToast('照片讀取失敗，請再試一次', 'error');
+    console.error('照片處理失敗', e);
+    setPhotoBusy(false);
+    setPhotoStage('empty');
+    showToast(e?.message === 'decode-timeout'
+      ? '照片太大，處理不完。請用「從相簿選」挑一張，或重拍一張'
+      : '照片讀不出來，請再試一次', 'error');
   }
+}
+
+/* 處理照片時給明確的忙碌狀態，不要讓學生對著沒動靜的畫面等 */
+function setPhotoBusy(busy) {
+  [['btn-photo-cam','<i class="fas fa-camera mr-2"></i>拍照'],
+   ['btn-photo-lib','<i class="fas fa-images mr-2"></i>從相簿選']].forEach(([id, label]) => {
+    const b = $(id); if (!b) return;
+    b.disabled = busy;
+    b.innerHTML = busy ? '<i class="fas fa-spinner fa-spin mr-2"></i>處理中…' : label;
+  });
 }
 
 /* 全班作品展示牆：老師按「展示給全班」之後才出現 */
@@ -2940,11 +2994,12 @@ function setRecordBtn(state) {
     b.disabled = true; b.classList.add('hidden');
   }
 }
-function setRecordCountdown(secLeft) {
+function setRecordCountdown(secElapsed) {
   const b = $('btn-stu-record'); if (!b) return;
+  const m = Math.floor(secElapsed / 60), ss = String(secElapsed % 60).padStart(2, '0');
   b.disabled = false; b.classList.remove('hidden');
   b.className = 'w-full py-4 rounded-2xl font-bold text-xl shadow-lg transition bg-gray-800 text-white active:scale-95';
-  b.innerHTML = `<i class="fas fa-stop mr-2"></i>停止（${secLeft}）`;
+  b.innerHTML = `<i class="fas fa-stop mr-2"></i>停止　${m}:${ss}`;
 }
 
 /* iOS Safari 不支援 webm，要挑它吃得下的格式 */
@@ -2985,20 +3040,52 @@ function finishRecording(gen, chunks, mime) {
   }
   const blob = new Blob(chunks, { type: mime || 'audio/mp4' });
   try { $('stu-audio-playback').src = URL.createObjectURL(blob); } catch {}
+
+  // 轉 base64 是非同步的。以前預覽一出現學生就能按送出，
+  // 但那時 audioB64 還沒好，就會跳「還沒有錄音內容」。
+  setAudioPreparing(true);
   const fr = new FileReader();
   fr.onloadend = () => {
     if (gen !== recGeneration) return;
-    audioB64 = fr.result;
-    if (dataUrlBytes(audioB64) > FIRESTORE_SAFE_BYTES) {
+    const result = fr.result;
+    if (dataUrlBytes(result) > FIRESTORE_SAFE_BYTES) {
       audioB64 = null;
-      showToast('錄音太長了，請重錄短一點', 'error');
+      setAudioPreparing(false, true);
+      showToast('錄音太長存不下來，請錄短一點', 'error');
+      return;
     }
+    audioB64 = result;
+    const queued = audioSubmitQueued;   // setAudioPreparing 會把旗標清掉，要先存下來
+    setAudioPreparing(false);
+    if (queued) submitStudentAnswer(audioB64);
   };
-  fr.onerror = () => showToast('錄音讀取失敗，請重錄', 'error');
+  fr.onerror = () => {
+    if (gen !== recGeneration) return;
+    audioB64 = null;
+    setAudioPreparing(false, true);
+    showToast('錄音讀取失敗，請重錄', 'error');
+  };
   fr.readAsDataURL(blob);
+
   setRecordBtn('hidden');
   const p = $('audio-preview-container');
   p.classList.remove('hidden'); p.classList.add('flex');
+}
+
+let audioPreparing = false, audioSubmitQueued = false;
+
+function setAudioPreparing(preparing, failed = false) {
+  audioPreparing = preparing;
+  if (!preparing) audioSubmitQueued = false;
+  const b = $('btn-stu-submit-audio'); if (!b) return;
+  if (preparing) {
+    b.disabled = false;   // 還是可以按，按了就排隊，好過讓學生以為壞掉
+    b.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>準備中…';
+  } else if (failed) {
+    b.innerHTML = '<i class="fas fa-rotate-left mr-2"></i>請重錄';
+  } else {
+    b.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>送出語音';
+  }
 }
 
 async function startRecording() {
@@ -3034,7 +3121,9 @@ async function startRecording() {
   recStream = stream;
   const mime = pickRecorderMime();
   try {
-    mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    const mrOpts = { audioBitsPerSecond: AUDIO_BITS_PER_SEC };
+    if (mime) mrOpts.mimeType = mime;
+    mediaRecorder = new MediaRecorder(stream, mrOpts);
   } catch {
     try { mediaRecorder = new MediaRecorder(stream); }
     catch {
@@ -3064,16 +3153,22 @@ async function startRecording() {
   $('audio-mic-icon').querySelector('i')?.classList.replace('text-blue-500', 'text-red-500');
 
   // 倒數用結束時間換算，不靠遞減變數，殘留計時器也不會讓數字亂跳
-  const endAt = Date.now() + AUDIO_MAX_SECONDS * 1000;
-  setRecordCountdown(AUDIO_MAX_SECONDS);
+  const startedAt = Date.now();
+  setRecordCountdown(0);
   // 這裡一定要用區域變數：直接 clearInterval(recCountdown) 會把「新的那一輪」清掉，
-  // 舊的反而活下來，倒數就會看起來一直重來
+  // 舊的反而活下來，計時就會看起來一直重來
   const myTick = setInterval(() => {
     if (gen !== recGeneration) return clearInterval(myTick);
-    setRecordCountdown(Math.max(0, Math.ceil((endAt - Date.now()) / 1000)));
+    setRecordCountdown(Math.floor((Date.now() - startedAt) / 1000));
   }, 250);
   recCountdown = myTick;
-  recTimer = setTimeout(() => { if (isRecording && gen === recGeneration) stopRecording(); }, AUDIO_MAX_SECONDS * 1000);
+  // 安全閥：真的錄太久就自動停，免得檔案大到存不進資料庫
+  recTimer = setTimeout(() => {
+    if (isRecording && gen === recGeneration) {
+      showToast('錄滿 ' + AUDIO_MAX_SECONDS + ' 秒，自動停止了', 'warning');
+      stopRecording();
+    }
+  }, AUDIO_MAX_SECONDS * 1000);
 }
 
 function stopRecording() {
@@ -3099,7 +3194,6 @@ function stopRecording() {
 }
 
 function initAudioRecorder() {
-  $('audio-max-sec').innerText = AUDIO_MAX_SECONDS;
   $('btn-stu-record').addEventListener('click', () => {
     if (answerLocked) return;
     if (isRecording) return stopRecording();
@@ -3115,6 +3209,11 @@ function initAudioRecorder() {
   });
   $('btn-stu-submit-audio').addEventListener('click', () => {
     if (answerLocked) return;
+    if (audioPreparing) {          // 檔案還在轉，先排隊，好了自動送出
+      audioSubmitQueued = true;
+      showToast('錄音準備中，好了會自動送出', 'info');
+      return;
+    }
     if (!audioB64) return showToast('還沒有錄音內容，請先錄一段', 'warning');
     submitStudentAnswer(audioB64);
   });
@@ -3125,6 +3224,7 @@ function resetAudioUI() {
   recGeneration++;
   teardownRecording();
   restoreBeeps();
+  audioPreparing = false; audioSubmitQueued = false;
   audioB64 = null;
   audioChunks = [];
   const p = $('audio-preview-container');
