@@ -309,7 +309,7 @@
   <!-- 小螢幕底部分頁 -->
   <nav class="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t shadow-[0_-2px_10px_rgba(0,0,0,.06)] flex z-40 safe-b">
     <button class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-xs font-bold" data-tab="tools"><i class="fas fa-paper-plane text-lg"></i>派題</button>
-    <button class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-xs font-bold relative" data-tab="students"><i class="fas fa-users text-lg"></i>學生<span id="tab-hand-dot" class="hidden absolute top-2 right-1/4 w-2.5 h-2.5 bg-red-500 rounded-full"></span></button>
+    <button class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-xs font-bold" data-tab="students"><i class="fas fa-users text-lg"></i>學生</button>
     <button class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-xs font-bold" data-tab="board"><i class="fas fa-trophy text-lg"></i>計分</button>
   </nav>
 </div>
@@ -333,7 +333,6 @@
     <div class="flex items-center gap-2">
       <div id="stu-progress" class="hidden text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">0/0</div>
       <div id="stu-timer-display" class="hidden bg-gray-800 text-white px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold"><i class="fas fa-clock mr-1 text-yellow-400"></i><span>00:00</span></div>
-      <button id="btn-stu-hand" class="w-11 h-11 rounded-2xl bg-amber-100 text-amber-600 text-xl border border-amber-200 active:scale-95 transition" title="舉手"><i class="fas fa-hand"></i></button>
       <button id="btn-stu-switch" class="w-9 h-9 rounded-xl bg-gray-100 text-gray-400 text-sm active:scale-95" title="切換身分"><i class="fas fa-right-left"></i></button>
     </div>
   </div>
@@ -950,7 +949,6 @@ function buildTeacherGrid() {
     grid.insertAdjacentHTML('beforeend', `
       <div id="card-${id}" class="student-card bg-white rounded-2xl shadow border-2 border-gray-100 p-2 sm:p-3 flex flex-col relative overflow-hidden min-h-[175px] sm:min-h-[230px]">
         <div id="badge-group-${id}" class="hidden absolute top-0 right-0 px-2 py-1 text-xs font-bold text-white rounded-bl-lg"></div>
-        <div id="hand-${id}" class="hidden absolute top-1.5 left-1.5 text-amber-500 text-lg animate-bounce z-10"><i class="fas fa-hand"></i></div>
 
         <div class="flex justify-between items-center mb-1.5 border-b pb-1.5 gap-1">
           <div class="flex items-center gap-1.5 min-w-0">
@@ -996,8 +994,6 @@ function renderCard(seat) {
     badge.className = `absolute top-0 right-0 px-2 py-1 text-xs font-bold text-white rounded-bl-lg ${d.group === 'A' ? 'bg-blue-500' : 'bg-red-500'}`;
     badge.innerText = d.group;
   } else badge.className = 'hidden';
-
-  $(`hand-${id}`).classList.toggle('hidden', !d.hand);
 
   const icon = $(`status-icon-${id}`), ans = $(`answer-content-${id}`);
   // 只認「這一題」的作答，避免上一題的舊答案殘留
@@ -1124,9 +1120,6 @@ function renderProgressAndBoard() {
   $('progress-text').innerText = cs.mode === 'waiting' ? `0 / ${total}` : `${done} / ${total}`;
   $('m-progress').innerText = `${cs.mode === 'waiting' ? 0 : done}/${total} 已作答`;
 
-  const anyHand = rosterOf(STATE.grade).some(({ seat }) => STATE.localStudentsData[`${STATE.grade}-${seat}`]?.hand);
-  $('tab-hand-dot').classList.toggle('hidden', !anyHand);
-
   // 小組
   let a = 0, b = 0;
   Object.values(STATE.localStudentsData).forEach(s => {
@@ -1214,11 +1207,9 @@ function startTeacherListeners() {
   }, e => scheduleReconnect(e?.code || e)));
 
   STATE.unsubs.push(onSnapshot(colRef(`students_${STATE.grade}`), snap => {
-    let newHand = false;
     snap.docChanges().forEach(ch => {
       const prev = STATE.localStudentsData[ch.doc.id];
       const d = ch.doc.data();
-      if (d.hand && !prev?.hand) newHand = true;
       if (STATE.classState.mode === 'buzzer' && d.status === 'submitted' &&
           d.answerTaskId === STATE.classState.taskId && prev?.status !== 'submitted') sfx.buzz();
       STATE.localStudentsData[ch.doc.id] = d;
@@ -1226,7 +1217,6 @@ function startTeacherListeners() {
     renderAllCards();
     renderProgressAndBoard();
     renderBuzzBoard();
-    if (newHand) { sfx.ping(); showToast('有學生舉手了 ✋', 'warning'); }
   }, e => console.error(e)));
 
   STATE.unsubs.push(onSnapshot(colRef(`records_${STATE.grade}`), snap => {
@@ -2601,10 +2591,6 @@ function startStudentListeners() {
       showToast('老師讓你重答一次', 'info');
     }
 
-    $('btn-stu-hand').className = me.hand
-      ? 'w-11 h-11 rounded-2xl bg-amber-500 text-white text-xl border border-amber-600 active:scale-95 transition'
-      : 'w-11 h-11 rounded-2xl bg-amber-100 text-amber-600 text-xl border border-amber-200 active:scale-95 transition';
-
     // 作答進度
     const total = CLASS_SIZES[STATE.grade];
     const done = Object.values(STATE.localStudentsData)
@@ -2771,13 +2757,6 @@ function bindStudentEvents() {
   });
 
   $('btn-stu-speak').addEventListener('click', () => speak(STATE.classState?.speak));
-
-  $('btn-stu-hand').addEventListener('click', async () => {
-    const me = STATE.localStudentsData[`${STATE.grade}-${STATE.seat}`] || {};
-    const next = !me.hand;
-    await setDoc(studentRef(STATE.grade, STATE.seat), { hand: next }, { merge: true });
-    showToast(next ? '已舉手，老師會看到 ✋' : '已放下手', next ? 'warning' : 'info');
-  });
 
   $('stu-offline').addEventListener('click', () => location.reload());
 
@@ -3194,9 +3173,9 @@ async function enterAsStudent(grade, seat) {
   const info = rosterOf(STATE.grade).find(s => String(s.seat) === STATE.seat) || {};
   if (!snap.exists()) {
     await setDoc(ref, { grade: STATE.grade, seat: STATE.seat, name: info.name || '', en: info.en || '',
-                        score: 0, streak: 0, status: 'waiting', answer: '', group: null, hand: false });
+                        score: 0, streak: 0, status: 'waiting', answer: '', group: null });
   } else {
-    await setDoc(ref, { name: info.name || '', en: info.en || '', hand: false }, { merge: true });
+    await setDoc(ref, { name: info.name || '', en: info.en || '' }, { merge: true });
   }
 
   showView('student');
@@ -3272,13 +3251,6 @@ function boot() {
   } else if (savedTea) {
     enterAsTeacher().catch(() => showView('login'));
   }
-
-  // 離開時放下手、避免殘留舉手狀態
-  window.addEventListener('pagehide', () => {
-    if (STATE.role === 'student' && STATE.seat) {
-      try { setDoc(studentRef(STATE.grade, STATE.seat), { hand: false }, { merge: true }); } catch {}
-    }
-  });
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
