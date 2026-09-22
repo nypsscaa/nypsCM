@@ -44,6 +44,11 @@
 </head>
 <body class="text-gray-800">
 
+<!-- 有新版本 -->
+<button id="update-bar" class="hidden fixed top-0 inset-x-0 z-[300] bg-emerald-600 text-white py-3 px-4 font-black text-center shadow-lg active:bg-emerald-700">
+  <i class="fas fa-arrow-rotate-right mr-2"></i>有新版本，點一下更新
+</button>
+
 <!-- 全域通知 -->
 <div id="toast-container" class="fixed bottom-20 lg:bottom-4 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 pointer-events-none items-center w-full px-4"></div>
 
@@ -51,7 +56,8 @@
 <div id="login-view" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4 overflow-y-auto">
   <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl w-full max-w-2xl text-center border border-gray-100 my-auto">
     <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-600 mb-1 tracking-tight"><i class="fas fa-chalkboard-teacher mr-2"></i>EngClass Pro</h1>
-    <p class="text-gray-500 mb-6 font-medium text-sm sm:text-base">英語互動課室</p>
+    <p class="text-gray-500 mb-1 font-medium text-sm sm:text-base">英語互動課室</p>
+    <p class="text-[11px] text-gray-300 mb-5">版本 <span class="build-label"></span></p>
 
     <div id="login-selection" class="space-y-3">
       <button id="btn-show-student-login" class="w-full py-5 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl font-bold text-xl transition shadow-md flex items-center justify-center active:scale-95">
@@ -187,6 +193,7 @@
         <input type="checkbox" id="chk-autospeak" class="w-5 h-5 accent-indigo-600" checked> 學生端自動朗讀英文
       </label>
       <button id="btn-logout" class="w-full mt-4 p-3 rounded-xl text-sm text-gray-400 hover:text-red-500 transition"><i class="fas fa-sign-out-alt mr-1"></i>登出</button>
+      <p class="text-center text-[11px] text-gray-300 mt-2">版本 <span class="build-label"></span></p>
     </div>
 
     <div class="hidden lg:block p-3 border-t bg-gray-50 shrink-0">
@@ -334,6 +341,7 @@
       <div id="stu-progress" class="hidden text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">0/0</div>
       <div id="stu-timer-display" class="hidden bg-gray-800 text-white px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold"><i class="fas fa-clock mr-1 text-yellow-400"></i><span>00:00</span></div>
       <button id="btn-stu-switch" class="w-9 h-9 rounded-xl bg-gray-100 text-gray-400 text-sm active:scale-95" title="切換身分"><i class="fas fa-right-left"></i></button>
+      <span class="build-label text-[10px] text-gray-300 self-end"></span>
     </div>
   </div>
 
@@ -729,6 +737,11 @@ const ROSTER = {
 /* ══════════════════════════════════════════════════════════════════
    ②  基本設定
    ══════════════════════════════════════════════════════════════════ */
+/* 每次改版都會換掉這一行（部署時間）。
+   GitHub Pages 會被 CDN 與 Safari 快取，學生 iPad 常常抱著舊版不放，
+   所以頁面自己會去比對線上版本，不一樣就提示更新。 */
+const BUILD_ID = '2026-09-22-1333';
+
 const TEACHER_PASSWORD = 'edu';          // 教師密碼
 const AUDIO_MAX_SECONDS = 90;            // 安全上限（避免檔案大到存不進資料庫），畫面不顯示倒數
 const AUDIO_BITS_PER_SEC = 24000;        // 語音用 24kbps 就很清楚，90 秒約 270KB
@@ -3322,8 +3335,42 @@ async function enterAsTeacher() {
   showToast(`${TEACHER_NAME} 老師，控制台已就緒`, 'success');
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   版本檢查：iPad 上的 Safari 與 GitHub Pages 的 CDN 都會抱著舊版不放，
+   所以頁面自己去比對線上的 BUILD_ID，不一樣就請使用者點一下更新。
+   ══════════════════════════════════════════════════════════════════ */
+let lastVersionCheck = 0;
+
+async function checkForUpdate() {
+  if (Date.now() - lastVersionCheck < 60000) return;   // 最多一分鐘檢查一次
+  lastVersionCheck = Date.now();
+  try {
+    const url = location.href.split('#')[0].split('?')[0] + '?v=' + Date.now();
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return;
+    const text = await res.text();
+    const m = text.match(/BUILD_ID\s*=\s*'([^']+)'/);
+    if (m && m[1] !== BUILD_ID) {
+      $('update-bar').classList.remove('hidden');
+      $('update-bar').innerHTML =
+        `<i class="fas fa-arrow-rotate-right mr-2"></i>有新版本（${escapeHtml(m[1])}），點一下更新`;
+    }
+  } catch {}
+}
+
+function forceReload() {
+  const base = location.href.split('#')[0].split('?')[0];
+  location.replace(base + '?v=' + Date.now());
+}
+
 function boot() {
   showView('login');
+  $$('.build-label').forEach(el => el.innerText = BUILD_ID);
+  $('update-bar').addEventListener('click', forceReload);
+  checkForUpdate();
+  // 每次把 iPad 從待機喚醒、切回這個分頁時再確認一次
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
+  setInterval(checkForUpdate, 10 * 60 * 1000);
 
   $('btn-show-student-login').addEventListener('click', () => {
     $('login-selection').classList.add('hidden');
