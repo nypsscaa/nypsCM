@@ -338,7 +338,10 @@
     </div>
   </div>
 
-  <div id="stu-task-status" class="px-3 py-1.5 bg-gray-100 text-gray-600 text-sm font-bold text-center shrink-0">等待老師派發任務…</div>
+  <div id="stu-task-status" class="px-3 py-2.5 bg-gray-100 text-gray-600 text-base sm:text-lg font-black text-center shrink-0 flex items-center justify-center gap-3">
+    <span id="stu-status-text">等待老師派發任務…</span>
+    <button id="btn-stu-retry" class="hidden px-4 py-1.5 bg-white text-red-600 border-2 border-red-300 rounded-xl text-sm font-bold active:scale-95">再送一次</button>
+  </div>
   <button id="stu-offline" class="hidden w-full px-3 py-2 bg-red-500 text-white text-sm font-bold text-center shrink-0 active:bg-red-600">
     <i class="fas fa-wifi-slash mr-1"></i>連線中斷，正在重新連線…（點一下重新整理）
   </button>
@@ -729,7 +732,8 @@ const ROSTER = {
    ══════════════════════════════════════════════════════════════════ */
 const TEACHER_PASSWORD = 'edu';          // 教師密碼
 const AUDIO_MAX_SECONDS = 15;            // 錄音上限秒數
-const FIRESTORE_SAFE_BYTES = 700 * 1024; // 單筆答案上限（Firestore 硬上限 1MB）
+const FIRESTORE_SAFE_BYTES = 560 * 1024; // 壓縮後的原始資料上限
+const MAX_ANSWER_CHARS   = 780 * 1024; // 實際存進 Firestore 的字串上限（硬上限 1MB）
 
 const firebaseConfig = {
   apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
@@ -2217,34 +2221,81 @@ function showStuMode(mode) {
   if (el) el.style.display = 'flex';
 }
 
-function setStuStatus(text, cls) {
-  const el = $('stu-task-status');
-  el.innerText = text;
-  el.className = `px-3 py-1.5 text-sm font-bold text-center shrink-0 ${cls}`;
+function setStuStatus(text, cls, showRetry = false) {
+  const el = $('stu-task-status'); if (!el) return;
+  $('stu-status-text').innerText = text;
+  el.className = `px-3 py-2.5 text-base sm:text-lg font-black text-center shrink-0 flex items-center justify-center gap-3 ${cls}`;
+  $('btn-stu-retry').classList.toggle('hidden', !showRetry);
 }
 
-async function submitStudentAnswer(answer, opts = {}) {
+/* Firestore 的 setDoc 要等伺服器回應才會 resolve。
+   學校網路慢的時候可能等很久甚至不回來——絕不能讓畫面停在那裡等它。
+   作法：按下去馬上給回饋，真正的「已送出」由監聽器（含本機快取，幾乎即時）確認。 */
+let pendingSubmit = null, submitWatchdog = null, lastAnswerPayload = null;
+
+function submitStudentAnswer(answer, opts = {}) {
   const cs = STATE.classState || {};
   if (!cs.taskId) return showToast('目前沒有進行中的題目', 'warning');
-  if (typeof answer === 'string' && answer.length > 100 && dataUrlBytes(answer) > FIRESTORE_SAFE_BYTES) {
-    return showToast('檔案太大送不出去，請簡化內容或縮短錄音', 'error');
+  if (typeof answer === 'string' && answer.length > MAX_ANSWER_CHARS) {
+    return showToast('檔案太大送不出去，請重拍或錄短一點', 'error');
   }
+
+  lastAnswerPayload = { answer, silent: !!opts.silent };
+  pendingSubmit = { taskId: cs.taskId, at: Date.now() };
+  setStuStatus('📤 傳送中…', 'bg-blue-100 text-blue-700');
+  setSubmitBusy(true);
+
   const payload = {
     status: 'submitted', answer,
     answerTaskId: cs.taskId,
     submitAt: Date.now(),
     serverAt: serverTimestamp()
   };
-  try {
-    await setDoc(studentRef(STATE.grade, STATE.seat), payload, { merge: true });
+  // 刻意不 await：畫面不等伺服器
+  setDoc(studentRef(STATE.grade, STATE.seat), payload, { merge: true })
+    .catch(err => {
+      console.error(err);
+      if (pendingSubmit && pendingSubmit.taskId === cs.taskId && !answerLocked) {
+        pendingSubmit = null;
+        setSubmitBusy(false);
+        setStuStatus('⚠️ 沒送出去', 'bg-red-100 text-red-700', true);
+      }
+    });
+
+  clearTimeout(submitWatchdog);
+  submitWatchdog = setTimeout(() => {
+    if (pendingSubmit && !answerLocked) {
+      setStuStatus('📤 網路有點慢，還在傳…', 'bg-amber-100 text-amber-800', true);
+    }
+  }, 6000);
+}
+
+/* 監聽器看到自己的作答寫進去了，才算真的送出 */
+function confirmSubmitted(me, cs) {
+  const ok = me && me.status === 'submitted' && me.answerTaskId === cs.taskId;
+  if (!ok) return;
+  clearTimeout(submitWatchdog);
+  pendingSubmit = null;
+  setSubmitBusy(false);
+  if (!answerLocked) {
     if (cs.mode !== 'buzzer') setAnswerLock(true);
-    setStuStatus('✅ 已送出，等老師公布答案', 'bg-green-100 text-green-700');
     sfx.submit();
-    if (!opts.silent) fireConfetti();
-  } catch (e) {
-    console.error(e);
-    showToast('送出失敗，請再按一次', 'error');
+    if (!lastAnswerPayload?.silent) fireConfetti();
   }
+  if (cs.mode !== 'buzzer') setStuStatus('✅ 已送出，等老師公布', 'bg-green-500 text-white');
+}
+
+/* 傳送中：送出鈕轉圈、不能重複按 */
+function setSubmitBusy(busy) {
+  [['btn-stu-submit-typing','送出 Submit'], ['btn-stu-submit-board','送出白板'],
+   ['btn-stu-submit-audio','送出語音'], ['btn-photo-submit','送出作品']].forEach(([id, label]) => {
+    const b = $(id); if (!b) return;
+    if (busy) { b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>傳送中…'; }
+    else if (!answerLocked) { b.disabled = false; b.innerHTML = `<i class="fas fa-paper-plane mr-2"></i>${label}`; }
+  });
+  $$('.btn-choice-submit').forEach(b => {
+    if (busy) { b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>傳送中…'; }
+  });
 }
 
 let answerLocked = false, pendingChoice = null;
@@ -2252,7 +2303,7 @@ let answerLocked = false, pendingChoice = null;
 /* 送出後鎖住作答，避免看到別人答案再改；老師可從卡片「⋯ → 允許重答」解鎖 */
 function setAnswerLock(locked) {
   answerLocked = locked;
-  if (!locked) pendingChoice = null;
+  if (!locked) { pendingChoice = null; pendingSubmit = null; clearTimeout(submitWatchdog); }
 
   $$('.stu-ans-btn').forEach(b => {
     b.disabled = locked;
@@ -2272,23 +2323,23 @@ function setAnswerLock(locked) {
 
   const ta = $('stu-typing-input');
   if (ta) { ta.readOnly = locked; ta.classList.toggle('bg-gray-100', locked); }
+
+  const lockedBtn = 'mt-3 w-full py-4 bg-green-100 text-green-700 rounded-2xl font-bold text-xl border-2 border-green-200 cursor-default';
+  const liveBtn   = 'mt-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition';
+
   const bt = $('btn-stu-submit-typing');
   if (bt) {
     bt.disabled = locked;
-    bt.className = locked
-      ? 'mt-3 w-full py-4 bg-green-100 text-green-700 rounded-2xl font-bold text-xl border-2 border-green-200 cursor-default'
-      : 'mt-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition';
+    bt.className = locked ? lockedBtn : liveBtn;
     bt.innerHTML = locked ? '<i class="fas fa-lock mr-2"></i>已送出，不能更改' : '<i class="fas fa-paper-plane mr-2"></i>送出 Submit';
   }
-
   const bb = $('btn-stu-submit-board');
   if (bb) {
     bb.disabled = locked;
-    bb.className = locked
-      ? 'mt-3 w-full py-4 bg-green-100 text-green-700 rounded-2xl font-bold text-xl border-2 border-green-200 cursor-default'
-      : 'mt-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition';
+    bb.className = locked ? lockedBtn : liveBtn;
     bb.innerHTML = locked ? '<i class="fas fa-lock mr-2"></i>已送出' : '<i class="fas fa-upload mr-2"></i>送出白板';
   }
+
   const cv = $('canvas-container');
   if (cv) {
     cv.style.pointerEvents = locked ? 'none' : '';
@@ -2302,8 +2353,8 @@ function setAnswerLock(locked) {
     if (!b) return; b.disabled = locked; b.classList.toggle('opacity-40', locked);
   });
   const bps = $('btn-photo-submit');
-  if (bps && locked) bps.innerHTML = '<i class="fas fa-lock mr-2"></i>已送出';
-  else if (bps) bps.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>送出作品';
+  if (bps) bps.innerHTML = locked ? '<i class="fas fa-lock mr-2"></i>已送出'
+                                  : '<i class="fas fa-paper-plane mr-2"></i>送出作品';
 
   const ba = $('btn-stu-submit-audio');
   if (ba) ba.disabled = locked;
@@ -2395,6 +2446,8 @@ function applyClassStateToStudent(cs) {
     lockBuzzButton(false);
     setAnswerLock(false);
     $('stu-reveal').classList.add('hidden');
+    clearTimeout(submitWatchdog);
+    pendingSubmit = null; lastAnswerPayload = null;
     resetAudioUI();
     resetPhotoUI();
     clearCanvas();
@@ -2560,6 +2613,7 @@ function startStudentListeners() {
     p.classList.toggle('hidden', !cs.taskId || cs.mode === 'waiting');
     p.innerText = `${done}/${total}`;
 
+    confirmSubmitted(me, cs);
     if (cs.mode === 'photo' && cs.reveal) renderStudentGallery();
 
     // 搶答名次
@@ -2726,6 +2780,11 @@ function bindStudentEvents() {
   });
 
   $('stu-offline').addEventListener('click', () => location.reload());
+
+  $('btn-stu-retry').addEventListener('click', () => {
+    if (!lastAnswerPayload) return;
+    submitStudentAnswer(lastAnswerPayload.answer, { silent: lastAnswerPayload.silent });
+  });
 
   $('btn-stu-switch').addEventListener('click', async () => {
     if (!await askConfirm('要換成別人使用這台平板嗎？')) return;
@@ -2930,7 +2989,10 @@ function restoreBeeps() {
 }
 
 /* 收尾：不管走哪條路，畫面一定要停在一個明確的狀態 */
+let finishedGen = -1;
 function finishRecording(gen, chunks, mime) {
+  if (gen === finishedGen) return;        // 看門狗與 onstop 可能都會叫，只收尾一次
+  finishedGen = gen;
   clearTimeout(stopWatchdog); stopWatchdog = null;
   teardownRecording();
   restoreBeeps();
@@ -3025,10 +3087,13 @@ async function startRecording() {
   // 倒數用結束時間換算，不靠遞減變數，殘留計時器也不會讓數字亂跳
   const endAt = Date.now() + AUDIO_MAX_SECONDS * 1000;
   setRecordCountdown(AUDIO_MAX_SECONDS);
-  recCountdown = setInterval(() => {
-    if (gen !== recGeneration) return clearInterval(recCountdown);
+  // 這裡一定要用區域變數：直接 clearInterval(recCountdown) 會把「新的那一輪」清掉，
+  // 舊的反而活下來，倒數就會看起來一直重來
+  const myTick = setInterval(() => {
+    if (gen !== recGeneration) return clearInterval(myTick);
     setRecordCountdown(Math.max(0, Math.ceil((endAt - Date.now()) / 1000)));
   }, 250);
+  recCountdown = myTick;
   recTimer = setTimeout(() => { if (isRecording && gen === recGeneration) stopRecording(); }, AUDIO_MAX_SECONDS * 1000);
 }
 
