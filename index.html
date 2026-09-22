@@ -2959,7 +2959,7 @@ function exportCanvas() {
    ══════════════════════════════════════════════════════════════════ */
 let mediaRecorder = null, audioChunks = [], audioB64 = null;
 let recTimer = null, recCountdown = null, recStream = null;
-let isRecording = false, isStartingRecord = false, recGeneration = 0, stopWatchdog = null;
+let isRecording = false, isStartingRecord = false, recGeneration = 0, stopWatchdog = null, awaitingStop = false;
 
 /* 徹底收乾淨：計時器、麥克風串流、錄音器。重錄與換題都會呼叫 */
 function teardownRecording() {
@@ -2972,6 +2972,7 @@ function teardownRecording() {
   recStream = null;
   isRecording = false;
   isStartingRecord = false;
+  awaitingStop = false;
   const icon = $('audio-mic-icon');
   if (icon) {
     icon.classList.remove('animate-pulse', 'bg-red-100');
@@ -2990,6 +2991,10 @@ function setRecordBtn(state) {
     b.disabled = true; b.classList.remove('hidden');
     b.className = base + 'bg-gray-400 text-white cursor-wait';
     b.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>準備中…';
+  } else if (state === 'processing') {
+    b.disabled = true; b.classList.remove('hidden');
+    b.className = base + 'bg-gray-500 text-white cursor-wait';
+    b.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>處理中…';
   } else if (state === 'hidden') {
     b.disabled = true; b.classList.add('hidden');
   }
@@ -3024,20 +3029,26 @@ function restoreBeeps() {
 
 /* 收尾：不管走哪條路，畫面一定要停在一個明確的狀態 */
 let finishedGen = -1;
-function finishRecording(gen, chunks, mime) {
-  if (gen === finishedGen) return;        // 看門狗與 onstop 可能都會叫，只收尾一次
-  finishedGen = gen;
+function finishRecording(gen, chunks, mime, forced = false) {
+  if (gen !== recGeneration) return;      // 過期的那一輪，不要碰畫面
+  if (gen === finishedGen) return;        // 已經收好了
+
+  const has = chunks && chunks.length;
+  // 還沒拿到資料、也還沒逾時 → 再等等，絕對不能在這裡把這一輪標記成處理過，
+  // 否則晚到的錄音檔會被丟掉（這就是「按停止又回到開始錄音」的原因）
+  if (!has && !forced) return;
+
+  awaitingStop = false;
   clearTimeout(stopWatchdog); stopWatchdog = null;
   teardownRecording();
   restoreBeeps();
-  if (gen !== recGeneration) return;                     // 過期的那一輪，不要碰畫面
 
-  if (!chunks || !chunks.length) {
-    // 沒錄到東西（按太快、iOS 沒吐資料）→ 回到可以再按一次的狀態，不要卡住
+  if (!has) {
     setRecordBtn('idle');
-    showToast('沒有錄到聲音，請按住久一點再停', 'warning');
+    showToast('沒有錄到聲音，請再錄一次', 'warning');
     return;
   }
+  finishedGen = gen;
   const blob = new Blob(chunks, { type: mime || 'audio/mp4' });
   try { $('stu-audio-playback').src = URL.createObjectURL(blob); } catch {}
 
@@ -3090,7 +3101,7 @@ function setAudioPreparing(preparing, failed = false) {
 
 async function startRecording() {
   // 這個旗標是同步設定的：學生連點兩下也只會啟動一次
-  if (isRecording || isStartingRecord) return;
+  if (isRecording || isStartingRecord || awaitingStop) return;
   isStartingRecord = true;
   const gen = ++recGeneration;          // 這一輪的編號，舊的一輪不准再動 UI
   setRecordBtn('starting');
@@ -3137,15 +3148,14 @@ async function startRecording() {
   audioB64 = null;
   const actualMime = mediaRecorder.mimeType || mime;
   mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) audioChunks.push(e.data); };
-  mediaRecorder.onerror = () => finishRecording(gen, audioChunks, actualMime);
-  mediaRecorder.onstop = () => finishRecording(gen, audioChunks, actualMime);
+  mediaRecorder.onerror = () => finishRecording(gen, audioChunks, actualMime, true);
+  // 規格上 dataavailable 會在 onstop 之前，但 iOS 偶爾會晚一點，給 250ms 緩衝
+  mediaRecorder.onstop = () => setTimeout(() => finishRecording(gen, audioChunks, actualMime, true), 250);
 
-  // 給 timeslice：每 500ms 就吐一次資料，即使 stop() 行為異常也不會整段空白
-  try { mediaRecorder.start(500); }
-  catch {
-    try { mediaRecorder.start(); }
-    catch { teardownRecording(); restoreBeeps(); setRecordBtn('idle'); return; }
-  }
+  // 不給 timeslice：Safari 錄出來是 mp4，分段資料串接有相容性風險，
+  // 一次拿完整的一份最保險（收尾改由較長的看門狗保護）
+  try { mediaRecorder.start(); }
+  catch { teardownRecording(); restoreBeeps(); setRecordBtn('idle'); return; }
 
   isRecording = true;
   isStartingRecord = false;
@@ -3175,27 +3185,32 @@ function stopRecording() {
   if (!isRecording) return;
   isRecording = false;
   clearTimeout(recTimer); clearInterval(recCountdown);
+  recTimer = recCountdown = null;
+  awaitingStop = true;
+  setRecordBtn('processing');          // 封裝檔案要時間，這期間按鈕按不動
+
   const gen = recGeneration;
   const mime = mediaRecorder?.mimeType || '';
 
-  // iOS Safari 有時候 stop() 之後不會觸發 onstop，畫面就永遠停在「停止（n）」。
-  // 這個看門狗保證 2 秒內一定會收尾。
+  // 看門狗只是「真的等不到 onstop」時的最後防線。
+  // 之前設 2 秒，但 iPad 封裝錄音檔常常要更久，結果把還沒好的錄音當成沒錄到丟掉。
   clearTimeout(stopWatchdog);
   stopWatchdog = setTimeout(() => {
-    if (gen === recGeneration) finishRecording(gen, audioChunks, mime);
-  }, 2000);
+    if (gen === recGeneration && awaitingStop) finishRecording(gen, audioChunks, mime, true);
+  }, 10000);
 
   try {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    else finishRecording(gen, audioChunks, mime);
+    else finishRecording(gen, audioChunks, mime, true);
   } catch {
-    finishRecording(gen, audioChunks, mime);
+    finishRecording(gen, audioChunks, mime, true);
   }
 }
 
 function initAudioRecorder() {
   $('btn-stu-record').addEventListener('click', () => {
     if (answerLocked) return;
+    if (awaitingStop) return;            // 正在封裝檔案，別讓這一下又開新的錄音
     if (isRecording) return stopRecording();
     // 保險：畫面停在「停止（n）」但其實已經沒在錄了 → 先重設再開始，不讓學生卡住
     if ($('btn-stu-record').innerText.includes('停止')) { resetAudioUI(); return; }
