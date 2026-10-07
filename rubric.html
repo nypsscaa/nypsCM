@@ -58,12 +58,12 @@ h2{font-size:24px}
 .now{background:var(--ink);color:#fff;border-radius:16px;padding:14px 18px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .now b{font-family:var(--display);font-size:24px}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:16px}
-.pcard{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:16px;text-align:left;display:grid;gap:6px}
+.pcard{cursor:default;background:var(--card);border:2px solid var(--line);border-radius:16px;padding:16px;text-align:left;display:grid;gap:6px}
 .pcard .nm{font-family:var(--display);font-size:24px;font-weight:700}
 .pcard .tag{font-size:13px;font-weight:700;color:var(--ink-soft)}
 .pcard.live{border-color:var(--ink);box-shadow:0 0 0 3px var(--ink) inset}
 .pcard.done{background:var(--s3-bg);border-color:var(--s3)}
-.chip{display:inline-block;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--paper);color:var(--ink-soft)}
+.chip{justify-self:start;display:inline-block;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--paper);color:var(--ink-soft)}
 .chip.ok{background:var(--s3);color:#fff}
 .chip.live{background:var(--ink);color:#fff}
 
@@ -156,11 +156,8 @@ td.empty{color:var(--line)}
     </div>
     <button class="link" id="btn-switch">換人</button>
   </div>
-  <div class="now" id="now-box" hidden style="margin-top:14px">
-    <span>現在報告：<b id="now-name"></b></span>
-    <button class="btn small" style="background:#fff;color:var(--ink)" id="now-go">去評分</button>
-  </div>
-  <p class="sub" style="margin-top:14px" id="list-hint">每位同學報告完，點他的名字評分。自己的名字是「自評」。</p>
+  <div class="now" style="margin-top:14px"><b style="font-size:22px" id="wait-msg">等老師開始報告</b></div>
+  <p class="sub" style="margin-top:14px" id="list-hint">老師點到誰報告，平板會自動換頁，不用自己按。</p>
   <div class="cards" id="cards"></div>
 </section>
 
@@ -171,7 +168,6 @@ td.empty{color:var(--line)}
       <div class="eyebrow" id="f-type"></div>
       <h1 id="f-title"></h1>
     </div>
-    <button class="link" id="f-back">回名單</button>
   </div>
   <p class="sub" style="margin-top:6px">每一項點一個最符合的格子。</p>
   <div id="f-items"></div>
@@ -187,7 +183,7 @@ td.empty{color:var(--line)}
   <h1 id="s-title"></h1>
   <p class="sub" id="s-sub" style="margin-top:6px"></p>
   <div class="frames" id="s-frames"></div>
-  <div class="row" style="margin-top:20px"><button class="btn" id="s-back">回名單</button></div>
+  <p class="sub" style="margin-top:20px">平板會停在這一頁，等老師換下一位同學。</p>
 </section>
 
 <!-- ⑤ 老師端 -->
@@ -279,20 +275,20 @@ const TEACHER_PASSWORD = 'edu';
 /* ══════════ ② 評分項目（對應講稿學習單） ══════════ */
 const ITEMS = [
   { key: 'open', name: '開場與結尾',
-    self: ['沒有開場或沒有結尾', '開場或結尾少了一兩樣', '開場有打招呼、主題、動機；結尾有分享心得、道謝鞠躬'],
-    peer: ['沒有開場或沒有結尾', '開場或結尾少了一兩樣', '開場有打招呼、主題、動機；結尾有分享心得、道謝鞠躬'] },
+    self: ['沒有開頭介紹，或沒有結尾就下台', '開頭或最後少說了一兩樣', '開頭有說「大家好，我是……」、介紹主題、說為什麼選這個主題；最後有說我學到什麼，再說「謝謝大家」鞠躬'],
+    peer: ['沒有開頭介紹，或沒有結尾就下台', '開頭或最後少說了一兩樣', '開頭有打招呼、介紹主題、說為什麼選這個主題；最後有說他學到什麼，再說「謝謝大家」鞠躬'] },
   { key: 'qa', name: '核心三問',
-    self: ['只說了一兩個問題，或只唸問題沒有解答', '三個問題都有說，但有的答案不太清楚', '三個問題都有說清楚答案，還加上我的發現或例子'],
-    peer: ['只說了一兩個問題，或沒有解答', '三個問題都有說，但有的答案我聽不太懂', '我聽得懂三個問題的答案，他還舉了例子或分享發現'] },
+    self: ['只說了一兩個問題，或只唸問題沒說答案', '三個問題都有說答案，但有一兩個說得不清楚', '三個問題都有說出答案，每一個都有舉例子或說出我的發現'],
+    peer: ['只說了一兩個問題，或只唸問題沒說答案', '三個問題都有說答案，但有一兩個我聽不太懂', '三個問題的答案我都聽懂了，每一個他都有舉例子或說出發現'] },
   { key: 'eye', name: '眼神與海報',
-    self: ['幾乎一直盯著講稿，沒有用到海報', '一半時間看稿，或只指了一兩次海報', '大部分時間看著同學，講到重點會指著海報'],
-    peer: ['幾乎一直盯著講稿，沒有用到海報', '一半時間看稿，或只指了一兩次海報', '大部分時間看著我們，講到重點會指著海報'] },
+    self: ['幾乎一直低頭看講稿，沒有指海報', '一半時間低頭看講稿，或只指了一兩次海報', '大部分時間抬頭看著同學，說到食物或文化時會用手指海報上的圖'],
+    peer: ['幾乎一直低頭看講稿，沒有指海報', '一半時間低頭看講稿，或只指了一兩次海報', '大部分時間抬頭看著我們，說到食物或文化時會用手指海報上的圖'] },
   { key: 'voice', name: '聲音表情',
-    self: ['太小聲、太快，同學聽不清楚', '聽得清楚，但語氣大多一樣', '音量清楚，語氣有高低起伏，提問時有停下來讓大家猜'],
-    peer: ['太小聲、太快，聽不清楚', '聽得清楚，但語氣大多一樣', '聽得很清楚，語氣有高低起伏，有停下來讓我們猜'] },
+    self: ['太小聲或講太快，很多地方聽不清楚', '聽得清楚，但語氣都一樣平平的，沒有停下來', '坐在最後一排也聽得清楚，速度剛好；問問題時會停一下讓大家猜'],
+    peer: ['太小聲或講太快，很多地方聽不清楚', '聽得清楚，但語氣都一樣平平的，沒有停下來', '坐在最後一排也聽得清楚，速度剛好；問問題時會停一下讓我們猜'] },
   { key: 'time', name: '時間掌握',
-    self: ['太短或太長，沒講完', '稍微太短或太長（差大約 30 秒）', '全程約 2.5–3 分鐘，三站都講完'],
-    peer: ['太短或太長，沒講完', '稍微太短或太長', '全程約 2.5–3 分鐘，三站都講完'] }
+    self: ['不到 2 分鐘、超過 3 分半，或內容沒講完', '2 分到 2 分半，或 3 分到 3 分半', '大約 2 分半到 3 分鐘，內容都有講完'],
+    peer: ['不到 2 分鐘、超過 3 分半，或內容沒講完', '2 分到 2 分半，或 3 分到 3 分半', '大約 2 分半到 3 分鐘，內容都有講完'] }
 ];
 const LEVEL = { 3: '做到了', 2: '大部分做到', 1: '還要加油' };
 const MAX = ITEMS.length * 3;
@@ -304,10 +300,9 @@ const FRAMES_SELF = [
   ['學到的事', '從這個主題中，我學到最有趣的一件事是……']
 ];
 const FRAMES_PEER = [
-  ['星星一：我最喜歡', '我最喜歡你報告中的……，因為……'],
-  ['星星二：我學到了', '聽完你的報告，我才知道原來……'],
-  ['願望：我的建議', '如果你可以……，報告會更棒！'],
-  ['問題：我還想知道', '我想問你，……？']
+  ['回饋', '我最喜歡你報告中的……，因為……'],
+  ['回饋', '聽完你的報告，我才知道原來……'],
+  ['建議', '如果你可以……，報告會更棒！']
 ];
 
 /* ══════════ ③ Firebase（沿用 nypsCM 專案與資料路徑） ══════════ */
@@ -401,27 +396,20 @@ function enterStudent() {
   S.role = 'student'; S.lastKey = null;
   $('me-grade').textContent = S.grade === '5' ? '五年級' : '六年級';
   $('me-name').textContent = S.me;
-  listen(S.grade); show('v-list'); renderList();
+  show('v-list'); renderList(); listen(S.grade);
 }
 function renderList() {
   const live = S.now && ROSTER[S.grade].includes(S.now) ? S.now : null;
-  $('now-box').hidden = !live || !S.open;
-  if (live) { $('now-name').textContent = live === S.me ? `${live}（就是你，請自評）` : live; }
   $('cards').innerHTML = ROSTER[S.grade].map(n => {
     const r = myRecord(n), isSelf = n === S.me;
     const cls = ['pcard', r ? 'done' : '', n === live ? 'live' : ''].join(' ');
-    const st = r ? `<span class="chip ok">已評 ${r.total} 分</span>` : (n === live ? `<span class="chip live">${S.open ? '可以評分' : '報告中'}</span>` : '<span class="chip">還沒評</span>');
-    return `<button class="${cls}" data-t="${esc(n)}"><span class="tag">${isSelf ? '自評' : '互評'}</span><span class="nm">${esc(n)}</span>${st}</button>`;
+    const st = r ? `<span class="chip ok">已評 ${r.total} 分</span>` : '<span class="chip">還沒評</span>';
+    return `<div class="${cls}"><span class="tag">${isSelf ? '自評' : '互評'}</span><span class="nm">${esc(n)}</span>${st}</div>`;
   }).join('');
   const left = ROSTER[S.grade].filter(n => !myRecord(n)).length;
-  $('list-hint').textContent = left === 0 ? '全部評完了，謝謝你！要修改可以再點名字。' : `每位同學報告完，點他的名字評分。自己的名字是「自評」。還有 ${left} 位沒評。`;
+  $('wait-msg').textContent = left === 0 ? '全部評完了，謝謝你！' : '等老師請下一位同學上台';
+  $('list-hint').textContent = left === 0 ? '可以把平板放下，聽老師說明。' : `老師點到誰報告，平板會自動換頁，不用自己按。還有 ${left} 位沒評。`;
 }
-$('cards').addEventListener('click', e => {
-  const b = e.target.closest('[data-t]'); if (!b) return;
-  if (b.dataset.t === S.now && !S.open) { toast('等老師開放評分喔'); return; }
-  openForm(b.dataset.t);
-});
-$('now-go').onclick = () => S.now && openForm(S.now);
 function applyLock() {
   // 老師點了報告者、還沒開放評分 → 學生平板鎖成聽講畫面
   const live = S.role === 'student' && S.me && S.now && ROSTER[S.grade].includes(S.now);
@@ -434,14 +422,17 @@ function applyLock() {
   $('lock-tip').textContent = isMe ? '報告完回到座位，等老師開放後先做自評。' : '眼睛看著報告的同學。等他報告完、老師開放評分，平板會自動打開評分頁。';
 }
 function autoJump() {
-  // 老師按下「開放評分」時，還沒評過這位的學生自動打開評分頁
-  if (S.role !== 'student' || !S.me || !S.now || !S.open) return;
-  const key = `${S.now}|open`;
+  // 學生畫面完全跟著老師走：沒人報告 → 等待頁；報告中 → 鎖定；開放 → 這位同學的評分頁
+  if (S.role !== 'student' || !S.me) return;
+  const live = S.now && ROSTER[S.grade].includes(S.now) ? S.now : null;
+  if (!live) { S.lastKey = null; show('v-list'); renderList(); return; }
+  if (!S.open) { S.lastKey = null; return; }
+  const key = `${live}|open`;
   if (key === S.lastKey) return;
   S.lastKey = key;
-  if (!ROSTER[S.grade].includes(S.now) || myRecord(S.now)) return;
-  if (!$('v-form').hidden && S.target === S.now) return;
-  openForm(S.now);
+  if (!$('v-form').hidden && S.target === live) return;      // 重新開放時保留剛才的選擇
+  const r = myRecord(live);
+  if (r) { S.target = live; showShare(r.total); } else openForm(live);
 }
 
 /* ══════════ ⑧ 學生：評分表 ══════════ */
@@ -476,7 +467,6 @@ $('f-items').addEventListener('click', e => {
   const b = e.target.closest('.opt'); if (!b) return;
   S.scores[b.dataset.k] = Number(b.dataset.s); paintForm();
 });
-$('f-back').onclick = () => { show('v-list'); renderList(); };
 $('f-submit').onclick = async () => {
   const btn = $('f-submit'); btn.disabled = true; btn.textContent = '送出中…';
   const total = ITEMS.reduce((a, it) => a + S.scores[it.key], 0);
@@ -501,7 +491,6 @@ function showShare(total) {
   $('s-frames').innerHTML = fr.map(([h, t]) => `<div class="frame"><small>${h}</small>${esc(t)}</div>`).join('');
   show('v-share');
 }
-$('s-back').onclick = () => { show('v-list'); renderList(); };
 
 /* ══════════ ⑩ 老師端 ══════════ */
 $('btn-teacher').onclick = () => { $('m-pass').hidden = false; $('m-pass-in').value = ''; $('m-pass-in').focus(); };
@@ -625,4 +614,3 @@ signInAnonymously(auth).catch(err => { $('conn').textContent = '連線失敗，�
 </script>
 </body>
 </html>
-3
