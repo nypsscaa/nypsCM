@@ -115,6 +115,16 @@ td.empty{color:var(--line)}
 .modal input{font:inherit;padding:12px;border:2px solid var(--line);border-radius:10px;width:100%}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:12px;font-weight:700;z-index:60;max-width:calc(100% - 32px)}
 .status{font-size:13px;color:var(--ink-soft)}
+#lock{position:fixed;inset:0;z-index:40;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;padding:24px 16px;padding-top:max(24px,env(safe-area-inset-top));text-align:center}
+.lock-in{display:grid;gap:14px;max-width:560px}
+.lock-name{font-family:var(--display);font-size:56px;font-weight:700;line-height:1.1}
+.lock-msg{font-family:var(--display);font-size:28px;margin:0}
+.lock-tip{font-size:17px;color:#c9d8e6;margin:0}
+.ctl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.pill{font-weight:700;padding:6px 14px;border-radius:999px;font-size:15px}
+.pill.lockd{background:var(--s2-bg);color:var(--s2)}
+.pill.open{background:var(--s3-bg);color:var(--s3)}
+.btn.go{background:var(--s3)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -197,8 +207,12 @@ td.empty{color:var(--line)}
 
   <div class="panel">
     <h2>現在報告的是</h2>
-    <p class="sub">點名字後，學生平板會自動跳到這位同學的評分頁。</p>
+    <p class="sub">點名字後，學生平板會鎖定成「認真聽講」畫面。報告結束按「開放評分」，平板才會跳到評分頁。</p>
     <div class="seg" id="t-now" style="margin-top:10px"></div>
+    <div class="ctl" id="t-ctl" hidden>
+      <span class="pill" id="t-state"></span>
+      <button class="btn go" id="t-open">開放評分</button>
+    </div>
   </div>
 
   <div class="panel">
@@ -239,6 +253,16 @@ td.empty{color:var(--line)}
   </div>
 </div>
 <div id="toast" hidden></div>
+
+<!-- 學生：聽講鎖定畫面 -->
+<div id="lock" hidden>
+  <div class="lock-in">
+    <div class="eyebrow" style="color:#9fd3e6">現在報告</div>
+    <div class="lock-name" id="lock-name"></div>
+    <p class="lock-msg" id="lock-msg"></p>
+    <p class="lock-tip" id="lock-tip"></p>
+  </div>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
@@ -331,8 +355,10 @@ const S = {
   me: store.get('rubric_me', null),     // 學生自己的名字
   data: {},                               // docId -> 評分資料
   now: null,                              // 老師設定的目前報告者
+  open: false,                            // 老師是否已開放評分
+  role: null,                             // 'student' | 'teacher'
   target: null, scores: {},               // 正在填的表
-  lastAutoNow: null,
+  lastKey: null,
   unsubs: []
 };
 let authOk; const authReady = new Promise(r => authOk = r);
@@ -344,8 +370,9 @@ async function listen(g) {
     refresh();
   }, err => toast('讀取失敗：' + err.code)));
   S.unsubs.push(onSnapshot(nowDoc(g), snap => {
-    S.now = snap.exists() ? (snap.data().current || null) : null;
-    refresh(); autoJump();
+    const d = snap.exists() ? snap.data() : {};
+    S.now = d.current || null; S.open = !!d.open;
+    refresh(); applyLock(); autoJump();
   }));
 }
 function refresh() {
@@ -367,34 +394,54 @@ $('name-pick').addEventListener('click', e => {
   const b = e.target.closest('[data-n]'); if (!b) return;
   S.me = b.dataset.n; store.set('rubric_me', S.me); enterStudent();
 });
-$('btn-switch').onclick = () => { S.me = null; store.del('rubric_me'); renderStart(); show('v-start'); };
+$('btn-switch').onclick = () => { S.me = null; S.role = null; applyLock(); store.del('rubric_me'); renderStart(); show('v-start'); };
 
 /* ══════════ ⑦ 學生：名單 ══════════ */
 function enterStudent() {
+  S.role = 'student'; S.lastKey = null;
   $('me-grade').textContent = S.grade === '5' ? '五年級' : '六年級';
   $('me-name').textContent = S.me;
   listen(S.grade); show('v-list'); renderList();
 }
 function renderList() {
   const live = S.now && ROSTER[S.grade].includes(S.now) ? S.now : null;
-  $('now-box').hidden = !live;
+  $('now-box').hidden = !live || !S.open;
   if (live) { $('now-name').textContent = live === S.me ? `${live}（就是你，請自評）` : live; }
   $('cards').innerHTML = ROSTER[S.grade].map(n => {
     const r = myRecord(n), isSelf = n === S.me;
     const cls = ['pcard', r ? 'done' : '', n === live ? 'live' : ''].join(' ');
-    const st = r ? `<span class="chip ok">已評 ${r.total} 分</span>` : (n === live ? '<span class="chip live">報告中</span>' : '<span class="chip">還沒評</span>');
+    const st = r ? `<span class="chip ok">已評 ${r.total} 分</span>` : (n === live ? `<span class="chip live">${S.open ? '可以評分' : '報告中'}</span>` : '<span class="chip">還沒評</span>');
     return `<button class="${cls}" data-t="${esc(n)}"><span class="tag">${isSelf ? '自評' : '互評'}</span><span class="nm">${esc(n)}</span>${st}</button>`;
   }).join('');
   const left = ROSTER[S.grade].filter(n => !myRecord(n)).length;
   $('list-hint').textContent = left === 0 ? '全部評完了，謝謝你！要修改可以再點名字。' : `每位同學報告完，點他的名字評分。自己的名字是「自評」。還有 ${left} 位沒評。`;
 }
-$('cards').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) openForm(b.dataset.t); });
+$('cards').addEventListener('click', e => {
+  const b = e.target.closest('[data-t]'); if (!b) return;
+  if (b.dataset.t === S.now && !S.open) { toast('等老師開放評分喔'); return; }
+  openForm(b.dataset.t);
+});
 $('now-go').onclick = () => S.now && openForm(S.now);
+function applyLock() {
+  // 老師點了報告者、還沒開放評分 → 學生平板鎖成聽講畫面
+  const live = S.role === 'student' && S.me && S.now && ROSTER[S.grade].includes(S.now);
+  const locked = !!live && !S.open;
+  $('lock').hidden = !locked;
+  if (!locked) return;
+  const isMe = S.now === S.me;
+  $('lock-name').textContent = S.now;
+  $('lock-msg').textContent = isMe ? '輪到你上台了，加油！' : '請放下平板，認真聽講';
+  $('lock-tip').textContent = isMe ? '報告完回到座位，等老師開放後先做自評。' : '眼睛看著報告的同學。等他報告完、老師開放評分，平板會自動打開評分頁。';
+}
 function autoJump() {
-  // 老師切換報告者時，學生停在名單頁、還沒評過這位，就自動打開評分頁
-  if (!S.me || !S.now || S.now === S.lastAutoNow) return;
-  S.lastAutoNow = S.now;
-  if (!$('v-list').hidden && !myRecord(S.now) && ROSTER[S.grade].includes(S.now)) openForm(S.now);
+  // 老師按下「開放評分」時，還沒評過這位的學生自動打開評分頁
+  if (S.role !== 'student' || !S.me || !S.now || !S.open) return;
+  const key = `${S.now}|open`;
+  if (key === S.lastKey) return;
+  S.lastKey = key;
+  if (!ROSTER[S.grade].includes(S.now) || myRecord(S.now)) return;
+  if (!$('v-form').hidden && S.target === S.now) return;
+  openForm(S.now);
 }
 
 /* ══════════ ⑧ 學生：評分表 ══════════ */
@@ -461,11 +508,11 @@ $('btn-teacher').onclick = () => { $('m-pass').hidden = false; $('m-pass-in').va
 $('m-pass-no').onclick = () => $('m-pass').hidden = true;
 const tryPass = () => {
   if ($('m-pass-in').value.trim() !== TEACHER_PASSWORD) { toast('密碼不對'); return; }
-  $('m-pass').hidden = true; S.me = null; enterTeacher();
+  $('m-pass').hidden = true; S.me = null; S.role = 'teacher'; applyLock(); enterTeacher();
 };
 $('m-pass-ok').onclick = tryPass;
 $('m-pass-in').addEventListener('keydown', e => { if (e.key === 'Enter') tryPass(); });
-$('t-exit').onclick = () => { renderStart(); show('v-start'); };
+$('t-exit').onclick = () => { S.role = null; renderStart(); show('v-start'); };
 $('t-grade').addEventListener('click', e => {
   const b = e.target.closest('[data-g]'); if (!b) return;
   S.grade = b.dataset.g; store.set('rubric_grade', S.grade); enterTeacher();
@@ -475,9 +522,14 @@ function enterTeacher() { listen(S.grade); show('v-teacher'); renderTeacher(); }
 $('t-now').addEventListener('click', async e => {
   const b = e.target.closest('[data-n]'); if (!b) return;
   const v = b.dataset.n || null;
-  try { await setDoc(nowDoc(S.grade), { current: v, updatedAt: serverTimestamp() }); }
+  try { await setDoc(nowDoc(S.grade), { current: v, open: false, updatedAt: serverTimestamp() }); }
   catch (err) { toast('設定失敗：' + err.code); }
 });
+$('t-open').onclick = async () => {
+  if (!S.now) return;
+  try { await setDoc(nowDoc(S.grade), { current: S.now, open: !S.open, updatedAt: serverTimestamp() }); }
+  catch (err) { toast('設定失敗：' + err.code); }
+};
 
 const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
 const f1 = (x) => x == null ? '–' : (Math.round(x * 10) / 10).toString();
@@ -499,6 +551,14 @@ function renderTeacher() {
   document.querySelectorAll('#t-grade button').forEach(b => b.classList.toggle('on', b.dataset.g === g));
   $('t-now').innerHTML = names.map(n => `<button data-n="${esc(n)}" class="${S.now === n ? 'on' : ''}">${esc(n)}</button>`).join('')
     + `<button data-n="" class="${!S.now ? 'on' : ''}">暫停（無）</button>`;
+  $('t-ctl').hidden = !S.now;
+  if (S.now) {
+    $('t-state').className = 'pill ' + (S.open ? 'open' : 'lockd');
+    $('t-state').textContent = S.open ? `${S.now}：評分中` : `${S.now}：報告中，學生平板已鎖定`;
+    $('t-open').textContent = S.open ? '重新鎖定' : '開放評分';
+    $('t-open').classList.toggle('go', !S.open);
+    $('t-open').classList.toggle('ghost', S.open);
+  }
 
   const need = names.length * names.length;
   const got = names.reduce((a, r) => a + names.filter(t => S.data[`${r}-${t}`]).length, 0);
@@ -548,7 +608,7 @@ $('t-clear').onclick = async () => {
     const snap = await getDocs(rubricCol(S.grade));
     const batch = writeBatch(db);
     snap.forEach(d => batch.delete(d.ref));
-    batch.set(nowDoc(S.grade), { current: null, updatedAt: serverTimestamp() });
+    batch.set(nowDoc(S.grade), { current: null, open: false, updatedAt: serverTimestamp() });
     await batch.commit(); toast('已清除');
   } catch (err) { toast('清除失敗：' + err.code); }
 };
@@ -565,3 +625,4 @@ signInAnonymously(auth).catch(err => { $('conn').textContent = '連線失敗，�
 </script>
 </body>
 </html>
+3
