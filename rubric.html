@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>簡報評量 - 國家文化小達人</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 版面：學生端是大按鈕的一欄式流程；老師端是寬表格儀表板。 */
+:root{
+  --ink:#16324f;        /* 深藍：主文字、標題 */
+  --ink-soft:#4a6178;
+  --paper:#f4f7fa;      /* 頁面底色（帶一點藍） */
+  --card:#ffffff;
+  --line:#d6e0ea;
+  --accent:#1f6f8b;     /* 主色：按鈕、選取 */
+  --accent-soft:#e3f1f6;
+  --s3:#2e8b57; --s3-bg:#e6f4ec;   /* 3 分：做到了 */
+  --s2:#c98a12; --s2-bg:#fdf3dc;   /* 2 分：大部分做到 */
+  --s1:#c2465a; --s1-bg:#fbe7ea;   /* 1 分：還要加油 */
+  --display:'LXGW WenKai TC','Noto Sans TC','PingFang TC',sans-serif;
+  --body:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:860px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;padding-top:max(20px,env(safe-area-inset-top))}
+.wrap.wide{max-width:1180px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:30px}
+h2{font-size:24px}
+.sub{color:var(--ink-soft);font-size:15px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.btn{padding:12px 20px;border-radius:12px;font-weight:700;background:var(--accent);color:#fff;min-height:48px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent);border:2px solid var(--accent)}
+.btn.small{min-height:38px;padding:6px 14px;font-size:15px}
+.btn.danger{background:transparent;color:var(--s1);border:2px solid var(--s1)}
+.link{color:var(--ink-soft);text-decoration:underline;font-size:15px;padding:6px}
+
+/* 開始畫面 */
+.hero{display:grid;gap:8px;margin-block:12px 24px}
+.eyebrow{font-size:13px;letter-spacing:.12em;color:var(--accent);font-weight:700}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.choice{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:20px 12px;font-size:22px;font-weight:900;font-family:var(--display);text-align:center}
+.choice small{display:block;font-family:var(--body);font-weight:500;font-size:13px;color:var(--ink-soft)}
+.choice.on{border-color:var(--accent);background:var(--accent-soft)}
+
+/* 學生名單 */
+.now{background:var(--ink);color:#fff;border-radius:16px;padding:14px 18px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.now b{font-family:var(--display);font-size:24px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:16px}
+.pcard{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:16px;text-align:left;display:grid;gap:6px}
+.pcard .nm{font-family:var(--display);font-size:24px;font-weight:700}
+.pcard .tag{font-size:13px;font-weight:700;color:var(--ink-soft)}
+.pcard.live{border-color:var(--ink);box-shadow:0 0 0 3px var(--ink) inset}
+.pcard.done{background:var(--s3-bg);border-color:var(--s3)}
+.chip{display:inline-block;font-size:13px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--paper);color:var(--ink-soft)}
+.chip.ok{background:var(--s3);color:#fff}
+.chip.live{background:var(--ink);color:#fff}
+
+/* 評分表 */
+.item{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:14px}
+.item h3{font-size:21px;margin-bottom:10px}
+.opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.opt{border:2px solid var(--line);border-radius:14px;padding:12px 10px;text-align:left;display:grid;gap:4px;align-content:start;background:var(--card);min-height:120px}
+.opt .pt{font-family:var(--display);font-size:28px;font-weight:700;line-height:1}
+.opt .lv{font-size:13px;font-weight:700}
+.opt .ds{font-size:15px;color:var(--ink-soft);line-height:1.45}
+.opt[data-s="3"] .pt,.opt[data-s="3"] .lv{color:var(--s3)}
+.opt[data-s="2"] .pt,.opt[data-s="2"] .lv{color:var(--s2)}
+.opt[data-s="1"] .pt,.opt[data-s="1"] .lv{color:var(--s1)}
+.opt.sel[data-s="3"]{border-color:var(--s3);background:var(--s3-bg)}
+.opt.sel[data-s="2"]{border-color:var(--s2);background:var(--s2-bg)}
+.opt.sel[data-s="1"]{border-color:var(--s1);background:var(--s1-bg)}
+.opt.sel .ds{color:var(--ink)}
+@media (max-width:560px){.opts{grid-template-columns:1fr}.opt{min-height:0}}
+.bar{position:sticky;bottom:0;background:var(--paper);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));margin-top:16px;border-top:1px solid var(--line);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.total{font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums}
+
+/* 口頭分享 */
+.frames{display:grid;gap:10px;margin-top:16px}
+.frame{background:var(--card);border-left:6px solid var(--accent);border-radius:12px;padding:14px 16px;font-size:20px;font-family:var(--display)}
+.frame small{display:block;font-family:var(--body);font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.06em}
+
+/* 老師端 */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
+.tbl-wrap{overflow-x:auto;margin-top:10px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:15px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+th{font-size:13px;color:var(--ink-soft);font-weight:700}
+td.nm,th.nm{text-align:left;font-weight:700;font-family:var(--display);font-size:18px}
+td.self{background:var(--accent-soft)}
+td.empty{color:var(--line)}
+.gap-hi{color:var(--s1);font-weight:700}
+.gap-lo{color:var(--s2);font-weight:700}
+.prog{height:10px;background:var(--paper);border-radius:99px;overflow:hidden;flex:1;min-width:160px}
+.prog i{display:block;height:100%;background:var(--s3);transition:width .3s}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{padding:8px 14px;border-radius:10px;border:2px solid var(--line);background:var(--card);font-weight:700}
+.seg button.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.legend{font-size:13px;color:var(--ink-soft);margin-top:8px}
+
+/* 對話框與提示 */
+.modal{position:fixed;inset:0;background:rgba(22,50,79,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal .box{background:var(--card);border-radius:18px;padding:20px;max-width:420px;width:100%;display:grid;gap:14px}
+.modal input{font:inherit;padding:12px;border:2px solid var(--line);border-radius:10px;width:100%}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:12px;font-weight:700;z-index:60;max-width:calc(100% - 32px)}
+.status{font-size:13px;color:var(--ink-soft)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ① 選身分 -->
+<section id="v-start" class="wrap">
+  <div class="hero">
+    <div class="eyebrow">東亞文化小達人</div>
+    <h1>上台報告評量表</h1>
+    <p class="sub">選年級，再點自己的名字開始。老師請按最下面的「老師」。</p>
+  </div>
+  <div class="choices" id="grade-pick">
+    <button class="choice" data-g="5">五年級<small>Grade 5</small></button>
+    <button class="choice" data-g="6">六年級<small>Grade 6</small></button>
+  </div>
+  <h2 style="margin-top:24px">我是誰？</h2>
+  <div class="choices" id="name-pick" style="margin-top:12px"></div>
+  <div style="margin-top:28px"><button class="link" id="btn-teacher">老師</button></div>
+  <p class="status" id="conn">連線中…</p>
+</section>
+
+<!-- ② 學生：報告者名單 -->
+<section id="v-list" class="wrap" hidden>
+  <div class="row spread">
+    <div>
+      <div class="eyebrow" id="me-grade"></div>
+      <h1 id="me-name"></h1>
+    </div>
+    <button class="link" id="btn-switch">換人</button>
+  </div>
+  <div class="now" id="now-box" hidden style="margin-top:14px">
+    <span>現在報告：<b id="now-name"></b></span>
+    <button class="btn small" style="background:#fff;color:var(--ink)" id="now-go">去評分</button>
+  </div>
+  <p class="sub" style="margin-top:14px" id="list-hint">每位同學報告完，點他的名字評分。自己的名字是「自評」。</p>
+  <div class="cards" id="cards"></div>
+</section>
+
+<!-- ③ 學生：評分 -->
+<section id="v-form" class="wrap" hidden>
+  <div class="row spread">
+    <div>
+      <div class="eyebrow" id="f-type"></div>
+      <h1 id="f-title"></h1>
+    </div>
+    <button class="link" id="f-back">回名單</button>
+  </div>
+  <p class="sub" style="margin-top:6px">每一項點一個最符合的格子。</p>
+  <div id="f-items"></div>
+  <div class="bar">
+    <span class="total" id="f-total">總分 – / 15</span>
+    <button class="btn" id="f-submit" disabled>送出</button>
+  </div>
+</section>
+
+<!-- ④ 學生：口頭分享提示 -->
+<section id="v-share" class="wrap" hidden>
+  <div class="eyebrow">已送出</div>
+  <h1 id="s-title"></h1>
+  <p class="sub" id="s-sub" style="margin-top:6px"></p>
+  <div class="frames" id="s-frames"></div>
+  <div class="row" style="margin-top:20px"><button class="btn" id="s-back">回名單</button></div>
+</section>
+
+<!-- ⑤ 老師端 -->
+<section id="v-teacher" class="wrap wide" hidden>
+  <div class="row spread">
+    <div>
+      <div class="eyebrow">老師控制台</div>
+      <h1>簡報評量結果</h1>
+    </div>
+    <div class="row">
+      <div class="seg" id="t-grade">
+        <button data-g="5">五年級</button><button data-g="6">六年級</button>
+      </div>
+      <button class="link" id="t-exit">離開</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>現在報告的是</h2>
+    <p class="sub">點名字後，學生平板會自動跳到這位同學的評分頁。</p>
+    <div class="seg" id="t-now" style="margin-top:10px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="row spread">
+      <h2>回收進度</h2>
+      <span class="total" id="t-count"></span>
+    </div>
+    <div class="row" style="margin-top:10px"><div class="prog"><i id="t-bar" style="width:0"></i></div></div>
+    <div class="tbl-wrap"><table id="t-matrix"></table></div>
+    <p class="legend">列是評分者、欄是報告者，格子是總分（滿分 15）。藍底是自評。</p>
+  </div>
+
+  <div class="panel">
+    <h2>每位報告者的結果</h2>
+    <div class="tbl-wrap"><table id="t-summary"></table></div>
+    <p class="legend">落差 = 自評 − 互評平均。差 2 分以上會標色：紅色是自評偏高，黃色是自評偏低，可以拿來和學生聊。</p>
+  </div>
+
+  <div class="panel row spread">
+    <button class="btn ghost" id="t-csv">下載 CSV</button>
+    <button class="btn danger" id="t-clear">清除這班全部評分</button>
+  </div>
+</section>
+
+<!-- 對話框 -->
+<div class="modal" id="m-pass" hidden>
+  <div class="box">
+    <h2>老師登入</h2>
+    <input id="m-pass-in" type="password" placeholder="教師密碼" autocomplete="off">
+    <div class="row spread"><button class="link" id="m-pass-no">取消</button><button class="btn" id="m-pass-ok">進入</button></div>
+  </div>
+</div>
+<div class="modal" id="m-confirm" hidden>
+  <div class="box">
+    <h2 id="m-confirm-t"></h2>
+    <p class="sub" id="m-confirm-d"></p>
+    <div class="row spread"><button class="link" id="m-confirm-no">取消</button><button class="btn danger" id="m-confirm-ok">確定</button></div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, collection, onSnapshot, writeBatch, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+/* ══════════ ① 班級名單（和 index.html 相同，換學期兩邊一起改） ══════════ */
+const ROSTER = {
+  '5': ['Jimmy', 'Larry', 'Joe', 'Riley', 'Diana'],
+  '6': ['Lola', 'Charles', 'Jenny', 'Irving', 'Tim', 'Joana']
+};
+const TEACHER_PASSWORD = 'edu';
+
+/* ══════════ ② 評分項目（對應講稿學習單） ══════════ */
+const ITEMS = [
+  { key: 'open', name: '開場與結尾',
+    self: ['沒有開場或沒有結尾', '開場或結尾少了一兩樣', '開場有打招呼、主題、動機；結尾有分享心得、道謝鞠躬'],
+    peer: ['沒有開場或沒有結尾', '開場或結尾少了一兩樣', '開場有打招呼、主題、動機；結尾有分享心得、道謝鞠躬'] },
+  { key: 'qa', name: '核心三問',
+    self: ['只說了一兩個問題，或只唸問題沒有解答', '三個問題都有說，但有的答案不太清楚', '三個問題都有說清楚答案，還加上我的發現或例子'],
+    peer: ['只說了一兩個問題，或沒有解答', '三個問題都有說，但有的答案我聽不太懂', '我聽得懂三個問題的答案，他還舉了例子或分享發現'] },
+  { key: 'eye', name: '眼神與海報',
+    self: ['幾乎一直盯著講稿，沒有用到海報', '一半時間看稿，或只指了一兩次海報', '大部分時間看著同學，講到重點會指著海報'],
+    peer: ['幾乎一直盯著講稿，沒有用到海報', '一半時間看稿，或只指了一兩次海報', '大部分時間看著我們，講到重點會指著海報'] },
+  { key: 'voice', name: '聲音表情',
+    self: ['太小聲、太快，同學聽不清楚', '聽得清楚，但語氣大多一樣', '音量清楚，語氣有高低起伏，提問時有停下來讓大家猜'],
+    peer: ['太小聲、太快，聽不清楚', '聽得清楚，但語氣大多一樣', '聽得很清楚，語氣有高低起伏，有停下來讓我們猜'] },
+  { key: 'time', name: '時間掌握',
+    self: ['太短或太長，沒講完', '稍微太短或太長（差大約 30 秒）', '全程約 2.5–3 分鐘，三站都講完'],
+    peer: ['太短或太長，沒講完', '稍微太短或太長', '全程約 2.5–3 分鐘，三站都講完'] }
+];
+const LEVEL = { 3: '做到了', 2: '大部分做到', 1: '還要加油' };
+const MAX = ITEMS.length * 3;
+
+const FRAMES_SELF = [
+  ['表現最好', '我覺得自己表現最好的地方是……，因為……'],
+  ['最難的地方', '報告時我覺得最難的是……'],
+  ['下次改進', '下次上台，我想要改進……，我的方法是……'],
+  ['學到的事', '從這個主題中，我學到最有趣的一件事是……']
+];
+const FRAMES_PEER = [
+  ['星星一：我最喜歡', '我最喜歡你報告中的……，因為……'],
+  ['星星二：我學到了', '聽完你的報告，我才知道原來……'],
+  ['願望：我的建議', '如果你可以……，報告會更棒！'],
+  ['問題：我還想知道', '我想問你，……？']
+];
+
+/* ══════════ ③ Firebase（沿用 nypsCM 專案與資料路徑） ══════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
+  authDomain: "nypscm.firebaseapp.com",
+  projectId: "nypscm",
+  storageBucket: "nypscm.firebasestorage.app",
+  messagingSenderId: "775913301411",
+  appId: "1:775913301411:web:9d73da7688854865826616"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const APP_ID = 'nypscm-class-pro';
+const colRef = (name) => collection(db, 'artifacts', APP_ID, 'public', 'data', name);
+const docRef = (name, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', name, id);
+const rubricCol = (g) => colRef(`rubric_${g}`);
+const rubricDoc = (g, rater, target) => docRef(`rubric_${g}`, `${rater}-${target}`);
+const nowDoc = (g) => docRef(`rubricState_${g}`, 'current');
+
+/* ══════════ ④ 小工具 ══════════ */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k, d = null) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+const VIEWS = ['v-start', 'v-list', 'v-form', 'v-share', 'v-teacher'];
+function show(id) { VIEWS.forEach(v => $(v).hidden = v !== id); window.scrollTo(0, 0); }
+let toastT;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2400); }
+function confirmBox(title, desc) {
+  return new Promise(res => {
+    $('m-confirm-t').textContent = title; $('m-confirm-d').textContent = desc; $('m-confirm').hidden = false;
+    const done = (v) => { $('m-confirm').hidden = true; $('m-confirm-ok').onclick = $('m-confirm-no').onclick = null; res(v); };
+    $('m-confirm-ok').onclick = () => done(true); $('m-confirm-no').onclick = () => done(false);
+  });
+}
+
+/* ══════════ ⑤ 狀態 ══════════ */
+const S = {
+  grade: store.get('rubric_grade', '5'),
+  me: store.get('rubric_me', null),     // 學生自己的名字
+  data: {},                               // docId -> 評分資料
+  now: null,                              // 老師設定的目前報告者
+  target: null, scores: {},               // 正在填的表
+  lastAutoNow: null,
+  unsubs: []
+};
+let authOk; const authReady = new Promise(r => authOk = r);
+async function listen(g) {
+  await authReady;
+  S.unsubs.forEach(u => u()); S.unsubs = []; S.data = {}; S.now = null;
+  S.unsubs.push(onSnapshot(rubricCol(g), snap => {
+    S.data = {}; snap.forEach(d => S.data[d.id] = d.data());
+    refresh();
+  }, err => toast('讀取失敗：' + err.code)));
+  S.unsubs.push(onSnapshot(nowDoc(g), snap => {
+    S.now = snap.exists() ? (snap.data().current || null) : null;
+    refresh(); autoJump();
+  }));
+}
+function refresh() {
+  if (!$('v-list').hidden) renderList();
+  if (!$('v-teacher').hidden) renderTeacher();
+}
+const myRecord = (target) => S.data[`${S.me}-${target}`];
+
+/* ══════════ ⑥ 開始畫面 ══════════ */
+function renderStart() {
+  document.querySelectorAll('#grade-pick .choice').forEach(b => b.classList.toggle('on', b.dataset.g === S.grade));
+  $('name-pick').innerHTML = ROSTER[S.grade].map(n => `<button class="choice" data-n="${esc(n)}">${esc(n)}</button>`).join('');
+}
+$('grade-pick').addEventListener('click', e => {
+  const b = e.target.closest('[data-g]'); if (!b) return;
+  S.grade = b.dataset.g; store.set('rubric_grade', S.grade); renderStart();
+});
+$('name-pick').addEventListener('click', e => {
+  const b = e.target.closest('[data-n]'); if (!b) return;
+  S.me = b.dataset.n; store.set('rubric_me', S.me); enterStudent();
+});
+$('btn-switch').onclick = () => { S.me = null; store.del('rubric_me'); renderStart(); show('v-start'); };
+
+/* ══════════ ⑦ 學生：名單 ══════════ */
+function enterStudent() {
+  $('me-grade').textContent = S.grade === '5' ? '五年級' : '六年級';
+  $('me-name').textContent = S.me;
+  listen(S.grade); show('v-list'); renderList();
+}
+function renderList() {
+  const live = S.now && ROSTER[S.grade].includes(S.now) ? S.now : null;
+  $('now-box').hidden = !live;
+  if (live) { $('now-name').textContent = live === S.me ? `${live}（就是你，請自評）` : live; }
+  $('cards').innerHTML = ROSTER[S.grade].map(n => {
+    const r = myRecord(n), isSelf = n === S.me;
+    const cls = ['pcard', r ? 'done' : '', n === live ? 'live' : ''].join(' ');
+    const st = r ? `<span class="chip ok">已評 ${r.total} 分</span>` : (n === live ? '<span class="chip live">報告中</span>' : '<span class="chip">還沒評</span>');
+    return `<button class="${cls}" data-t="${esc(n)}"><span class="tag">${isSelf ? '自評' : '互評'}</span><span class="nm">${esc(n)}</span>${st}</button>`;
+  }).join('');
+  const left = ROSTER[S.grade].filter(n => !myRecord(n)).length;
+  $('list-hint').textContent = left === 0 ? '全部評完了，謝謝你！要修改可以再點名字。' : `每位同學報告完，點他的名字評分。自己的名字是「自評」。還有 ${left} 位沒評。`;
+}
+$('cards').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) openForm(b.dataset.t); });
+$('now-go').onclick = () => S.now && openForm(S.now);
+function autoJump() {
+  // 老師切換報告者時，學生停在名單頁、還沒評過這位，就自動打開評分頁
+  if (!S.me || !S.now || S.now === S.lastAutoNow) return;
+  S.lastAutoNow = S.now;
+  if (!$('v-list').hidden && !myRecord(S.now) && ROSTER[S.grade].includes(S.now)) openForm(S.now);
+}
+
+/* ══════════ ⑧ 學生：評分表 ══════════ */
+function openForm(target) {
+  S.target = target;
+  const isSelf = target === S.me;
+  const prev = myRecord(target);
+  S.scores = prev ? { ...prev.scores } : {};
+  $('f-type').textContent = isSelf ? '自評' : '互評';
+  $('f-title').textContent = isSelf ? '我的報告我來評' : `幫 ${target} 評分`;
+  $('f-items').innerHTML = ITEMS.map((it, i) => {
+    const words = isSelf ? it.self : it.peer;
+    const opts = [3, 2, 1].map(s => `
+      <button class="opt" data-k="${it.key}" data-s="${s}" aria-pressed="false">
+        <span class="pt">${s}</span><span class="lv">${LEVEL[s]}</span><span class="ds">${esc(words[s - 1])}</span>
+      </button>`).join('');
+    return `<div class="item"><h3>${i + 1}. ${it.name}</h3><div class="opts">${opts}</div></div>`;
+  }).join('');
+  paintForm(); show('v-form');
+}
+function paintForm() {
+  document.querySelectorAll('#f-items .opt').forEach(b => {
+    const on = S.scores[b.dataset.k] === Number(b.dataset.s);
+    b.classList.toggle('sel', on); b.setAttribute('aria-pressed', on);
+  });
+  const done = ITEMS.filter(it => S.scores[it.key]).length;
+  const total = ITEMS.reduce((a, it) => a + (S.scores[it.key] || 0), 0);
+  $('f-total').textContent = done === ITEMS.length ? `總分 ${total} / ${MAX}` : `已選 ${done} / ${ITEMS.length} 項`;
+  $('f-submit').disabled = done !== ITEMS.length;
+}
+$('f-items').addEventListener('click', e => {
+  const b = e.target.closest('.opt'); if (!b) return;
+  S.scores[b.dataset.k] = Number(b.dataset.s); paintForm();
+});
+$('f-back').onclick = () => { show('v-list'); renderList(); };
+$('f-submit').onclick = async () => {
+  const btn = $('f-submit'); btn.disabled = true; btn.textContent = '送出中…';
+  const total = ITEMS.reduce((a, it) => a + S.scores[it.key], 0);
+  try {
+    await setDoc(rubricDoc(S.grade, S.me, S.target), {
+      grade: S.grade, rater: S.me, target: S.target,
+      type: S.me === S.target ? 'self' : 'peer',
+      scores: { ...S.scores }, total, updatedAt: serverTimestamp()
+    });
+    showShare(total);
+  } catch (err) {
+    toast('送出失敗，請再按一次（' + (err.code || '網路問題') + '）'); btn.disabled = false;
+  } finally { btn.textContent = '送出'; }
+};
+
+/* ══════════ ⑨ 學生：口頭分享提示 ══════════ */
+function showShare(total) {
+  const isSelf = S.target === S.me;
+  $('s-title').textContent = isSelf ? `自評完成：${total} 分` : `已幫 ${S.target} 評分：${total} 分`;
+  $('s-sub').textContent = isSelf ? '等一下輪到你時，選一句說給大家聽：' : `等一下老師點到你，選 1–2 句說給 ${S.target} 聽：`;
+  const fr = isSelf ? FRAMES_SELF : FRAMES_PEER;
+  $('s-frames').innerHTML = fr.map(([h, t]) => `<div class="frame"><small>${h}</small>${esc(t)}</div>`).join('');
+  show('v-share');
+}
+$('s-back').onclick = () => { show('v-list'); renderList(); };
+
+/* ══════════ ⑩ 老師端 ══════════ */
+$('btn-teacher').onclick = () => { $('m-pass').hidden = false; $('m-pass-in').value = ''; $('m-pass-in').focus(); };
+$('m-pass-no').onclick = () => $('m-pass').hidden = true;
+const tryPass = () => {
+  if ($('m-pass-in').value.trim() !== TEACHER_PASSWORD) { toast('密碼不對'); return; }
+  $('m-pass').hidden = true; S.me = null; enterTeacher();
+};
+$('m-pass-ok').onclick = tryPass;
+$('m-pass-in').addEventListener('keydown', e => { if (e.key === 'Enter') tryPass(); });
+$('t-exit').onclick = () => { renderStart(); show('v-start'); };
+$('t-grade').addEventListener('click', e => {
+  const b = e.target.closest('[data-g]'); if (!b) return;
+  S.grade = b.dataset.g; store.set('rubric_grade', S.grade); enterTeacher();
+});
+function enterTeacher() { listen(S.grade); show('v-teacher'); renderTeacher(); }
+
+$('t-now').addEventListener('click', async e => {
+  const b = e.target.closest('[data-n]'); if (!b) return;
+  const v = b.dataset.n || null;
+  try { await setDoc(nowDoc(S.grade), { current: v, updatedAt: serverTimestamp() }); }
+  catch (err) { toast('設定失敗：' + err.code); }
+});
+
+const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+const f1 = (x) => x == null ? '–' : (Math.round(x * 10) / 10).toString();
+
+function summaryRows() {
+  const names = ROSTER[S.grade];
+  return names.map(t => {
+    const self = S.data[`${t}-${t}`];
+    const peers = names.filter(r => r !== t).map(r => S.data[`${r}-${t}`]).filter(Boolean);
+    const peerAvg = avg(peers.map(p => p.total));
+    const items = ITEMS.map(it => avg(peers.map(p => p.scores[it.key])));
+    const gap = self && peerAvg != null ? self.total - peerAvg : null;
+    return { t, self: self ? self.total : null, peerAvg, n: peers.length, need: names.length - 1, items, gap };
+  });
+}
+
+function renderTeacher() {
+  const g = S.grade, names = ROSTER[g];
+  document.querySelectorAll('#t-grade button').forEach(b => b.classList.toggle('on', b.dataset.g === g));
+  $('t-now').innerHTML = names.map(n => `<button data-n="${esc(n)}" class="${S.now === n ? 'on' : ''}">${esc(n)}</button>`).join('')
+    + `<button data-n="" class="${!S.now ? 'on' : ''}">暫停（無）</button>`;
+
+  const need = names.length * names.length;
+  const got = names.reduce((a, r) => a + names.filter(t => S.data[`${r}-${t}`]).length, 0);
+  $('t-count').textContent = `${got} / ${need} 份`;
+  $('t-bar').style.width = `${need ? got / need * 100 : 0}%`;
+
+  $('t-matrix').innerHTML = `<tr><th class="nm">評分者 ↓　報告者 →</th>${names.map(n => `<th>${esc(n)}</th>`).join('')}<th>完成</th></tr>`
+    + names.map(r => {
+      const cells = names.map(t => {
+        const d = S.data[`${r}-${t}`];
+        return `<td class="${r === t ? 'self' : ''} ${d ? '' : 'empty'}">${d ? d.total : '·'}</td>`;
+      }).join('');
+      const done = names.filter(t => S.data[`${r}-${t}`]).length;
+      return `<tr><td class="nm">${esc(r)}</td>${cells}<td>${done}/${names.length}</td></tr>`;
+    }).join('');
+
+  const rows = summaryRows();
+  $('t-summary').innerHTML = `<tr><th class="nm">報告者</th><th>自評</th><th>互評平均</th><th>落差</th><th>互評份數</th>${ITEMS.map(it => `<th>${it.name}<br>（互評平均）</th>`).join('')}</tr>`
+    + rows.map(x => {
+      const gcls = x.gap == null ? '' : x.gap >= 2 ? 'gap-hi' : x.gap <= -2 ? 'gap-lo' : '';
+      const gtxt = x.gap == null ? '–' : (x.gap > 0 ? '+' : '') + f1(x.gap);
+      return `<tr><td class="nm">${esc(x.t)}</td><td>${x.self ?? '–'}</td><td>${f1(x.peerAvg)}</td><td class="${gcls}">${gtxt}</td><td>${x.n}/${x.need}</td>${x.items.map(v => `<td>${f1(v)}</td>`).join('')}</tr>`;
+    }).join('');
+}
+
+$('t-csv').onclick = () => {
+  const names = ROSTER[S.grade];
+  const lines = [['評分者', '報告者', '類型', ...ITEMS.map(i => i.name), '總分'].join(',')];
+  names.forEach(r => names.forEach(t => {
+    const d = S.data[`${r}-${t}`]; if (!d) return;
+    lines.push([r, t, r === t ? '自評' : '互評', ...ITEMS.map(i => d.scores[i.key]), d.total].join(','));
+  }));
+  lines.push('');
+  lines.push(['報告者', '自評', '互評平均', '落差', ...ITEMS.map(i => i.name + '(互評平均)')].join(','));
+  summaryRows().forEach(x => lines.push([x.t, x.self ?? '', f1(x.peerAvg), x.gap == null ? '' : f1(x.gap), ...x.items.map(f1)].join(',')));
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `G${S.grade}_簡報評量_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+$('t-clear').onclick = async () => {
+  const ok = await confirmBox(`清除${S.grade === '5' ? '五' : '六'}年級全部評分？`, '學生的自評與互評會全部刪除，無法復原。建議先下載 CSV。');
+  if (!ok) return;
+  try {
+    const snap = await getDocs(rubricCol(S.grade));
+    const batch = writeBatch(db);
+    snap.forEach(d => batch.delete(d.ref));
+    batch.set(nowDoc(S.grade), { current: null, updatedAt: serverTimestamp() });
+    await batch.commit(); toast('已清除');
+  } catch (err) { toast('清除失敗：' + err.code); }
+};
+
+/* ══════════ ⑪ 啟動 ══════════ */
+renderStart();
+onAuthStateChanged(auth, user => {
+  if (!user) return;
+  authOk();
+  $('conn').textContent = '已連線';
+  if (S.me && ROSTER[S.grade]?.includes(S.me) && !$('v-start').hidden) enterStudent();
+});
+signInAnonymously(auth).catch(err => { $('conn').textContent = '連線失敗，請檢查網路後重新整理（' + err.code + '）'; });
+</script>
+</body>
+</html>
