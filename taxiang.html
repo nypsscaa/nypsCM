@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>他鄉的第一年</title>
+<style id="gs"></style>
+<style>
+/* 版面：左邊是像素場景加對白紙卡，右邊是一支手機；窄螢幕時上下堆疊。整頁顏色跟著「歸屬感」從冷藍變暖橘。 */
+:root{
+  color-scheme:dark;
+  --ink:#131a28; --shade:#2a3a55; --mid:#4f678c; --light:#8ea4c0; --paper:#dbe3ee; --glow:#ffd166;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",sans-serif;
+  --f-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --t-s:15px; --t-m:clamp(18px,2.1vw,23px); --t-l:clamp(34px,7vw,68px);
+}
+html,body{height:100%}
+body{background:var(--ink);color:var(--paper);font-family:var(--f-body);font-size:var(--t-m);line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px}
+body.big{--t-m:clamp(22px,2.7vw,30px)}
+#app{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;color:inherit;cursor:pointer;border-radius:0}
+button:focus-visible{outline:3px solid var(--glow);outline-offset:2px}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;font-size:var(--t-s)}
+.bar b{letter-spacing:.2em}
+.dots{display:flex;gap:6px;align-items:center;margin-right:auto}
+.dots i{width:12px;height:12px;background:var(--shade);display:block}
+.dots i.on{background:var(--glow)}
+.dots span{margin-left:8px;color:var(--light)}
+.sm{background:none;border:2px solid var(--mid);padding:2px 12px;font-size:var(--t-s);color:var(--paper)}
+.sm:hover{background:var(--shade)}
+
+/* 首頁 */
+#home h1{font-size:var(--t-l);line-height:1.15;margin:.3em 0 .2em;letter-spacing:.08em;font-weight:900;text-wrap:balance}
+#home h1 .g{background:var(--light)}
+#home .lead{max-width:34em;margin:0 0 1.2em;color:var(--paper)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.card{text-align:left;background:var(--paper);color:var(--ink);border:0;padding:16px 18px 18px;box-shadow:6px 6px 0 var(--shade);display:flex;flex-direction:column;gap:6px}
+.card:hover{box-shadow:6px 6px 0 var(--glow)}
+.card .tag{align-self:flex-start;background:var(--ink);color:var(--paper);font-size:var(--t-s);padding:1px 10px;letter-spacing:.08em}
+.card strong{font-size:1.5em;line-height:1.2}
+.card span{font-size:.85em;line-height:1.5}
+.note{font-size:var(--t-s);color:var(--light);margin:1.2em 0 0}
+
+/* 遊戲 */
+.play{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,310px);gap:16px;align-items:stretch}
+.world{display:flex;flex-direction:column;gap:12px;min-width:0}
+.scene{position:relative;container-type:inline-size;border:4px solid var(--shade);background:var(--shade)}
+.scene canvas{display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;image-rendering:crisp-edges}
+.sign{position:absolute;transform:translate(-50%,-50%);background:var(--paper);color:var(--ink);border:2px solid var(--ink);
+  padding:0 .45em;font-size:clamp(10px,2.5cqw,24px);font-weight:700;white-space:nowrap;line-height:1.5}
+.box{background:var(--paper);color:var(--ink);padding:16px 20px 18px;min-height:9.5em;display:flex;flex-direction:column;gap:10px;box-shadow:6px 6px 0 var(--shade)}
+.who{align-self:flex-start;background:var(--ink);color:var(--paper);font-size:var(--t-s);padding:1px 10px;letter-spacing:.06em}
+.who em{font-style:normal;color:var(--glow);margin-left:.5em}
+.txt{margin:0;min-height:3.3em;max-width:38em}
+.learned{margin:0;font-size:var(--t-s);font-weight:700;border-left:6px solid var(--ink);padding-left:10px}
+.doc{background:var(--ink);color:var(--paper);padding:10px 16px;font-size:.9em;line-height:1.8}
+.doc h3{margin:0 0 4px;font-size:var(--t-s);letter-spacing:.2em;color:var(--light);font-weight:700}
+.doc p{margin:0;font-variant-numeric:tabular-nums}
+.acts{display:flex;flex-direction:column;gap:8px;margin-top:auto}
+.opt{text-align:left;background:transparent;border:3px solid var(--ink);padding:8px 14px;color:var(--ink);line-height:1.45}
+.opt:hover{background:var(--glow)}
+.next{align-self:flex-end;background:var(--ink);color:var(--paper);border:0;padding:6px 22px;letter-spacing:.15em}
+.next:hover{background:var(--shade)}
+
+#game:empty{display:none}
+.ov{position:absolute;inset:0;background:var(--ink);padding:3cqw;overflow:auto;display:grid;align-content:center;gap:3cqw}
+.ov.quiz{grid-template-columns:1fr 2fr;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(var(--c,3),minmax(0,1fr));gap:2cqw}
+.tile{background:var(--paper);color:var(--ink);border:3px solid var(--ink);padding:1.2cqw;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6cqw;
+  font-size:clamp(11px,2.5cqw,22px);font-weight:700;line-height:1.35;min-height:13cqw}
+.tile:hover:not(:disabled){background:var(--light)}
+.tile.no{opacity:.3}
+.tile.yes{background:var(--glow);opacity:1}
+.tile .w{font-size:1.6em;letter-spacing:.1em}
+.tile .m{display:flex;align-items:center;gap:.6em}
+.ico{image-rendering:pixelated;image-rendering:crisp-edges;width:clamp(30px,8cqw,72px);aspect-ratio:1}
+.q{display:flex;flex-direction:column;align-items:center;gap:1cqw;color:var(--paper);font-size:clamp(12px,2.6cqw,24px);font-weight:700;text-align:center}
+.q .ico{width:clamp(48px,15cqw,130px)}
+.tgt{position:absolute;transform:translate(-50%,-50%);background:var(--paper);border:3px solid var(--ink);padding:4px;line-height:0;
+  box-shadow:0 0 0 0 var(--glow);animation:life var(--life) linear}
+.tgt .ico{width:clamp(34px,9cqw,84px)}
+@keyframes life{from{box-shadow:0 0 0 10px var(--glow)}to{box-shadow:0 0 0 0 var(--glow)}}
+#game.lamp{box-shadow:inset 0 0 0 8px var(--glow)}
+#game.lamp .tgt{opacity:.55}
+.shake{animation:shake .3s}
+@keyframes shake{25%{margin-left:-6px}75%{margin-left:6px}}
+#end a{color:inherit;font-weight:700;display:inline-block;margin-top:4px}
+.g{display:inline-block;width:.86em;height:.86em;margin:0 .07em;vertical-align:-.08em;background:currentColor;
+  -webkit-mask:var(--m) center/100% 100% no-repeat;mask:var(--m) center/100% 100% no-repeat}
+.lit{font-weight:900;animation:lit 1.6s ease-out}
+@keyframes lit{from{background:var(--glow)}to{background:transparent}}
+
+.phone{background:var(--shade);border:4px solid var(--mid);padding:12px;display:flex;flex-direction:column;gap:10px;min-height:260px;max-height:78vh;font-size:.82em;line-height:1.5}
+.phone h2{margin:0;font-size:var(--t-s);letter-spacing:.2em;color:var(--light);text-align:center;font-weight:700}
+#log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.bub{background:var(--paper);color:var(--ink);padding:7px 11px;max-width:92%;align-self:flex-start}
+.bub.me{background:var(--glow);align-self:flex-end}
+.bub small{display:block;font-size:12px;letter-spacing:.1em;opacity:.7}
+.seen{margin:0;font-size:13px;color:var(--light);text-align:right}
+#reply{display:flex;flex-direction:column;gap:6px}
+#reply .opt{border-color:var(--paper);color:var(--paper)}
+#reply .opt:hover{background:var(--glow);color:var(--ink);border-color:var(--glow)}
+#reply p{margin:0;font-size:13px;color:var(--glow);letter-spacing:.1em}
+
+/* 結尾 */
+#end{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px 28px}
+#end h1{grid-column:1/-1;font-size:clamp(26px,4.4vw,44px);line-height:1.25;margin:.2em 0 0;text-wrap:balance}
+#end .ep{grid-column:1/-1;margin:0;max-width:36em}
+#end h2{font-size:var(--t-s);letter-spacing:.2em;color:var(--glow);margin:0 0 8px}
+#end ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+#end li{background:var(--paper);color:var(--ink);padding:10px 14px;font-size:.88em;line-height:1.5}
+#end li small{display:block;font-size:13px;letter-spacing:.08em;opacity:.75}
+#end .ask li{background:none;color:var(--paper);border-left:6px solid var(--glow);padding:2px 0 2px 14px}
+#end .wide{grid-column:1/-1}
+#end .wide ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));align-items:start}
+#end .hint{margin:0 0 10px;font-size:var(--t-s);color:var(--light)}
+#end .fx{margin:8px 0 0;padding-top:8px;border-top:2px solid var(--ink);font-size:.94em}
+#end .back{grid-column:1/-1;justify-self:start}
+
+/* 教師面板 */
+#teacher{background:var(--shade);border:4px solid var(--glow);padding:14px 18px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;font-size:var(--t-s)}
+#teacher label{display:flex;gap:6px;align-items:center}
+#teacher select{font:inherit;background:var(--ink);color:var(--paper);border:2px solid var(--mid);padding:2px 6px}
+#teacher p{flex-basis:100%;margin:0;color:var(--light)}
+
+@media (max-width:760px){.play{grid-template-columns:1fr}.phone{max-height:340px}}
+@media (prefers-reduced-motion:reduce){.lit{animation:none}}
+</style>
+
+</head>
+<body>
+<div id="app">
+  <div class="bar">
+    <b>他鄉的第一年</b>
+    <div class="dots" id="dots" hidden></div>
+    <button class="sm" id="bSnd" type="button">聲音：開</button>
+    <button class="sm" id="bT" type="button">老師</button>
+  </div>
+
+  <div id="teacher" hidden>
+    <label>角色 <select id="tChar"></select></label>
+    <label>從這一段開始 <select id="tStage"></select></label>
+    <button class="sm" id="tGo" type="button">開始</button>
+    <button class="sm" id="tBig" type="button">投影模式：關</button>
+    <button class="sm" id="tHome" type="button">回首頁</button>
+    <p>每個角色最多 2 位學生。平板之間不會連線，請在開始前現場分配。</p>
+  </div>
+
+  <section id="home">
+    <h1 id="ttl" aria-label="他鄉的第一年"></h1>
+    <p class="lead">接下來，你會搬到一個看不懂字的地方，生活一年。看不懂的字會變成奇怪的符號，慢慢學會以後，它們會變回來。請戴上耳機，選一個人。</p>
+    <div class="cards" id="cards"></div>
+    <p class="note">故事裡的人物是虛構的，參考了多篇真實報導寫成。玩完以後，你會看到那些報導。</p>
+  </section>
+
+  <section id="play" class="play" hidden>
+    <div class="world">
+      <div class="scene"><canvas id="cv" width="320" height="180" role="img" aria-label="遊戲場景"></canvas><div id="signs"></div><div id="game"></div></div>
+      <div class="box">
+        <span class="who" id="who" hidden></span>
+        <p class="learned" id="learned" hidden></p>
+        <div class="doc" id="doc" hidden></div>
+        <p class="txt" id="txt"></p>
+        <div class="acts" id="acts"></div>
+      </div>
+    </div>
+    <aside class="phone" aria-label="手機">
+      <h2 id="phT">訊息</h2>
+      <div id="log"></div>
+      <div id="reply"></div>
+    </aside>
+  </section>
+
+  <section id="end" hidden></section>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),esc=t=>t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
+const STG=['開場','抵達','日常','困境','轉機','換你','結尾'];
+
+/* ───── 劇本 ─────
+   x 文字 / who 說話的人 / g:'tw' 台灣的話(沒學過的字變符號) / g:'all' 完全聽不懂
+   s 場景 f 場景細節 w 色溫 signs 招牌 / m 手機訊息 r 回覆選項 / c 選擇 / d 文件 / learn 學會的字 / tw 換成台灣人視角 */
+const C={
+lian:{name:'阿蓮',tag:'新住民',from:'越南',role:'和台灣人結婚，搬來台灣生活',good:'很會做菜，算帳又快又準',init:'一二三四五六七八九十元人',
+ end:{ep:'幾年後，阿蓮在小宇的學校當通譯志工，幫剛來台灣的媽媽看懂聯絡簿。',
+  reps:[['台灣英文新聞','很多新住民媽媽一邊照顧家人，一邊從注音開始學中文。','https://www.taiwannews.com.tw/zh/news/5996097'],['內政部移民署','有新住民學好中文以後，在醫院、法院幫同鄉翻譯。','https://www.immigration.gov.tw/5385/7229/7238/417464/cp_news']]},
+ stages:[
+ [{s:'home',f:{v:'river'},w:1,x:'這裡是越南南部的家。河邊的風吹過來，有魚露和檸檬葉的味道。'},
+  {x:'我叫阿蓮，今年 30 歲。村裡的人都說，我煮的酸魚湯是全村第一。'},
+  {x:'來煮一鍋酸魚湯吧。材料出現的時候，點它，放進鍋裡。',play:{t:'rush',k:'在家鄉煮酸魚湯',e:'在家鄉，她是什麼都會的人。到了台灣，她的本事沒有變，只是別人看不見。',icons:['🐟','🍅','🍍','🌶️','🌿','🍋'],n:8,life:2200,gap:1000,done:(h,m)=>[(m?`放進了 ${h} 樣材料。`:'一樣都沒漏。')+'湯滾了，整個廚房都是香味。','在這裡，我什麼都會。']}},
+  {x:'我也很會算帳。市場的阿姨算錯錢，我用看的就知道。'},
+  {x:'去年，我和台灣來的阿明結婚了。明天，我要搬到台灣，和他一起生活。'},
+  {x:'媽媽不太會用手機，還是傳了訊息給我。',m:{from:'媽媽',x:'到了要打電話。那邊冷，衣服要穿夠。'}},
+  {x:'我要怎麼回媽媽？',r:['媽，別擔心，我會過得很好。等我學會中文，就接妳來玩！','我會想妳煮的飯。到了馬上打給妳。']}],
+ [{s:'store',w:.15,signs:[{x:14,y:16,t:'尿布特價 399 元'},{x:44,y:16,t:'熱食'},{x:83,y:30,t:'收銀台'},{x:52,y:92,t:'請排隊'}],x:'來台灣快一年了。兒子小宇剛滿月。今天阿明上班，我自己出門買尿布。'},
+  {x:'店裡好亮。可是牆上的字，我一個都看不懂。只有數字，跟家鄉一樣。'},
+  {x:'貨架上有好多包東西。哪一包才是尿布？我只看得懂數字。',play:{t:'find',k:'在超商找尿布',e:'看不懂字的時候，買一包尿布也要靠猜。猜錯了，花掉的是錢和時間。',items:[
+    {e:'👶',t:'嬰兒濕紙巾 89 元',fb:'包裝摸起來濕濕的。是濕紙巾，不是尿布。'},{e:'🍼',t:'嬰兒奶粉 650 元',fb:'搖起來沙沙的。是奶粉。'},
+    {e:'👵',t:'成人紙尿褲 420 元',fb:'這包好大。上面畫的是老奶奶，不是寶寶。'},{e:'👶',t:'嬰兒紙尿褲 399 元',ok:1,fb:'399。跟招牌上的數字一樣。就是這一包！'},
+    {e:'🐱',t:'貓砂 199 元',fb:'上面畫著一隻貓。應該不是給寶寶用的。'},{e:'🧻',t:'衛生紙 129 元',fb:'是衛生紙。家裡還有。'}],
+    done:t=>[t===1?'一次就找到了。還好招牌上的數字，我看得懂。':`我拿錯了 ${t-1} 次才找到。如果包裝上沒有數字，我要怎麼辦？`]}},
+  {who:'店員',g:'tw',x:'您好，總共 399 元。請問需要袋子嗎？'},
+  {f:{q:1},c:{k:'在超商聽不懂店員的話',q:'店員在問我問題。我聽不懂。後面已經有人在排隊了。',o:[
+    {l:'點點頭',e:'事情很快結束，可是你不知道自己答應了什麼。有時候會多花錢，有時候會簽下看不懂的東西。',then:[{x:'店員拿出一個袋子，又多收了 2 元。原來他是在問這個。'}]},
+    {l:'搖搖頭',e:'拒絕比較安全，可是也可能錯過自己需要的東西。',then:[{x:'店員把尿布直接推給我。我抱著一大包走出去，手很痠。'}]},
+    {l:'拿出手機，用翻譯 App',e:'花的時間最多，也最容易被後面的人催。可是只有這樣，才真的知道對方在問什麼。',then:[{x:'我打開翻譯 App，請他再說一次。手一直抖，按了好幾次才按對。'}]}]}},
+  {who:'後面的客人',g:'tw',x:'到底好了沒？我趕時間耶。'},
+  {f:{q:1,down:1},x:'後面的人說了一句話。我聽不懂，可是我聽得懂那個口氣。'},
+  {x:'我的臉好燙。我拿了東西，很快走出去。'},
+  {x:'晚上，媽媽傳訊息來。',m:{from:'媽媽',x:'今天有出門走走嗎？'},r:['有，我自己去買東西了。這裡的店很亮、很乾淨。','有。只是我看不懂字，有一點緊張。']}],
+ [{s:'kitchen',w:.28,x:'今天我想煮家鄉的酸魚湯給全家吃。鳳梨、番茄、魚，還有一點魚露。'},
+  {x:'湯滾了，是媽媽廚房的味道。我好久沒有這麼開心。'},
+  {f:{mil:1},who:'婆婆',g:'tw',x:'什麼味道這麼重？整間房子都是。'},
+  {learn:'味道',x:'婆婆皺著眉頭，把窗戶全部打開。我聽懂了一個詞：「味道」。'},
+  {f:{mil:1,down:1},x:'晚餐時，那鍋湯沒有人動。只有阿明吃了一碗，小聲說好喝。'},
+  {c:{k:'家鄉菜被嫌味道重',q:'明天的晚餐，我要怎麼煮？',o:[
+    {l:'繼續煮家鄉菜',e:'保住了自己的味道，家人也多一次認識它的機會。可是每一餐都要面對別人的表情。',then:[{x:'我還是煮了家鄉菜。婆婆沒說話，但她夾了一塊魚。只有一塊。'}]},
+    {l:'改學台灣菜',e:'家裡的氣氛變好了。可是自己喜歡的東西，一點一點不見了。',then:[{x:'我照著影片學滷肉。婆婆說「還可以」。可是我好想念魚露的味道。'}]},
+    {l:'家鄉菜只煮給自己吃',e:'不會有衝突。可是家人永遠不會知道，她的家鄉菜有多好吃。',then:[{x:'我等大家睡了，才熱一小碗湯。一個人在廚房喝，湯有一點鹹。'}]}]}},
+  {f:{mil:1},x:'婆婆不是壞人。她會幫我顧小宇，也教我用洗衣機。只是我們說不上話。'},
+  {who:'婆婆',g:'tw',x:'你講話我聽不懂啦，口音那麼重。'},
+  {f:{mil:1,down:1},x:'我練習了很久的那句中文，她還是聽不懂。後來，我就不太敢開口了。'},
+  {x:'媽媽又傳訊息來了。',m:{from:'媽媽',x:'妳煮飯給他們吃了嗎？他們喜歡嗎？'},r:['喜歡。','還在習慣。']},
+  {x:'我發現，我回媽媽的訊息，越來越短了。'}],
+ [{s:'night',w:0,x:'半夜兩點。小宇哭個不停，額頭好燙。阿明在外地開貨車，明天才回來。'},
+  {x:'下午醫生有開藥。我拿出藥袋，上面密密麻麻的字。',d:{t:'藥袋',l:['姓名：林小宇','用法：每日 3 次，每次 5 毫升','飯後服用','發燒超過 39 度請立刻回診']}},
+  {d:{t:'藥袋',l:['姓名：林小宇','用法：每日 3 次，每次 5 毫升','飯後服用','發燒超過 39 度請立刻回診']},c:{k:'半夜看不懂孩子的藥袋',q:'3、5、39。我只看得懂數字。哪一個是幾次？哪一個是多少？',o:[
+    {l:'打電話給阿明',e:'最想依靠的人不一定隨時都在。只靠一個人翻譯，他不在的時候就沒有辦法。',then:[{x:'電話響了很久，沒有人接。他在開車，不能接電話。'}]},
+    {l:'用翻譯 App 拍藥袋',e:'翻譯 App 很方便。可是藥量這種事，翻錯一個字就很危險。',then:[{x:'App 翻出來：「每天三回，每回五，飯的後面。」我看了三次，還是不敢確定。'}]},
+    {l:'去敲婆婆的房門',e:'開口求助需要勇氣，尤其是對平常說不上話的人。可是這常常是最快的辦法。',then:[{x:'我站在婆婆門口。這麼晚了，她會不會生氣？我的手舉起來，又放下。'}]}]}},
+  {f:{mil:1},x:'小宇哭得更大聲了。婆婆的房門打開了。'},
+  {x:'婆婆看了藥袋，沒有罵我。她比了三根手指，再指指量杯上的 5。'},
+  {x:'我懂了。一天 3 次，一次 5 毫升。小宇喝了藥，慢慢睡著了。'},
+  {x:'婆婆摸摸小宇的頭，也拍了拍我的肩膀。可是我一直在想一件事。'},
+  {f:{},x:'如果今天婆婆不在家呢？我連自己孩子的藥，都看不懂。'},
+  {x:'天快亮的時候，手機亮了。',m:{from:'媽媽',x:'小宇好嗎？妳好嗎？'},r:['好。','（看了訊息，沒有回）']},
+  {x:'我不想讓媽媽擔心。'}],
+ [{s:'kitchen',f:{nanny:1},w:.45,x:'幾天後，保母阿姨來家裡。她看見我拿著藥袋，一個字一個字地描。'},
+  {who:'保母阿姨',g:'tw',x:'國小晚上有中文班，免費的。我陪你去報名。'},
+  {x:'她說得很慢，還用手機打字給我看。翻譯 App 這次翻對了：免費的中文班。'},
+  {s:'class',w:.6,signs:[{x:50,y:30,t:'每日 3 次　飯後'}],x:'星期二晚上，國小的教室。同學來自越南、印尼、泰國，大家都是媽媽。'},
+  {learn:'每日次飯後服用',x:'老師教的第一課，是藥袋上的字。「每日」「次」「飯後」。'},
+  {x:'我把那天晚上的藥袋拿出來，再看一次。原來那些字長這個樣子。',d:{t:'藥袋',l:['姓名：林小宇','用法：每日 3 次，每次 5 毫升','飯後服用','發燒超過 39 度請立刻回診']}},
+  {signs:[{x:34,y:30,t:'袋子'},{x:52,y:30,t:'請排隊'},{x:70,y:30,t:'謝謝'}],x:'第二課，老師問大家最想學什麼。我說：超商。'},
+  {x:'老師笑了，在黑板上寫了四個詞。先點每一張卡片，聽老師念。',play:{t:'learn',k:'上中文課',e:'記住四個詞就這麼費力。新住民要學的是幾千個字，而且常常是顧完孩子以後才有時間學。',words:[{t:'袋子',e:'🛍️'},{t:'排隊',e:'👥'},{t:'謝謝',e:'🙏'},{t:'吃藥',e:'💊'}]}},
+  {learn:'請說慢點',x:'老師還教了一句最有用的話：「請說慢一點。」'},
+  {f:{up:1},x:'下課前，老師請我教大家算帳的方法。我教得很快，全班都拍手。'},
+  {x:'回家的路上，媽媽傳訊息來。',m:{from:'媽媽',x:'妳好久沒有傳照片了。'},r:['媽，我去上學了！我會寫自己的中文名字了。等我學會，再教妳。','媽，下次我要煮酸魚湯給同學吃。她們說想學。']},
+  {x:'我又開始回很長的訊息了。'}],
+ [{tw:1,s:'store',f:{me:1},w:.55,signs:[{x:14,y:16,t:'尿布特價 399 元'},{x:44,y:16,t:'熱食'},{x:83,y:30,t:'收銀台'},{x:52,y:92,t:'請排隊'}],x:'現在，換一個人。你是你自己：一個台灣的小學生。'},
+  {x:'放學後，你到超商買飲料。牆上的字，你全部看得懂。'},
+  {x:'你前面排著一位阿姨，抱著一包尿布。店員問她要不要袋子，她沒有回答。'},
+  {who:'阿姨',g:'all',x:'對不起，我聽不太懂……'},
+  {f:{me:1,q:1},x:'她的手在抖。排在你後面的大人嘆了一口氣：「到底好了沒？」'},
+  {c:{k:'換你排在阿姨後面',q:'你會怎麼做？',o:[
+    {l:'跟店員說：「她好像聽不懂，可以說慢一點嗎？」',e:'一句話，就讓店員換了方法。阿姨下次來，可能就不那麼害怕了。',then:[{w:.85,x:'店員放慢速度，比了比袋子。阿姨點點頭，對你笑了一下。'}]},
+    {l:'用手比一比袋子，幫她猜店員的意思',e:'不用懂對方的語言也能幫忙。比手畫腳，是每個人都會的話。',then:[{w:.85,x:'你指指袋子，再指指尿布。阿姨懂了，鬆了一口氣。'}]},
+    {l:'對後面的大人說：「等一下沒關係啦。」',e:'你幫她擋住了壓力。旁邊的人怎麼反應，會決定她敢不敢再自己出門。',then:[{w:.8,x:'後面的大人愣了一下，沒再說話。阿姨付完錢，回頭對你點點頭。'}]},
+    {l:'什麼都不做，安靜地等',e:'不催促，已經比嘆氣好。可是對她來說，這一天還是自己一個人撐過去的。',then:[{f:{me:1,q:1,down:1},x:'你沒有催她，也沒有幫忙。阿姨低著頭，很快走出去了。'},{x:'不催她，也是一種體貼。如果再來一次，你還想多做一點什麼嗎？'}]}]}},
+  {f:{me:1},who:'阿姨',x:'謝謝。'},
+  {x:'她的發音不太標準。那是她剛學會的字。'}]]},
+
+adi:{name:'阿迪',tag:'移工',from:'印尼',role:'到台灣的工廠工作，合約三年',good:'會修機器，是足球隊前鋒',init:'一二三元人工',
+ end:{ep:'現在，阿迪和阿凱每個星期天一起踢球。今年開齋節，工廠第一次準備了沒有豬肉的便當。',
+  reps:[['公視新聞','有些移工還沒開始工作，就先欠下十幾萬元的仲介費。','https://news.pts.org.tw/article/424276'],['勞動部','政府也提醒老闆，要尊重移工的信仰和飲食習慣。','https://www.mol.gov.tw/1607/1632/1640/12056/']]},
+ stages:[
+ [{s:'home',f:{v:'rice'},w:1,x:'這裡是印尼中爪哇的村子。清晨有喚拜的聲音，田裡的霧還沒散。'},
+  {x:'我叫阿迪，24 歲。村裡誰家的摩托車壞了，都來找我修。'},
+  {x:'我也是村裡足球隊的前鋒，背號 9 號。'},
+  {x:'今天是村子的比賽。球傳過來的時候，點它射門！',play:{t:'rush',k:'在家鄉踢足球',e:'在家鄉，大家記得的是他的球技。到了台灣，別人只看見他不會說中文。',icons:['⚽'],n:6,life:1500,gap:1100,done:(h,m)=>[`我射進了 ${h} 球。全村的小孩都在場邊喊我的名字。`]}},
+  {x:'爸爸生病以後，家裡的田賣掉了一半。弟弟妹妹還要上學。'},
+  {x:'仲介說，台灣工廠的薪水是這裡的好幾倍。可是出發以前，要先繳一大筆費用。'},
+  {x:'我向銀行借了錢。還沒開始工作，我已經欠了十幾萬元。'},
+  {x:'出發前一晚，媽媽傳訊息給我。',m:{from:'媽媽',x:'到了那邊，要記得吃飯，記得禮拜。'},r:['媽，三年後我就回來，幫家裡把田買回來。','媽，別擔心。我會照顧自己，也會準時寄錢。']}],
+ [{s:'factory',f:{boss:1},w:.15,signs:[{x:20,y:32,t:'危險 勿開蓋'},{x:76,y:26,t:'緊急停止'}],x:'台灣的金屬工廠。機器的聲音很大，要用喊的才聽得到。'},
+  {who:'領班',g:'tw',x:'新來的，這台機器紅燈亮就不能開蓋，聽懂沒？'},
+  {f:{red:1},x:'領班講得很快。我一個字都聽不懂。他指了指機器，就走了。'},
+  {c:{k:'第一天看不懂機器上的警告',q:'機器上貼著兩張標籤，旁邊的燈一閃一閃。我要怎麼辦？',o:[
+    {l:'先看旁邊的同事怎麼做',e:'靠觀察可以學會，可是要花時間，而且同事不一定每次都做對。',then:[{x:'我看了十分鐘。同事等燈熄了才開蓋。我跟著做，沒有出錯。'}]},
+    {l:'用手機查標籤上的字',e:'想弄懂是對的，可是工廠不准用手機。看不懂安全標示，受傷的風險就一直在。',then:[{x:'我拿出手機想拍標籤。領班遠遠地吼了一聲。工作時不能用手機。'}]},
+    {l:'跑去問領班',e:'問了還是聽不懂。如果工廠有翻譯好的說明，他就不用靠運氣。',then:[{x:'我跑去找領班，比手畫腳。他不耐煩地再講一次，還是一樣快。'}]}]}},
+  {f:{},x:'開始工作。箱子送到的時候，點它，把蓋子壓好。畫面邊框亮起來，就是燈亮了，千萬不要碰。',play:{t:'rush',k:'工廠第一天',e:'燈亮的時候伸手，在真的工廠裡可能會受傷。看不懂警告標示，等於每天都在冒險。',icons:['📦'],n:8,life:3200,gap:1500,lamp:[1400,2200],at:[[36,62],[45,62],[54,62],[62,62]],
+    done:(h,m,b)=>[`壓好了 ${h} 個`+(m?`，漏掉 ${m} 個`:'')+'。'+(b?`燈亮的時候，我伸手了 ${b} 次。`:'燈亮的時候，我一次都沒有碰。')]}},
+  {x:'第一天下班，耳朵裡還有機器的聲音。我沒有受傷。可是我想，我只是運氣好。'},
+  {s:'dorm',w:.15,signs:[{x:50,y:12,t:'宿舍規定：晚上 10 點熄燈'}],x:'宿舍一間住八個人。我的床在上鋪，行李放在腳邊。'},
+  {x:'仲介傳來訊息。我看不懂字，只看得懂數字。數字讓我睡不著。',m:{from:'仲介',g:'tw',x:'本月服務費 1,800 元將從薪水扣除，另有貸款 9,000 元。'}}],
+ [{s:'dorm',w:.25,x:'第一個月的薪水單。上面的字我都看不懂，可是每一行都有一個減號。',d:{t:'薪資單',l:['本月薪資　29,500','膳宿費　－3,000','仲介服務費　－1,800','勞保健保　－1,100','貸款還款　－9,000','實領　14,600']}},
+  {d:{t:'薪資單',l:['本月薪資　29,500','膳宿費　－3,000','仲介服務費　－1,800','勞保健保　－1,100','貸款還款　－9,000','實領　14,600']},c:{k:'薪水只剩 14,600 元',q:'還剩 14,600 元。我要寄多少回家？',o:[
+    {l:'寄 12,000 元，自己留 2,600 元',e:'家人的急事解決了。可是自己的鞋子、看醫生的錢，都只能再等。',then:[{x:'媽媽說弟弟的學費繳了。我的工作鞋底裂了，先用膠帶黏起來。'}]},
+    {l:'寄 9,000 元，自己留 5,600 元',e:'自己過得安全一點。可是家裡在等錢，心裡會一直過意不去。',then:[{x:'我買了新的工作鞋。媽媽說沒關係，可是我知道家裡在等這筆錢。'}]}]}},
+  {s:'canteen',w:.25,signs:[{x:76,y:28,t:'今日午餐：滷肉飯'}],x:'工廠的餐廳。我是穆斯林，不吃豬肉。可是菜的名字，我都看不懂。'},
+  {x:'哪些菜是我可以吃的？找出兩樣。',play:{t:'find',k:'在餐廳找能吃的菜',e:'看不懂菜名，就可能吃到信仰不允許的東西。所以有些移工乾脆只吃白飯。',items:[
+    {e:'🍖',t:'滷肉',fb:'是豬肉。我不能吃。'},{e:'🍚',t:'白飯',ok:1,fb:'白飯。這個可以。'},{e:'🍲',t:'排骨湯',fb:'湯裡有豬骨頭。我不能喝。'},
+    {e:'🥚',t:'滷蛋',fb:'蛋是用滷肉的湯汁煮的。我不能吃。'},{e:'🥬',t:'炒青菜',ok:1,fb:'青菜。這個可以。'},{e:'🍢',t:'貢丸',fb:'同鄉說，貢丸是豬肉做的。差一點就夾了。'}],
+    done:t=>[`我問了 ${t} 次才弄清楚。原來我能吃的，只有白飯和青菜。`]}},
+  {x:'齋戒月到了。這個月，從太陽出來到太陽下山，我不吃也不喝。'},
+  {x:'這是我從小到大最重要的月份。在家鄉，全村會一起等太陽下山，一起吃飯。'},
+  {x:'今天的午餐是滷肉飯和排骨湯。同事們吃得很香。'},
+  {f:{co:1},who:'同事',g:'tw',x:'你怎麼都不吃？不吃飯哪有力氣？來啦，吃一口。'},
+  {x:'同事把便當推到我面前。他是好意。可是我不知道怎麼用中文解釋。'},
+  {c:{k:'齋戒月時同事請你吃便當',q:'我要怎麼讓他知道？',o:[
+    {l:'搖搖手，指指天上的太陽',e:'比手勢有時候說不清楚。對方不認識齋戒月，就猜不到意思。',then:[{x:'同事看看天空，又看看我，一臉問號。他聳聳肩，走了。'}]},
+    {l:'用翻譯 App 打字給他看',e:'翻譯少了一半的意思，同事反而更熱心地勸他吃。誤會常常是從好意開始的。',then:[{x:'App 翻成「我今天不吃飯」。同事說了一句話，又多夾一塊肉給我。'}]},
+    {l:'把便當收下，放在旁邊',e:'不想讓對方失望，結果對方還是有點受傷。沒說出口的原因，別人只能自己猜。',then:[{x:'我收下便當，沒有吃。下午同事看到整盒沒動，表情有一點受傷。'}]}]}},
+  {s:'dorm',f:{},w:.2,x:'晚上七點下工，餐廳的飯菜已經收了。我用熱水泡了一碗麵，坐在宿舍門口吃。'},
+  {x:'媽媽傳訊息來。',m:{from:'媽媽',x:'今天開齋吃什麼？家裡煮了你愛的椰漿飯。'},r:['吃得很好，別擔心。','泡麵。但是很好吃。']},
+  {x:'我沒有說，我是一個人吃的。'}],
+ [{s:'factory',f:{red:1,boss:1},w:0,signs:[{x:20,y:32,t:'危險 勿開蓋'},{x:76,y:26,t:'緊急停止'}],x:'齋戒月第三個星期。連續加班，每天只睡五個小時。'},
+  {x:'下午三點。我沒吃沒喝，頭有點暈。機器的燈亮了。'},
+  {who:'領班',g:'tw',x:'阿迪！那一批今天要出貨，動作快一點！'},
+  {x:'箱子來得越來越快。邊框亮起來的時候，不要碰。',play:{t:'rush',k:'又累又餓的那一天',e:'速度一快、人一累，就很難注意安全。這不是他不小心，是工作排得太滿。',icons:['📦'],n:12,life:1500,gap:700,lamp:[800,1000],at:[[36,62],[45,62],[54,62],[62,62]],
+    done:(h,m,b)=>[`壓好 ${h} 個，漏掉 ${m} 個。`+(b?`燈亮的時候，我伸手了 ${b} 次。`:'')+'我的眼睛快要睜不開了。']}},
+  {f:{red:1,down:1},x:'我的手又伸向蓋子，才想起來燈還亮著。差一點。我的手一直抖。'},
+  {x:'我想請假休息一天。可是我不會說，也不知道可不可以。'},
+  {x:'我想換一個工作。同鄉說，移工不能自己隨便換老闆。要換，可能得再付一筆錢。'},
+  {c:{k:'又累又不能換工作',q:'我該怎麼辦？',o:[
+    {l:'撐下去，什麼都不說',e:'很多移工都這樣選。可是身體太累的時候，機器不會等人。',then:[{x:'我告訴自己：再撐一下。欠的錢還有十萬元。我沒有別的路。'}]},
+    {l:'打電話給仲介',e:'該幫忙的人沒有幫忙。求助沒有用，下次就更不會開口。',then:[{x:'仲介接了電話，說：「大家都這樣，忍耐一下。」然後就掛了。'}]},
+    {l:'問同鄉有沒有別的辦法',e:'這就是有些移工「失聯」的原因。離開以後可能賺得比較多，可是生病、受傷都不敢求助。',then:[{x:'同鄉小聲說，有人受不了就跑掉了。跑掉以後，生病不敢看醫生，看到警察要躲。'},{x:'我不想過那種日子。可是我開始懂，為什麼有人會跑。'}]}]}},
+  {s:'dorm',f:{},w:0,x:'晚上，媽媽傳訊息來。',m:{from:'媽媽',x:'這個月的錢收到了。你的聲音聽起來很累。'},r:['沒事。','（看了訊息，沒有回）']},
+  {x:'我不知道要怎麼跟她說。'}],
+ [{s:'factory',f:{boss:1},w:.4,signs:[],x:'星期五，機器突然停了。整條生產線都在等。領班急得滿頭大汗。'},
+  {x:'我聽了一下聲音。是皮帶鬆了。在家鄉，我修過一百次這種毛病。'},
+  {x:'我比了比工具箱。領班猶豫了一下，點點頭。十分鐘後，機器又轉起來了。'},
+  {f:{boss:1,up:1},x:'領班對我比了大拇指。這個我看得懂。'},
+  {s:'canteen',f:{co:1},w:.55,x:'隔天中午，那位同事坐到我旁邊。他叫阿凱。他拿出手機給我看。'},
+  {x:'他查了「齋戒月」，螢幕上是印尼文。他指指太陽，再指指便當，搖搖手。'},
+  {who:'阿凱',x:'Selamat... puasa？'},
+  {x:'他的發音好奇怪。可是我聽懂了。他在用我的話，祝我齋戒順利。'},
+  {x:'晚上，宿舍門口放著一個沒有豬肉的便當，上面貼著紙條。',d:{t:'紙條',l:['阿迪：','太陽下山再吃。']}},
+  {x:'隔天，阿凱拿出四張卡片教我。先點每一張，聽他念。',play:{t:'learn',k:'阿凱教我中文',e:'有人願意慢慢教，學起來就不一樣。阿凱只花了午休的十分鐘。',words:[{t:'太陽',e:'☀️'},{t:'吃飯',e:'🍚'},{t:'豬肉',e:'🐷'},{t:'謝謝',e:'🙏'}]}},
+  {learn:'太陽下山再吃',x:'我再看一次那張紙條。這次，我看懂了。',d:{t:'紙條',l:['阿迪：','太陽下山再吃。']}},
+  {x:'我也教阿凱印尼話的「謝謝」：Terima kasih。'},
+  {s:'field',f:{up:1},w:.7,x:'星期天，阿凱帶我去河邊的球場。台灣人、印尼人、越南人，分兩隊踢球。'},
+  {x:'我進了兩球。沒有人在意我的中文好不好。'},
+  {x:'媽媽傳訊息來。',m:{from:'媽媽',x:'開齋節快到了。'},r:['媽，開齋節那天我們放假。我交到一個台灣朋友，他說想吃妳煮的椰漿飯。','媽，我今天踢球了，進了兩球！下個月我會多寄一點錢。']}],
+ [{tw:1,s:'field',f:{me:1},w:.55,x:'現在，換一個人。你是你自己：一個台灣的小學生。'},
+  {x:'星期天，你和朋友在河邊球場踢球。場邊站著一位大哥哥，一直看著你們。'},
+  {x:'他穿著工廠的制服。你的朋友小聲說：「是外勞耶，不要理他。」'},
+  {x:'你覺得那句話聽起來不太舒服。老師說過，他們是「移工」，是來台灣工作的人。'},
+  {x:'球滾到他的腳邊。他用腳尖把球挑起來，頂了三下，笑著說了一句話。'},
+  {who:'大哥哥',g:'all',x:'要不要一起踢？我以前是前鋒。'},
+  {c:{k:'換你在球場遇見大哥哥',q:'你聽不懂他說什麼。你會怎麼做？',o:[
+    {l:'招招手：「一起踢！」',e:'一句邀請，他就從場邊的陌生人變成隊友。',then:[{w:.85,f:{me:1,in:1},x:'他跑進場，一腳射門得分。你的朋友看呆了：「他好強！」'},{x:'天黑以前，他教了你一招假動作。你教了他一個詞：「好球」。'}]},
+    {l:'指指自己，說出名字，再指指他',e:'知道名字以後，他就不再是「那個外勞」，而是阿迪。',then:[{w:.85,f:{me:1,in:1},x:'「阿、迪。」他慢慢地說。你學著念了一次，他笑得很開心。'},{x:'天黑以前，他教了你一招假動作。你教了他一個詞：「好球」。'}]},
+    {l:'跟朋友說：「他是來工作的人，又不是壞人。」',e:'你改變的不只是自己，還有朋友的想法。這需要勇氣。',then:[{w:.8,f:{me:1,in:1},x:'朋友想了一下，點點頭。他把球踢向大哥哥：「接著！」'},{x:'天黑以前，他教了你們一招假動作。你們教了他一個詞：「好球」。'}]},
+    {l:'把球撿回來，繼續踢自己的',e:'你沒有傷害他。可是他在台灣的星期天，還是一個人過的。',then:[{x:'你把球拿回來。大哥哥在場邊又站了一會兒，才慢慢走開。'},{x:'你沒有趕他走。如果再來一次，你會想試試別的做法嗎？'}]}]}}]]},
+
+maria:{name:'瑪莉亞',tag:'移工',from:'菲律賓',role:'住在雇主家，照顧失智的阿嬤',good:'很有耐心，歌唱得很好',init:'一二三人好',
+ end:{ep:'阿嬤還是常常忘記瑪莉亞的名字。可是只要瑪莉亞一開口唱歌，阿嬤就會跟著打拍子。',
+  reps:[['關鍵評論網','很多看護工一整年都沒有一天完整的休假。','https://www.thenewslens.com/article/100429'],['中央社（關鍵評論網轉載）','看護工和長輩住在一起，常常整天、整夜都在工作。','https://www.thenewslens.com/article/268522']]},
+ stages:[
+ [{s:'home',f:{v:'sea',kid:1},w:1,x:'這裡是菲律賓的海邊小鎮。星期天，教堂的歌聲會傳到整條街。'},
+  {x:'我叫瑪莉亞，35 歲。我在鎮上的診所當過助手，很會照顧人。'},
+  {x:'我也愛唱歌。女兒貝雅睡不著的時候，我唱一首，她就睡了。'},
+  {x:'貝雅又睡不著了。音符出現的時候，點它，把歌唱完。',play:{t:'rush',k:'唱歌哄女兒睡覺',e:'在家鄉，她是貝雅的媽媽。來台灣以後，她哄睡的是別人的家人。',icons:['🎵','🎶'],n:7,life:1900,gap:1000,done:(h,m)=>[`我唱了 ${h} 個音。貝雅抓著我的手指，睡著了。`]}},
+  {x:'貝雅今年 8 歲。我想讓她念到大學。所以我要去台灣當看護，照顧別人的家人。'},
+  {x:'合約是三年。這三年，我大概只能在手機裡看她長大。'},
+  {x:'出發那天，貝雅用外婆的手機傳訊息給我。',m:{from:'貝雅',x:'媽媽，妳什麼時候回來？'},r:['三年後。媽媽每天晚上都會打給妳，唱歌給妳聽。','等妳升上五年級，媽媽就回來。要聽外婆的話喔。']}],
+ [{s:'room',f:{wife:1},w:.15,x:'台灣。我住進一戶人家，照顧 82 歲的阿嬤。她有失智症，常常忘記事情。'},
+  {x:'我的床在阿嬤的床旁邊。她半夜醒來，我也要醒來。'},
+  {who:'太太',g:'tw',x:'阿嬤的藥早晚各一次，血壓要量，垃圾星期二四六倒。'},
+  {x:'太太講了很多事，還給我一張表。我只看得懂上面的時間。',d:{t:'每日工作表',l:['06:00　起床、量血壓','07:00　早餐、吃藥','10:00　散步','12:00　午餐','15:00　洗澡','18:00　晚餐、吃藥','22:00　睡覺','半夜　陪阿嬤上廁所']}},
+  {x:'從早上 6 點到晚上 10 點。最後一行沒有寫時間。'},
+  {f:{},who:'阿嬤',g:'all',x:'你是誰？阿美呢？我要找阿美。'},
+  {x:'阿嬤看著我，說了一串話。那不是我學過的中文。太太說，阿嬤講的是台語。'},
+  {x:'我在菲律賓學了三個月的中文。在這裡，一句都用不上。'},
+  {x:'阿嬤一直說同一句話，越說越急。她要什麼？拿給她試試看。',play:{t:'find',k:'猜阿嬤要什麼',e:'語言不通的時候，照顧一個人只能用猜的。猜不到，兩個人都難過。',max:3,items:[
+    {e:'💧',fb:'阿嬤把水杯推開。不是這個。'},{e:'🍪',fb:'阿嬤搖搖頭。她不餓。'},{e:'🧣',fb:'阿嬤把毯子拉掉。她不冷。'},
+    {e:'💊',fb:'阿嬤皺起眉頭。吃藥的時間還沒到。'},{e:'📺',fb:'我打開電視。阿嬤看都不看。'},{e:'🚽',fb:'我扶她去廁所。她站在門口，不肯進去。'}],
+    done:t=>['我試了三樣，都不是。她一直看著門口。','她要的東西，這個房間裡好像沒有。']}}],
+ [{s:'room',w:.25,x:'一個月過去了。我學會煮阿嬤愛吃的稀飯，也學會幫她量血壓。'},
+  {x:'一天的工作開始了。事情出現的時候，點它，把它做完。',play:{t:'rush',k:'看護的一天',e:'事情一件接一件，沒有下班時間。很多家庭看護工，每天都是這樣過的。',icons:['🩺','🍚','💊','🚶','🧺','🛁','🍚','💊','🗑️','🚽'],n:14,life:1700,gap:800,
+    done:(h,m)=>[`做完 ${h} 件事，來不及做 ${m} 件。晚上十點，阿嬤終於睡了。`,'半夜兩點，阿嬤叫我。這一件，工作表上沒有寫時間。']}},
+  {x:'阿嬤還是每天問同一句話。我還是聽不懂。'},
+  {x:'太太傳訊息來。我用 App 翻譯，這次翻對了：星期天不能休假。',m:{from:'太太',g:'tw',x:'這個星期天我們要出門，你不能休假，改天再補。'}},
+  {x:'這是第四個沒有休假的星期天。合約上寫，每個星期可以休息一天。'},
+  {f:{wife:1},c:{k:'連續四個星期天沒有休假',q:'我要不要跟太太說？',o:[
+    {l:'跟太太說：我想休星期天',e:'說出自己的需要是對的。雇主也有難處，問題出在沒有別人可以接手。',then:[{x:'太太有點為難：「妳休假，阿嬤誰顧？」她沒有說不行，也沒有說可以。'}]},
+    {l:'不說，繼續工作',e:'家裡維持了平靜。可是一直不休息，照顧別人的人自己也會倒下。',then:[{x:'我沒有說。星期天，同鄉在教堂聚會的照片，一張一張傳到我的手機裡。'}]},
+    {l:'問可不可以只休半天',e:'兩邊各退一步。可是阿嬤哭了，她會覺得休息是自己的錯。',then:[{x:'太太答應了。我去了教堂兩個小時。回來時，阿嬤正在哭，說找不到人。'}]}]}},
+  {x:'太太和先生都要上班，也很累。他們不是壞人。只是這個家，沒有第二個人可以顧阿嬤。'},
+  {f:{},w:.18,x:'晚上十點，阿嬤睡了。這是我一天裡，唯一屬於自己的時間。'},
+  {x:'視訊裡，貝雅掉了一顆門牙。我不知道它是哪一天掉的。',m:{from:'貝雅',x:'媽媽，今天學校表演，我唱了妳教我的歌。'}},
+  {x:'我要怎麼回她？',r:['媽媽好想看。請外婆錄下來傳給我，好不好？','妳好棒。']}],
+ [{s:'room',f:{up:1},w:0,x:'凌晨三點。阿嬤醒了，說要回家。她不知道，這裡就是她的家。'},
+  {who:'阿嬤',g:'all',x:'我要回去！阿美在等我！你們把我關在這裡！'},
+  {x:'她推開我，往門口走。我擋在門前。她哭了，我也快哭了。'},
+  {c:{k:'半夜阿嬤吵著要回家',q:'我要怎麼辦？',o:[
+    {l:'輕輕地用英文跟她說話',e:'聽不懂內容，還是聽得出語氣。慢慢說、輕輕說，本身就是一種語言。',then:[{x:'「It’s okay, Lola.」她聽不懂。可是我的聲音很慢，她的腳步也慢了一點。'}]},
+    {l:'打電話叫醒太太',e:'問題解決了。可是她會擔心，雇主覺得她做得不夠好。',then:[{f:{up:1,wife:1},x:'太太下樓來，講了幾句台語，阿嬤才肯坐下。太太看了我一眼，沒有說話就回房了。'}]},
+    {l:'扶著她在客廳慢慢走',e:'阿嬤安心了。代價是她自己一整晚沒有睡。',then:[{x:'我扶著她在客廳走了三圈。她走累了，才肯回床上。那時候，天快亮了。'}]}]}},
+  {f:{down:1},x:'早上六點，鬧鐘響了。新的一天又開始。我昨晚只睡了兩個小時。'},
+  {x:'我照顧阿嬤，可是沒有人問我累不累。'},
+  {x:'我的女兒在想我。可是我在這裡，照顧別人的媽媽。'},
+  {x:'手機亮了。',m:{from:'貝雅',x:'媽媽，妳昨天沒有打給我。'},r:['對不起。','（看了訊息，沒有回）']},
+  {x:'我太累了。手機還握在手裡，就睡著了。'}],
+ [{s:'room',f:{kid:1},w:.4,x:'下午，阿嬤的孫子小恩放學回來。他今年五年級，會講國語，也聽得懂台語。'},
+  {x:'阿嬤又說了那句話。我指指阿嬤，再對小恩攤開手：她在說什麼？'},
+  {who:'小恩',x:'她在找阿美。阿美是阿嬤的妹妹，小時候常常一起唱歌。'},
+  {x:'小恩用手機打字，翻成英文給我看。原來阿嬤每天在找的，是她的妹妹。'},
+  {x:'原來她也在想家人。跟我一樣。'},
+  {x:'阿嬤又說了那句話。這次，我知道她在找什麼了。',play:{t:'find',k:'再猜一次阿嬤要什麼',e:'聽懂了一句話，事情就完全不一樣。小恩只是幫忙翻譯了一次。',items:[
+    {e:'💧',fb:'不是水。她在找一個人。'},{e:'🖼️',ok:1,fb:'我拿出相簿，翻到阿嬤和妹妹的合照。'},{e:'🍪',fb:'不是餅乾。她在找一個人。'},{e:'🧣',fb:'不是毯子。她在找一個人。'}],
+    done:t=>['阿嬤摸著照片，笑了。她說了很多話。我聽不懂，可是我一直點頭。']}},
+  {w:.5,x:'那天晚上，阿嬤又睡不著。我沒有說話。我開始唱歌，唱我哄貝雅睡覺的那一首。'},
+  {x:'阿嬤安靜下來。她跟著哼，哼的是另一首歌，可是拍子一樣。'},
+  {x:'隔天，小恩拿出四張卡片教我。先點每一張，聽他念。',play:{t:'learn',k:'小恩教我中文',e:'一天學幾個字，慢慢就看得懂工作表。願意教的人，不一定要是老師。',words:[{t:'吃藥',e:'💊'},{t:'睡覺',e:'🛏️'},{t:'散步',e:'🚶'},{t:'洗澡',e:'🛁'}]}},
+  {learn:'起床早餐吃藥午晚睡覺散步洗澡',x:'我再看一次工作表。上面的字，我看懂一半了。',d:{t:'每日工作表',l:['06:00　起床、量血壓','07:00　早餐、吃藥','10:00　散步','12:00　午餐','15:00　洗澡','18:00　晚餐、吃藥','22:00　睡覺','半夜　陪阿嬤上廁所']}},
+  {x:'現在每天下午四點，小恩寫功課，我學十個字。阿嬤在旁邊打拍子。'},
+  {f:{kid:1,wife:1},w:.6,x:'太太看見了。她說，下個月開始，星期天請居家照顧的人來幫忙，讓我休假。'},
+  {s:'park',w:.75,x:'星期天，我去了教堂。我站在最前面唱歌。同鄉說，我的聲音一點都沒變。'},
+  {x:'晚上視訊，貝雅盯著我看了很久。',m:{from:'貝雅',x:'媽媽，妳今天在笑。'},r:['因為媽媽今天唱歌了。阿嬤的孫子跟妳差不多大，他在教媽媽寫中文字。','媽媽學了一首台灣的老歌。今天晚上唱給妳聽。']}],
+ [{tw:1,s:'room',f:{me:1},w:.55,x:'現在，換一個人。你是你自己：一個台灣的小學生。'},
+  {x:'放學回家，家裡多了一位看護阿姨，她是來照顧你阿嬤的。她來自菲律賓。'},
+  {who:'阿姨',g:'all',x:'你好，我叫瑪莉亞。你叫什麼名字？'},
+  {x:'她對你笑，說了一句你聽不懂的話。'},
+  {x:'阿嬤開始說台語。阿姨聽不懂，一臉著急。你聽得懂：阿嬤說她口渴。'},
+  {c:{k:'換你是家裡聽得懂兩邊的人',q:'你會怎麼做？',o:[
+    {l:'指指阿嬤，再比一個喝水的動作',e:'你一個動作，省下她猜四次的時間。阿嬤也少著急一會兒。',then:[{w:.85,x:'阿姨馬上倒了溫水。阿嬤喝了，拍拍阿姨的手。阿姨對你比了一個讚。'}]},
+    {l:'教阿姨一個詞：「喝水」',e:'你教的一個詞，她以後每天都用得到。',then:[{w:.85,x:'「喝、水。」阿姨念了三次，寫在手心。下一次，她自己就聽懂了。'}]},
+    {l:'用手機翻譯，問阿姨：「妳的家人在哪裡？」',e:'你讓她知道，有人把她當成一個有家人的人，而不只是看護。',then:[{w:.8,x:'阿姨給你看一張照片：一個掉了門牙的小女孩。翻譯 App 說：「跟你差不多大。」'},{x:'你想起來阿嬤還在等水，趕快告訴阿姨。'}]},
+    {l:'回房間寫功課',e:'你沒有做錯事。只是那天下午，她和阿嬤都多辛苦了一點。',then:[{f:{me:1,solo:1},x:'你回房間了。客廳裡，阿姨倒了茶、拿了毯子，試到第四次才猜對。'},{x:'你沒有做錯事。只是，你剛好是家裡唯一聽得懂兩邊的人。'}]}]}},
+  {x:'晚上，你聽見阿嬤的房間有歌聲。是你沒聽過的語言，可是很好聽。'}]]}
+};
+
+/* ───── 狀態 ───── */
+let S=null,P=[],F=0,W=.6,curAmb='';
+const CJK=/[一-鿿]/;
+
+/* ───── 色溫：冷 ↔ 暖，整頁共用同一組 6 色 ───── */
+const COLD=['#131a28','#2a3a55','#4f678c','#8ea4c0','#dbe3ee','#ffd166'],WARM=['#2a1613','#7a3a2a','#c76a3a','#f0a55c','#fdecc8','#2a9d8f'];
+const VAR=['--ink','--shade','--mid','--light','--paper','--glow'];
+function pal(w){P=COLD.map((c,i)=>{const a=parseInt(c.slice(1),16),b=parseInt(WARM[i].slice(1),16);let o='#';
+  for(const sh of[16,8,0]){const x=a>>sh&255,y=b>>sh&255;o+=Math.round(x+(y-x)*w).toString(16).padStart(2,'0')}return o});
+  P.forEach((c,i)=>document.documentElement.style.setProperty(VAR[i],c));if(S)draw();paintIcons()}
+let wT=0;
+function warm(to){cancelAnimationFrame(wT);if(RM){W=to;pal(W);return}
+  const from=W,t0=performance.now();const step=t=>{const k=Math.min(1,(t-t0)/1400);W=from+(to-from)*k;pal(W);if(k<1)wT=requestAnimationFrame(step)};wT=requestAnimationFrame(step)}
+
+/* ───── 看不懂的字：每個字固定對應一個像素符號 ───── */
+const GL={};
+function glyph(ch){const c=ch.codePointAt(0);if(GL[c])return GL[c];
+  const cv=document.createElement('canvas');cv.width=cv.height=28;const g=cv.getContext('2d');
+  let s=(c*2654435761)>>>0;const r=n=>{s=(s*1664525+1013904223)>>>0;return (s>>>8)%n};
+  const n=3+r(3);for(let i=0;i<n;i++){const v=r(2),p=r(7),a=r(4),l=Math.min(3+r(4),7-a);
+    if(v)g.fillRect(p*4,a*4,4,l*4);else g.fillRect(a*4,p*4,l*4,4)}
+  if(r(2))g.fillRect(r(7)*4,r(7)*4,4,4);
+  const sh=document.getElementById('gs').sheet;sh.insertRule(`.g${c}{--m:url(${cv.toDataURL()})}`,sh.cssRules.length);return GL[c]='g'+c}
+function units(t,mode){const out=[];for(const ch of t){
+  if(CJK.test(ch)){
+    if(mode==='all'||(mode==='tw'&&!S.readAll&&!S.known.has(ch))){out.push(`<i class="g ${glyph(ch)}"></i>`);continue}
+    if(mode==='tw'&&S.fresh.has(ch)){out.push(`<b class="lit">${ch}</b>`);continue}}
+  out.push(esc(ch))}return out}
+
+/* ───── 圖示：把表情符號縮成 24×24，再換成目前的 6 色 ───── */
+const IM={};
+function imap(e){if(IM[e])return IM[e];const m=new Int8Array(576).fill(-1);
+  try{const c=document.createElement('canvas');c.width=c.height=24;const g=c.getContext('2d',{willReadFrequently:true});
+    g.font='19px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(e,12,13);
+    const d=g.getImageData(0,0,24,24).data,r=new Int8Array(576);
+    for(let i=0;i<576;i++){const l=.3*d[i*4]+.59*d[i*4+1]+.11*d[i*4+2];r[i]=d[i*4+3]<90?-1:l<70?0:l<125?1:l<175?2:l<215?3:5}
+    for(let i=0;i<576;i++){const x=i%24;m[i]=r[i];if(r[i]<0&&((x&&r[i-1]>=0)||(x<23&&r[i+1]>=0)||(i>23&&r[i-24]>=0)||(i<552&&r[i+24]>=0)))m[i]=0}
+  }catch(err){}
+  return IM[e]=m}
+function paintIcons(){document.querySelectorAll('canvas.ico').forEach(c=>{const m=imap(c.dataset.e),g=c.getContext('2d');g.clearRect(0,0,24,24);
+  for(let i=0;i<576;i++)if(m[i]>=0){g.fillStyle=P[m[i]];g.fillRect(i%24,(i/24)|0,1,1)}})}
+const ico=e=>`<canvas class="ico" width="24" height="24" data-e="${e}"></canvas>`;
+const shuf=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+
+/* ───── 像素場景（320×180，色號 0–5） ───── */
+const cv=$('#cv'),cx=cv.getContext('2d');
+const R=(x,y,w,h,c)=>{cx.fillStyle=P[c];cx.fillRect(x,y,w,h)};
+function man(x,y,o={}){const k=o.kid,bw=k?7:10,hd=k?6:8,bh=k?9:12,lh=k?6:8,b=o.body??4,h=o.hair??0;
+  R(x+1,y-lh,3,lh,0);R(x+bw-4,y-lh,3,lh,0);R(x,y-lh-bh,bw,bh,b);
+  if(o.up){R(x-2,y-lh-bh-5,2,9,b);R(x+bw,y-lh-bh-5,2,9,b)}else{R(x-2,y-lh-bh+1,2,bh-4,b);R(x+bw,y-lh-bh+1,2,bh-4,b)}
+  const hx=x+((bw-hd)>>1),hy=y-lh-bh-hd+(o.down?2:0);
+  R(hx,hy,hd,hd,3);R(hx,hy,hd,o.down?4:3,h);
+  if(o.long){R(hx-1,hy+1,1,hd+2,h);R(hx+hd,hy+1,1,hd+2,h)}}
+const room=(wall,floorY,fl)=>{R(0,0,320,180,wall);R(0,floorY,320,180-floorY,fl)};
+const SC={
+home(f){R(0,0,320,180,3);R(236,22,28,28,4);R(232,26,36,20,4);R(240,18,20,36,4);
+  R(0,96,320,20,2);R(30,88,80,10,2);R(180,84,110,12,2);R(0,112,320,68,1);
+  if(f.v==='sea'){R(0,100,320,14,2);for(let i=0;i<6;i++)R(14+i*54+F*3,104+(i%2)*4,26,1,4)}
+  else if(f.v==='rice'){for(let i=0;i<5;i++)R(0,150+i*7,320,2,2)}
+  else{R(0,152,320,28,2);for(let i=0;i<5;i++)R(20+i*64+F*3,160+(i%2)*6,30,1,4)}
+  R(60,72,70,44,4);R(52,60,86,14,0);R(60,52,70,8,0);R(86,90,16,26,1);R(110,84,12,10,2);
+  R(200,60,5,56,0);R(184,54,38,5,0);R(190,48,26,5,0);R(180,60,14,4,0);R(212,60,14,4,0);
+  man(100,130,{body:2,long:1});man(152,136,{body:5,long:f.v!=='rice'});if(f.kid)man(134,136,{kid:1,body:4,long:1})},
+store(f){room(2,128,1);R(0,0,320,10,1);for(let i=0;i<3;i++)R(30+i*100,10,60,3,4);R(0,128,320,2,3);
+  for(let i=0;i<3;i++){const x=16+i*62;R(x,40,54,70,1);for(let r=0;r<4;r++)for(let j=0;j<6;j++)R(x+3+j*8,46+r*16,6,10,[4,3,5,3][(i+j+r)%4])}
+  man(238,106,{body:4});R(222,96,90,32,0);R(218,92,98,5,3);R(268,78,22,14,0);R(272,81,14,6,4);
+  if(f.me){man(196,150,{body:4,long:1,down:f.down});R(207,130,10,10,3);man(170,152,{kid:1,body:5});if(f.q)man(140,154,{body:0})}
+  else{man(196,150,{body:5,long:1,down:f.down});R(207,130,10,10,4);if(f.q)man(164,152,{body:0})}},
+kitchen(f){room(2,130,1);R(30,30,60,40,4);R(59,30,2,40,2);R(30,49,60,2,2);
+  R(110,96,200,34,0);R(106,92,208,5,3);R(150,84,40,8,1);R(156,70,28,14,0);R(152,74,4,3,0);R(184,74,4,3,0);
+  R(162+F*4,56,3,9,4);R(174-F*3,52,3,11,4);R(272,36,34,56,3);R(272,62,34,2,1);
+  man(164,154,{body:5,long:1,down:f.down});if(f.mil)man(66,152,{body:1,hair:4});if(f.nanny)man(226,154,{body:4,long:1})},
+night(f){room(1,134,0);R(214,26,60,46,2);R(250,34,12,12,4);R(243,26,2,46,1);
+  R(90,100,60,34,2);for(let i=0;i<8;i++)R(92+i*8,104,2,30,1);R(112,94,9,7,3);
+  R(40,112,24,22,0);R(50,104,4,8,0);R(44,90,16,14,5);
+  R(290,58,26,76,f.mil?3:0);
+  man(162,154,{body:5,long:1,down:!f.mil});if(f.mil)man(200,154,{body:2,hair:4})},
+class(f){room(2,134,1);R(56,22,208,68,3);R(60,26,200,60,0);
+  man(30,134,{body:4,long:1});
+  for(let i=0;i<4;i++){const x=44+i*66;if(!(f.up&&i===1))man(x+14,152,{body:i===1?5:[1,0,4,0][i],long:1,up:f.up&&i!==1&&i!==3});R(x,140,44,5,3);R(x+4,145,3,16,0);R(x+37,145,3,16,0)}
+  if(f.up)man(124,134,{body:5,long:1,up:1})},
+factory(f){room(2,136,1);for(let i=0;i<3;i++)R(20+i*100,14,60,14,3);R(0,40,320,4,1);
+  R(30,70,70,66,0);R(38,78,20,14,1);R(84,76,8,8,f.lamp||(f.red&&F)?5:1);if(f.lamp)R(76,68,24,24,5);
+  R(200,60,90,76,0);R(210,70,30,20,1);R(270,68,8,8,f.lamp||(f.red&&!F)?5:1);R(214,74,22,3,3);
+  R(100,112,100,8,0);R(104,120,4,16,0);R(192,120,4,16,0);for(let i=0;i<4;i++)R(108+((i*24+F*6)%88),102,12,10,3);
+  man(150,162,{body:5,down:f.down,up:f.up});if(f.boss){man(254,162,{body:4});R(254,133,10,3,3)}},
+dorm(f){room(2,138,1);R(140,40,44,30,W<.1?0:3);
+  for(const x of[24,196]){R(x,40,4,98,0);R(x+96,40,4,98,0);R(x,70,100,6,0);R(x,112,100,6,0);R(x+4,62,92,8,3);R(x+4,104,92,8,3);R(x+6,58,16,6,4);R(x+6,100,16,6,4)}
+  man(154,162,{body:5,down:1});R(166,146,4,6,4)},
+canteen(f){room(2,136,1);R(40,24,70,34,3);R(180,70,130,66,0);R(176,66,138,5,3);R(196,54,24,12,1);R(236,54,24,12,1);R(204+F*3,44,3,8,4);R(246-F*2,42,3,10,4);
+  man(56,140,{body:5,down:f.down});if(f.co)man(102,140,{body:4});
+  R(30,122,120,6,3);R(36,128,4,22,0);R(140,128,4,22,0);R(48,116,24,6,4);if(f.co)R(96,116,24,6,4)},
+field(f){R(0,0,320,180,3);R(40,56,24,24,4);R(200,72,90,38,1);R(270,52,10,20,1);R(0,108,320,72,2);R(0,142,320,2,4);R(158,108,2,72,4);
+  R(250,98,3,40,4);R(250,98,40,3,4);R(287,98,3,40,4);R(150+F*3,152,6,6,4);
+  if(f.me){man(124,158,{kid:1,body:5});man(176,152,{kid:1,body:0});if(f.in)man(204,156,{body:4,up:1});else man(22,166,{body:4})}
+  else{man(124,158,{body:5,up:f.up});man(180,152,{body:4});man(70,150,{body:0});man(222,148,{body:1})}},
+room(f){room(2,136,1);R(30,28,56,44,W<.1?0:3);R(26,24,8,52,1);R(82,24,8,52,1);R(130,40,14,12,4);R(150,44,10,10,4);
+  R(214,84,8,52,0);R(110,104,106,10,4);R(112,114,4,22,0);R(206,114,4,22,0);
+  if(f.up)man(176,158,{body:4,hair:4});else{R(110,100,82,8,3);R(196,94,10,8,3);R(204,94,4,8,4)}
+  R(240,122,70,8,0);R(244,116,62,6,2);
+  const you=f.me;if(!f.solo)man(144,162,{body:you?4:5,long:1,down:f.down});else man(150,162,{body:4,long:1,down:1});
+  if((f.kid||you)&&!f.solo)man(92,162,{kid:1,body:you?5:4});if(f.wife)man(284,162,{body:1,long:1})},
+park(f){R(0,0,320,180,3);R(60,20,50,8,4);R(150,30,40,6,4);R(0,130,320,50,2);R(0,152,320,10,3);
+  for(const x of[34,280]){R(x+12,80,8,50,0);R(x-8,40,48,44,1);R(x,32,32,10,1)}
+  R(200,54,60,76,4);R(190,46,80,10,1);R(228,24,4,22,4);R(222,30,16,4,4);R(222,100,16,30,1);
+  man(120,152,{body:1,long:1});man(150,154,{body:5,long:1,up:1});man(178,152,{body:0,long:1})}
+};
+function draw(){if(!S||!SC[S.scene])return;cx.clearRect(0,0,320,180);SC[S.scene](S.f||{})}
+if(!RM)setInterval(()=>{F^=1;if(S&&!$('#play').hidden)draw()},600);
+
+/* ───── 聲音（全部用程式合成，離線可用） ───── */
+let AC=null,MG=null,ambN=[],thump=0,snd=true;
+function au(){if(!snd)return null;if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();MG=AC.createGain();MG.gain.value=.6;MG.connect(AC.destination)}catch(e){snd=false;return null}}
+  if(AC.state==='suspended')AC.resume();return AC}
+function tone(f,d,v=.05,ty='square',t=0){const a=au();if(!a)return;const o=a.createOscillator(),g=a.createGain(),s=a.currentTime+t;
+  o.type=ty;o.frequency.value=f;g.gain.setValueAtTime(v,s);g.gain.exponentialRampToValueAtTime(.0001,s+d);o.connect(g);g.connect(MG);o.start(s);o.stop(s+d+.02)}
+const AMB={home:[.02,1200,196],store:[.03,3200,0],kitchen:[.025,1600,0],night:[.01,300,82],class:[.012,1000,262],factory:[.09,420,55],dorm:[.012,500,98],canteen:[.04,1800,0],field:[.02,2600,0],room:[.01,600,110],park:[.015,2400,330]};
+function ambience(id){if(id===curAmb)return;curAmb=id;ambN.forEach(n=>{try{n.stop()}catch(e){}});ambN=[];clearInterval(thump);
+  const a=au();if(!a||!AMB[id])return;const[v,fc,dr]=AMB[id];
+  const buf=a.createBuffer(1,a.sampleRate*2,a.sampleRate),d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+  const n=a.createBufferSource();n.buffer=buf;n.loop=true;const fl=a.createBiquadFilter();fl.type='lowpass';fl.frequency.value=fc;
+  const g=a.createGain();g.gain.value=v;n.connect(fl);fl.connect(g);g.connect(MG);n.start();ambN.push(n);
+  if(0&&dr){const o=a.createOscillator(),og=a.createGain();o.type='sine';o.frequency.value=dr;og.gain.value=.025;o.connect(og);og.connect(MG);o.start();ambN.push(o)}
+  if(id==='factory')thump=setInterval(()=>tone(58,.12,.12,'sine'),640)}
+/* 背景音樂：五聲音階的小旋律。越暖越輕快，越冷越慢、越稀疏 */
+const MEL=[0,2,4,2,5,4,2,null,0,2,4,7,5,4,2,null,4,5,7,5,4,2,0,null,2,4,2,0,1,0,null,null];let mus=0,mi=0;
+function music(){clearTimeout(mus);const step=()=>{const d=MEL[mi++%MEL.length],sparse=W<.1?4:W<.35?2:1;
+  if(snd&&S&&d!=null&&mi%sparse===0){const sc=W>.5?[0,2,4,7,9]:[0,3,5,7,10],root=W>.5?262:220;
+    tone(root*2**((sc[d%5]+12*(d/5|0))/12),.6,.03,'triangle');if(mi%8<sparse)tone(root/2,1,.03,'sine')}
+  mus=setTimeout(step,520-220*W)};step()}
+$('#bSnd').onclick=()=>{snd=!snd;$('#bSnd').textContent='聲音：'+(snd?'開':'關');
+  if(!snd){const k=curAmb;ambience('');curAmb='';if(AC)AC.suspend();S&&(S.wantAmb=k)}else if(S&&S.scene&&!$('#play').hidden)ambience(S.scene)};
+
+/* ───── 進行 ───── */
+function show(id){for(const k of['home','play','end'])$('#'+k).hidden=k!==id;$('#dots').hidden=id==='home'}
+function flat(cid){const out=[];C[cid].stages.forEach((bs,si)=>bs.forEach((b,j)=>out.push(j?b:{...b,st:si})));return out}
+function begin(cid,stage=0){const ch=C[cid];
+  stopGame();S={cid,beats:flat(cid),i:0,known:new Set(ch.init),fresh:new Set(),readAll:false,scene:'',f:{},signs:[],msgs:[],log:[],stage:0};
+  const start=S.beats.findIndex(b=>b.st===stage);let w=W;
+  for(let k=0;k<start;k++){const b=S.beats[k];if(b.learn)for(const c of b.learn)S.known.add(c);if(b.tw)S.readAll=true;
+    if(b.s){S.scene=b.s;S.f=b.f||{};S.signs=b.signs||[]}if(b.w!=null)w=b.w}
+  S.i=Math.max(0,start);show('play');$('#teacher').hidden=true;W=w;pal(W);music();go()}
+function dots(n=S.stage){$('#dots').innerHTML=STG.map((_,i)=>`<i class="${i<=n?'on':''}"></i>`).join('')+`<span>${STG[n]}</span>`}
+function signs(){$('#signs').innerHTML=S.signs.map(s=>`<span class="sign" style="left:${s.x}%;top:${s.y}%">${units(s.t,'tw').join('')}</span>`).join('')}
+function phone(){const L=$('#log');$('#phT').textContent=S.readAll?'你的手機':'訊息';
+  L.innerHTML=S.msgs.map(m=>m.seen?'<p class="seen">已讀</p>':`<div class="bub ${m.me?'me':''}">${m.me?'':`<small>${esc(m.from)}</small>`}${units(m.x,m.g).join('')}</div>`).join('')
+    ||`<p class="seen">${S.readAll?'沒有新訊息':'還沒有訊息'}</p>`;L.scrollTop=L.scrollHeight}
+let tw=null;
+function type(el,u,done){el.innerHTML='';if(RM){el.innerHTML=u.join('');done();return}
+  let n=0;const t=setInterval(()=>{el.insertAdjacentHTML('beforeend',u[n++]);if(n>=u.length)tw.finish()},30);
+  tw={finish(){clearInterval(t);if(n<u.length)el.insertAdjacentHTML('beforeend',u.slice(n).join(''));tw=null;done()}}}
+function go(){stopGame();const b=S.beats[S.i];if(!b)return finish();
+  S.fresh=new Set();
+  if(b.st!=null){S.stage=b.st;dots()}
+  if(b.tw){S.readAll=true;S.msgs=[]}
+  if(b.learn)for(const c of b.learn)if(CJK.test(c)&&!S.known.has(c)){S.known.add(c);S.fresh.add(c)}
+  if(b.s){S.scene=b.s;S.f=b.f||{};S.signs=b.signs||[];ambience(b.s)}else if(b.f)S.f=b.f;
+  if(b.signs&&!b.s)S.signs=b.signs;
+  if(b.w!=null)warm(b.w);
+  if(b.m){S.msgs.push(b.m);tone(880,.08);tone(1320,.12,.05,'square',.09)}
+  if(S.fresh.size)[523,659,784].forEach((f,i)=>tone(f,.14,.05,'triangle',i*.1));
+  draw();signs();phone();
+  const who=$('#who');who.hidden=!b.who;if(b.who)who.innerHTML=esc(b.who)+(b.g==='all'?'<em>你聽不懂的語言</em>':b.g==='tw'&&!S.readAll?'<em>中文</em>':'');
+  const le=$('#learned');le.hidden=!S.fresh.size;if(S.fresh.size)le.textContent='學會了：'+[...S.fresh].join('、');
+  const d=$('#doc');d.hidden=!b.d;if(b.d)d.innerHTML=`<h3>${esc(b.d.t)}</h3>`+b.d.l.map(l=>`<p>${units(l,'tw').join('')}</p>`).join('');
+  $('#acts').innerHTML='';$('#reply').innerHTML='';
+  type($('#txt'),units(b.x||b.c.q,b.g),()=>acts(b))}
+function btn(cls,label,fn){const e=document.createElement('button');e.type='button';e.className=cls;e.textContent=label;e.onclick=fn;return e}
+function acts(b){const A=$('#acts');A.innerHTML='';if(b.play)return play(b.play);
+  if(b.c){b.c.o.forEach(o=>A.append(btn('opt',o.l,()=>{tone(330,.05);S.log.push([b.c.k,o.l,o.e]);S.beats.splice(S.i+1,0,...o.then);next()})))}
+  else if(b.r){const Rp=$('#reply');Rp.innerHTML='<p>選一個回覆</p>';
+    b.r.forEach(t=>Rp.append(btn('opt',t,()=>{tone(660,.06);S.msgs.push(t[0]==='（'?{seen:1}:{me:1,x:t});next()})));
+    if(Rp.getBoundingClientRect().bottom>innerHeight)Rp.scrollIntoView({block:'end',behavior:RM?'auto':'smooth'})}
+  else A.append(btn('next','繼續 ▶',next))}
+function next(){if(tw){tw.finish();return}S.i++;go()}
+
+/* ───── 小遊戲：rush 來不及的事 / find 看不懂只能猜 / learn 記住陌生的字 ───── */
+let G=null,CURP=null;
+function stopGame(){if(G){G.t.forEach(clearTimeout);G=null}const L=$('#game');L.innerHTML='';L.className=''}
+function endGame(lines,logv,k){stopGame();if(S.f.lamp){S.f={...S.f,lamp:0};draw()}if(k)S.log.push([k,logv,CURP&&CURP.e]);S.beats.splice(S.i+1,0,...lines.map(x=>({x})));next()}
+function play(p){const L=$('#game');G={t:[]};CURP=p;const later=(f,ms)=>G.t.push(setTimeout(f,ms));
+  const say=t=>{$('#txt').textContent=t};
+  if(p.t==='rush'){let hit=0,miss=0,bad=0,left=p.n,lamp=false;
+    const fin=()=>{if(--left>0)return;endGame(p.done(hit,miss,bad),`做到 ${hit} 個，漏掉 ${miss} 個`+(p.lamp?`，燈亮時伸手 ${bad} 次`:''),p.k)};
+    if(p.lamp){const flip=()=>{lamp=!lamp;S.f={...S.f,lamp};draw();L.classList.toggle('lamp',lamp);tone(lamp?170:260,.1,.05);later(flip,lamp?p.lamp[0]:p.lamp[1])};later(flip,p.lamp[1])}
+    for(let i=0;i<p.n;i++)later(()=>{const b=document.createElement('button');b.type='button';b.className='tgt';b.innerHTML=ico(p.icons[i%p.icons.length]);b.setAttribute('aria-label','點這裡');
+      const z=p.at?p.at[i%p.at.length]:[12+Math.random()*76,20+Math.random()*56];b.style.left=z[0]+'%';b.style.top=z[1]+'%';b.style.setProperty('--life',p.life+'ms');
+      let dead=false;const kill=()=>{dead=true;b.remove()};
+      b.onclick=()=>{if(dead)return;if(lamp){bad++;tone(110,.25,.08,'sawtooth');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}hit++;tone(480+hit*30,.07);kill();fin()};
+      L.append(b);paintIcons();later(()=>{if(dead)return;miss++;kill();fin()},p.life)},500+i*p.gap)}
+  else if(p.t==='find'){let tries=0,found=0;const need=p.items.filter(i=>i.ok).length;
+    L.innerHTML=`<div class="ov"><div class="grid" style="--c:${p.items.length>4?3:2}">${p.items.map((it,i)=>`<button type="button" class="tile" data-i="${i}">${ico(it.e)}${it.t?`<span>${units(it.t,'tw').join('')}</span>`:''}</button>`).join('')}</div></div>`;paintIcons();
+    L.onclick=e=>{const b=e.target.closest('.tile');if(!b||b.disabled||!G)return;const it=p.items[b.dataset.i];tries++;b.disabled=true;b.classList.add(it.ok?'yes':'no');
+      tone(it.ok?660:150,.12,.06,it.ok?'square':'sawtooth');say(it.fb);if(it.ok)found++;
+      if(need?found>=need:tries>=p.max){L.querySelectorAll('.tile').forEach(t=>t.disabled=true);
+        $('#acts').replaceChildren(btn('next','繼續 ▶',()=>endGame(p.done(tries),`試了 ${tries} 次`,p.k)))}}}
+  else{const W=p.words;let seen=new Set(),wrong=0,q=shuf(W),cur=null;
+    L.innerHTML=`<div class="ov"><div class="grid" style="--c:2">${W.map((w,i)=>`<button type="button" class="tile" data-i="${i}"><span class="w">${units(w.t,'all').join('')}</span><span class="m" hidden>${ico(w.e)}${esc(w.t)}</span></button>`).join('')}</div></div>`;
+    const ask=()=>{cur=q.shift();if(!cur)return endGame([wrong?`我錯了 ${wrong} 次，可是四個詞都記住了。`:'四個詞，我一次就記住了。'],`學會 ${W.length} 個詞，錯了 ${wrong} 次`,p.k);
+      say('哪一張卡片，是這個意思？');
+      L.innerHTML=`<div class="ov quiz"><div class="q">${ico(cur.e)}<span>${esc(cur.t)}</span></div><div class="grid" style="--c:2">${shuf(W).map(w=>`<button type="button" class="tile" data-t="${w.t}"><span class="w">${units(w.t,'all').join('')}</span></button>`).join('')}</div></div>`;paintIcons()};
+    L.onclick=e=>{const b=e.target.closest('.tile');if(!b||b.disabled||!G)return;
+      if(b.dataset.i!=null){const w=W[b.dataset.i];b.querySelector('.m').hidden=false;paintIcons();tone(400+b.dataset.i*60,.1,.05,'triangle');seen.add(w.t);say(`這個詞的意思是「${w.t}」。記住它的樣子。`);
+        if(seen.size===W.length&&!$('#acts').firstChild)$('#acts').replaceChildren(btn('next','記住了，開始考試 ▶',()=>{$('#acts').replaceChildren();ask()}));return}
+      if(b.dataset.t===cur.t){b.classList.add('yes');b.querySelector('.w').textContent=cur.t;for(const c of cur.t)S.known.add(c);
+        [523,659,784].forEach((f,i)=>tone(f,.12,.05,'triangle',i*.09));L.querySelectorAll('.tile').forEach(t=>t.disabled=true);later(ask,1100)}
+      else{wrong++;b.disabled=true;b.classList.add('no');tone(150,.12,.06,'sawtooth');say('不是這一張。再看一次形狀。')}}}}
+$('#txt').onclick=()=>{if(tw)tw.finish()};
+
+function finish(){stopGame();const ch=C[S.cid];S.stage=6;dots(6);show('end');warm(.8);ambience('home');
+  $('#end').innerHTML=`<h1>${ch.name}是虛構的人物。可是她遇到的事，是真的。</h1>`.replace('她',S.cid==='adi'?'他':'她')+
+   `<p class="ep">${esc(ch.ep||ch.end.ep)}</p>
+   <div><h2>真實的報導</h2><ul>${ch.end.reps.map(r=>`<li><small>${esc(r[0])}</small>${esc(r[1])}<br><a href="${r[2]}" target="_blank" rel="noopener">打開這篇報導 ↗</a></li>`).join('')}</ul></div>
+   <div class="ask"><h2>等一下和同學說</h2><ul><li>哪一刻你最卡住、最不舒服？</li><li>${ch.name}遇到的困難，是因為${S.cid==='adi'?'他':'她'}做錯了什麼嗎？</li><li>在學校或家附近，你可以做的一件事是什麼？</li></ul></div>
+   <div class="wide"><h2>我的選擇，和它可能的影響</h2><p class="hint">沒有哪個選擇完全對，或完全錯。每一個都換來一些東西，也有代價。</p><ul>${S.log.map(l=>`<li><small>${esc(l[0])}</small>${esc(l[1])}${l[2]?`<p class="fx">${esc(l[2])}</p>`:''}</li>`).join('')||'<li>這次沒有留下選擇紀錄。</li>'}</ul></div>
+   <div class="wide"><h2>全班一起讀</h2><ul><li><small>公視新聞</small>有些移工離開了原本的工作，變成「失聯移工」。這常常和債務、語言不通有關。<br><a href="https://news.pts.org.tw/article/662345" target="_blank" rel="noopener">打開這篇報導 ↗</a></li></ul></div>`;
+  $('#end').append(Object.assign(btn('sm back','回首頁',home)))}
+function home(){stopGame();clearTimeout(mus);S=null;curAmb&&ambience('');curAmb='';show('home');W=.6;pal(W)}
+
+/* ───── 首頁與教師面板 ───── */
+$('#cards').innerHTML=Object.entries(C).map(([k,c])=>`<button class="card" type="button" data-c="${k}"><span class="tag">${c.tag}・${c.from}</span><strong>${c.name}</strong><span>${c.role}</span><span>${c.good}</span></button>`).join('');
+$('#cards').onclick=e=>{const b=e.target.closest('[data-c]');if(b){au();begin(b.dataset.c)}};
+$('#tChar').innerHTML=Object.entries(C).map(([k,c])=>`<option value="${k}">${c.name}（${c.tag}）</option>`).join('');
+$('#tStage').innerHTML=STG.slice(0,6).map((n,i)=>`<option value="${i}">${i+1}．${n}</option>`).join('');
+$('#bT').onclick=()=>{$('#teacher').hidden=!$('#teacher').hidden};
+$('#tGo').onclick=()=>{au();begin($('#tChar').value,+$('#tStage').value)};
+$('#tBig').onclick=()=>{const on=document.body.classList.toggle('big');$('#tBig').textContent='投影模式：'+(on?'開':'關')};
+$('#tHome').onclick=()=>{$('#teacher').hidden=true;home()};
+
+/* 標題：先是看不懂的符號，再一個字一個字變回中文 */
+(function(){const T='他鄉的第一年',el=$('#ttl');S={readAll:false,known:new Set(),fresh:new Set()};
+  const full=()=>{el.textContent=T};if(RM){S=null;return full()}
+  el.innerHTML=units(T,'all').join('');S=null;let n=0;
+  const t=setInterval(()=>{n++;el.innerHTML=esc(T.slice(0,n))+[...T.slice(n)].map(c=>`<i class="g ${glyph(c)}"></i>`).join('');if(n>=T.length)clearInterval(t)},260)})();
+
+pal(W);
+const boot=d=>{if(d&&d.cid&&C[d.cid])begin(d.cid,d.st||0)};
+window.claude?.hot?.snapshot?.(()=>S&&!$('#play').hidden?{cid:S.cid,st:Math.min(S.stage,5)}:{});
+if(window.claude?.hot?.ready)window.claude.hot.ready(boot);else boot(window.claude?.hot?.data??{});
+</script>
+</body>
+</html>
