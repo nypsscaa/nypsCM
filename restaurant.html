@@ -57,6 +57,13 @@ h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
 .role b{font-family:var(--display);font-size:26px;display:block}
 .role small{color:var(--ink-soft);font-size:14px}
 .role:active{transform:scale(.97)}
+.role .seat{font-family:var(--en);font-weight:900;font-size:22px;color:var(--accent)}
+.mine{text-align:center;font-size:22px;font-weight:800;margin-top:6px}
+.mine b{font-family:var(--display);font-size:34px;color:var(--accent)}
+.sw{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.sw button{display:flex;justify-content:space-between;align-items:center;background:#fff;border:2px solid var(--line);border-radius:12px;padding:8px 12px;font-weight:800;font-size:18px}
+.sw button small{color:var(--ink-soft);font-weight:500;font-size:13px}
+.sw button.on{border-color:var(--accent);background:var(--accent-soft)}
 
 /* 上方狀態列 */
 .bar{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));
@@ -187,15 +194,12 @@ tr.cur td{background:var(--accent-soft)}
   <div class="hero">
     <div class="logo">🍽️</div>
     <h1>Ruby's Restaurant 點餐大挑戰</h1>
-    <p class="sub">這台平板要當什麼？</p>
+    <p class="sub">你是誰？點自己的名字</p>
   </div>
-  <div class="roles">
-    <button class="role" data-role="waiter"><span class="ic">🧑‍💼</span><b>服務生</b><small>問客人要吃什麼</small></button>
-    <button class="role" data-role="customer"><span class="ic">🙋</span><b>客人</b><small>看點餐卡點菜</small></button>
-    <button class="role" data-role="chef"><span class="ic">🧑‍🍳</span><b>廚房</b><small>在教室外做菜、上菜</small></button>
-    <button class="role" data-role="judge"><span class="ic">👂</span><b>評審</b><small>聽句子、按挑戰</small></button>
-    <button class="role" data-role="board"><span class="ic">📺</span><b>大螢幕</b><small>計時與比分</small></button>
-    <button class="role" data-role="teacher"><span class="ic">🧑‍🏫</span><b>老師</b><small>需要密碼</small></button>
+  <div class="roles" id="names"></div>
+  <div class="row" style="justify-content:center;margin-top:28px;gap:24px">
+    <button class="link" data-role="board">📺 大螢幕</button>
+    <button class="link" data-role="teacher">🧑‍🏫 老師</button>
   </div>
 </section>
 
@@ -384,6 +388,12 @@ const A = {
       teams: [{ members: seats.slice(0, 3) }, { members: seats.slice(3, 6) }] });
   }),
   duration: (d) => act(s => { s.duration = d; }),
+  swap: (a, b) => act(s => {
+    if (s.status !== 'ready' || s.results.length || !s.teams) return false;
+    const pos = (x) => { for (let t = 0; t < 2; t++) { const i = s.teams[t].members.indexOf(x); if (i >= 0) return [t, i]; } };
+    const [ta, ia] = pos(a), [tb, ib] = pos(b);
+    s.teams[ta].members[ia] = b; s.teams[tb].members[ib] = a;
+  }),
   start: () => act(s => {
     if (s.status !== 'ready') return false;
     Object.assign(s, { status: 'running', endAt: Date.now() + s.duration * 1000, score: 0, wrong: 0, challenges: 0, penalties: 0, pause: null });
@@ -411,10 +421,10 @@ const A = {
       s.score++; say(s, 'ok', '✅ 上菜成功 +1'); newOrder(s);
     }
   }),
-  challenge: (by) => act(s => {
+  challenge: (by, name) => act(s => {
     if (!live(s)) return false;
     s.status = 'paused'; s.remaining = Math.max(0, s.endAt - Date.now());
-    s.pause = { by, at: Date.now(), stage: s.order ? s.order.stage : null }; s.challenges++;
+    s.pause = { by, name: name || '', at: Date.now(), stage: s.order ? s.order.stage : null }; s.challenges++;
   }),
   resolve: (isError) => act(s => {
     if (s.status !== 'paused') return false;
@@ -444,12 +454,30 @@ const A = {
    ⑤  畫面
    ══════════════════════════════════════════════════════════════════ */
 const ROLE_LABEL = { waiter:'🧑‍💼 服務生', customer:'🙋 客人', chef:'🧑‍🍳 廚房', judge:'👂 評審', board:'📺 大螢幕', teacher:'🧑‍🏫 老師' };
-const L = { role: null, key: null, w: { food: null, qty: null, drink: null }, c: { food: null, qty: null, drink: null },
+const L = { role: null, seat: null, pickSeat: null, key: null, w: { food: null, qty: null, drink: null }, c: { food: null, qty: null, drink: null },
   shownLast: null, armed: null, logs: null };
 
+/* 學生：依分組與輪替決定這台平板現在顯示哪個角色 */
+function myRole() {
+  if (L.role !== 'student') return L.role;
+  const ri = roundInfo(G);
+  if (ri && ['ready', 'running', 'paused'].includes(G.status)) {
+    if (ri.waiter === L.seat) return 'waiter';
+    if (ri.customer === L.seat) return 'customer';
+    if (ri.chef === L.seat) return 'chef';
+  }
+  return 'judge';
+}
+function setSeat(seat) {
+  L.role = 'student'; L.seat = seat; store.set('rest-seat', seat); store.del('rest-role');
+  show('main'); render();
+}
+function renderNames() {
+  $('names').innerHTML = ROSTER.map(r => `<button class="role" data-seat="${r.seat}"><span class="seat">${r.seat}</span><b>${esc(r.name)}</b></button>`).join('');
+}
 function show(v) { $('v-start').hidden = v !== 'start'; $('v-main').hidden = v !== 'main'; }
 function setRole(r) {
-  L.role = r; store.set('rest-role', r);
+  L.role = r; L.seat = null; store.del('rest-seat'); if (r !== 'teacher') store.set('rest-role', r);
   $('b-me').textContent = ROLE_LABEL[r]; show('main');
   if (r === 'teacher') loadLogs();
   render();
@@ -466,6 +494,8 @@ const fmt = (ms) => { const t = Math.ceil(ms / 1000); return `${Math.floor(t / 6
 
 function renderBar() {
   const ri = roundInfo(G);
+  $('b-me').textContent = L.role === 'student' ? `${nameOf(L.seat)}｜${ROLE_LABEL[myRole()].split(' ')[1]}` : ROLE_LABEL[L.role];
+  $('b-switch').textContent = L.role === 'student' ? '不是我' : '換角色';
   const rd = { idle: '等老師分組', ready: `第 ${G.roundIdx + 1} 局準備`, running: `第 ${G.roundIdx + 1} 局`, paused: `第 ${G.roundIdx + 1} 局・暫停`,
     over: `第 ${G.roundIdx + 1} 局結束`, done: '全部結束' }[G.status] || '';
   $('b-rd').textContent = rd + (ri && ['ready','running','paused','over'].includes(G.status) ? `｜${TEAM[ri.team]} 隊` : '');
@@ -495,10 +525,15 @@ function waitHTML(icon, title, text) {
 function idleHTML() {
   const ri = roundInfo(G);
   if (G.status === 'idle') return waitHTML('🍽️', '等老師分組', '');
-  if (G.status === 'ready') return waitHTML('🔔', `第 ${G.roundIdx + 1} 局：${TEAM[ri.team]} 隊上場`, '廚師請先到教室外面，老師按開始就計時。') + castHTML(ri);
+  if (G.status === 'ready') return mineHTML() + waitHTML('🔔', `第 ${G.roundIdx + 1} 局：${TEAM[ri.team]} 隊上場`, '廚師請先到教室外面，老師按開始就計時。') + castHTML(ri);
   if (G.status === 'over') return waitHTML('⏰', '時間到！', `${TEAM[ri.team]} 隊這局上了 ${(G.results[G.results.length - 1] || {}).score ?? 0} 道菜`);
   if (G.status === 'done') return waitHTML('🏆', '比賽結束', winnerText());
   return '';
+}
+function mineHTML() {
+  if (L.role !== 'student') return '';
+  const r = myRole();
+  return `<div class="mine">這局你是 <b>${ROLE_LABEL[r]}</b>${r === 'judge' ? '<br><span class="sub">聽對方有沒有說完整句子</span>' : ''}</div>`;
 }
 function winnerText() {
   if (!G.teams) return '';
@@ -558,7 +593,7 @@ function customerHTML() {
 /* 廚房 */
 function chefHTML() {
   if (!inPlay()) {
-    if (G.status === 'ready') return waitHTML('🚪', '廚師請到教室外面', '帶著這台平板出去，點單會送到這裡。') + castHTML(roundInfo(G));
+    if (G.status === 'ready') return mineHTML() + waitHTML('🚪', '請到教室外面', '帶著這台平板出去，點單會送到這裡。') + castHTML(roundInfo(G));
     return idleHTML();
   }
   const o = G.order;
@@ -655,13 +690,17 @@ function teacherHTML() {
   const ri = roundInfo(G);
   let main = '';
   const dur = `<div class="row"><span class="sub">每局秒數</span><span class="seg">${DURATIONS.map(d => `<button class="${G.duration === d ? 'on' : ''}" data-dur="${d}">${d}</button>`).join('')}</span></div>`;
-  const teams = G.teams ? `<div class="teams panel">${[0, 1].map(t => `<div class="tm ${TEAM[t]}"><h3>${TEAM[t]} 隊 <span class="sub">${teamTotal(G, t)} 分</span></h3>${G.teams[t].members.map(nameOf).map(esc).join('、')}</div>`).join('')}</div>` : '';
+  const canSwap = G.status === 'ready' && G.results.length === 0;
+  const RN = ['服務生', '客人', '廚師'];
+  const teams = G.teams && canSwap ? `<div class="teams panel">${[0, 1].map(t => `<div class="tm ${TEAM[t]}"><h3>${TEAM[t]} 隊</h3><div class="sub">第一次上場的角色（之後自動輪替）</div>
+      <div class="sw">${G.teams[t].members.map((m, i) => `<button class="${L.pickSeat === m ? 'on' : ''}" data-pick="${m}">${esc(nameOf(m))}<small>${RN[i]}</small></button>`).join('')}</div></div>`).join('')}</div>
+      <p class="sub">${L.pickSeat ? `已選 ${esc(nameOf(L.pickSeat))}，再點一個人跟他互換` : '想調整就點兩個名字互換（可跨隊）'}</p>` : G.teams ? `<div class="teams panel">${[0, 1].map(t => `<div class="tm ${TEAM[t]}"><h3>${TEAM[t]} 隊 <span class="sub">${teamTotal(G, t)} 分</span></h3>${G.teams[t].members.map(nameOf).map(esc).join('、')}</div>`).join('')}</div>` : '';
   if (G.status === 'idle') {
     main = `<div class="card"><h2>點餐大挑戰・${GRADE} 年級</h2><p class="sub">6 人隨機分成 2 隊，每隊 3 人輪流當服務生、客人、廚師，共 ${ROUNDS} 局。</p>
       ${dur}<div class="row panel"><button class="btn big" data-act="group">🎲 隨機分組</button></div></div>`;
   } else if (G.status === 'ready') {
     main = `<div class="card"><h2>第 ${G.roundIdx + 1} 局：${TEAM[ri.team]} 隊</h2>${castHTML(ri)}
-      <p class="sub">確認廚師在教室外、評審（另一隊）的平板選了「評審」。</p>${dur}
+      <p class="sub">確認廚師在教室外。另一隊的平板會自動變成評審。</p>${dur}
       <div class="row panel"><button class="btn big ok" data-act="start">▶ 開始計時</button>
       ${G.results.length === 0 ? '<button class="btn small ghost" data-act="group">🎲 重新分組</button>' : ''}</div></div>`;
   } else if (G.status === 'running' || G.status === 'paused') {
@@ -688,10 +727,11 @@ function teacherHTML() {
 
 function render() {
   if (!L.role || !ready) return;
-  const k = orderKey();
+  const role = myRole();
+  const k = role + ':' + orderKey();
   if (k !== L.key) { L.key = k; L.w = { food: null, qty: null, drink: null }; L.c = { food: null, qty: null, drink: null }; }
   const scrollY = window.scrollY;
-  $('stage').innerHTML = ({ waiter: waiterHTML, customer: customerHTML, chef: chefHTML, judge: judgeHTML, board: boardHTML, teacher: teacherHTML })[L.role]();
+  $('stage').innerHTML = ({ waiter: waiterHTML, customer: customerHTML, chef: chefHTML, judge: judgeHTML, board: boardHTML, teacher: teacherHTML })[role]();
   window.scrollTo(0, scrollY);
   renderBar(); renderOverlay(); maybeToast();
 }
@@ -699,7 +739,7 @@ function render() {
 function renderOverlay() {
   const ov = $('overlay');
   if (G.status !== 'paused') { ov.hidden = true; return; }
-  const by = G.pause?.by === 'teacher' ? '老師' : '評審';
+  const by = G.pause?.by === 'teacher' ? '老師' : `評審 ${G.pause?.name || ''} `;
   if (L.role === 'teacher') {
     ov.innerHTML = `<div class="box"><div class="ic">🙋</div><h2>${by}提出挑戰</h2><p class="sub">計時已暫停，剩 ${fmt(G.remaining)}。剛剛的句子有錯嗎？</p>
       <div class="row panel"><button class="btn big bad grow" data-res="1">真的有錯 −${PENALTY_SEC} 秒</button><button class="btn big ok grow" data-res="0">沒有錯，繼續</button></div></div>`;
@@ -748,7 +788,7 @@ document.addEventListener('click', async (e) => {
     if (d.role === 'teacher') { $('m-pass').hidden = false; $('m-pass-in').value = ''; $('m-pass-in').focus(); return; }
     setRole(d.role); return;
   }
-  if (b.id === 'b-switch') { store.del('rest-role'); L.role = null; show('start'); $('overlay').hidden = true; return; }
+  if (b.id === 'b-switch') { store.del('rest-role'); store.del('rest-seat'); L.role = null; L.seat = null; show('start'); $('overlay').hidden = true; return; }
   if (d.arm) {
     if (L.armed !== d.arm) { L.armed = d.arm; render(); setTimeout(() => { if (L.armed === d.arm) { L.armed = null; render(); } }, 3000); return; }
     L.armed = null;
@@ -766,6 +806,14 @@ document.addEventListener('click', async (e) => {
   if (d.cQty) { L.c.qty = +d.cQty; render(); return; }
   if (d.cDrink) { L.c.drink = d.cDrink; render(); return; }
   if (d.dur) { A.duration(+d.dur); return; }
+  if (d.pick) {
+    const m = +d.pick;
+    if (!L.pickSeat) { L.pickSeat = m; render(); return; }
+    const a = L.pickSeat; L.pickSeat = null;
+    if (a === m) { render(); return; }
+    A.swap(a, m); return;
+  }
+  if (d.seat) { setSeat(+d.seat); return; }
   if (d.adj) { A.adjust(+d.adj); return; }
   if (d.res) { A.resolve(d.res === '1'); return; }
   if (d.ans && o) { b.disabled = true; A.answer(o.n, d.ans === 'yes'); return; }
@@ -774,7 +822,7 @@ document.addEventListener('click', async (e) => {
     case 'start': A.start(); break;
     case 'next': A.next(); break;
     case 'skip': A.skip(); break;
-    case 'challenge': A.challenge(L.role === 'teacher' ? 'teacher' : 'judge'); break;
+    case 'challenge': A.challenge(L.role === 'teacher' ? 'teacher' : 'judge', L.seat ? nameOf(L.seat) : ''); break;
     case 'send': {
       const f = ITEM[L.w.food]; b.disabled = true;
       A.send(o.n, { food: L.w.food, qty: f.count ? L.w.qty : 0, drink: L.w.drink }); break;
@@ -829,7 +877,13 @@ onAuthStateChanged(auth, (user) => {
   onSnapshot(gameRef, (snap) => {
     G = Object.assign(blank(), snap.exists() ? snap.data() : {});
     $('conn').hidden = true;
-    if (!ready) { ready = true; const r = store.get('rest-role'); if (r && ROLE_LABEL[r] && r !== 'teacher') setRole(r); else show('start'); }
+    if (!ready) {
+      ready = true; renderNames();
+      const seat = store.get('rest-seat'), r = store.get('rest-role');
+      if (seat && ROSTER.some(x => x.seat === seat)) setSeat(seat);
+      else if (r === 'board') setRole(r);
+      else show('start');
+    }
     render();
   }, (err) => { $('conn').hidden = false; $('conn').textContent = '連線失敗，請重新整理（' + err.code + '）'; });
 });
