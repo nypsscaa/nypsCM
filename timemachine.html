@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>天氣時光機 Time Machine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 天空主題：淡藍底、深藍字。第 1 組橘、第 2 組紫。 */
+:root{
+  --ink:#1d2b4a; --ink-soft:#5a6a88;
+  --paper:#eef5fc; --card:#ffffff; --line:#d3e1f0;
+  --accent:#2f6fde; --accent-soft:#e0ebfd;
+  --ok:#2e8b57; --ok-bg:#e4f4ea; --bad:#c2465a; --bad-bg:#fbe7ea; --warn:#c98a12; --warn-bg:#fdf3dc;
+  --g1:#e97a1f; --g1-bg:#fdeedd; --g2:#7c4fd6; --g2-bg:#efe8fc;
+  --display:'LXGW WenKai TC','Noto Sans TC','PingFang TC',sans-serif;
+  --body:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+  --en:'Nunito','Avenir Next','Helvetica Neue',Arial,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:disabled{opacity:.35;cursor:not-allowed}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+.en{font-family:var(--en);font-weight:800}
+.wrap{max-width:1100px;margin:0 auto;padding:16px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(40px,env(safe-area-inset-bottom))}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.grow{flex:1}
+.sub{color:var(--ink-soft);font-size:15px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px}
+.panel{margin-top:14px}
+.btn{padding:12px 20px;border-radius:14px;font-weight:800;background:var(--accent);color:#fff;min-height:50px}
+.btn.ghost{background:transparent;color:var(--accent);border:2px solid var(--accent)}
+.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}
+.btn.small{min-height:40px;padding:6px 14px;font-size:15px}
+.btn.big{font-size:24px;min-height:72px;padding:14px 28px;border-radius:18px}
+.btn.arm{background:var(--bad)!important;color:#fff!important;border-color:var(--bad)!important}
+.link{color:var(--ink-soft);text-decoration:underline;font-size:14px;padding:6px}
+.conn{position:fixed;left:50%;top:8px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:6px 14px;border-radius:99px;font-size:14px;z-index:90}
+
+.hero{text-align:center;margin:24px 0 20px}
+.hero .logo{font-size:64px;line-height:1}
+.hero h1{font-size:38px;margin-top:6px}
+.names{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.nm{background:var(--card);border:3px solid var(--line);border-radius:20px;padding:20px 10px;text-align:center}
+.nm .seat{font-family:var(--en);font-weight:900;font-size:22px;color:var(--accent)}
+.nm b{font-family:var(--display);font-size:28px;display:block}
+
+.bar{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bar .me{font-weight:900;font-family:var(--display);font-size:20px}
+.bar .rd{font-size:15px;opacity:.85}
+.bar .timer{font-family:var(--en);font-weight:900;font-size:30px;min-width:84px;text-align:center;font-variant-numeric:tabular-nums}
+.bar .timer.low{color:#ffb4a2}
+.bar .link{color:#c8d4ea}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 12px;border-radius:99px;font-weight:800;font-size:16px;color:#fff}
+.chip.g0{background:var(--g1)}.chip.g1{background:var(--g2)}
+
+.notice{text-align:center;padding:36px 16px}
+.notice .ic{font-size:72px;line-height:1.1}
+.notice h2{font-size:32px;margin-top:8px}
+.notice p{color:var(--ink-soft);font-size:18px;margin:8px 0 0}
+.mine{text-align:center;font-size:22px;font-weight:800;margin-top:6px}
+.mine b{font-family:var(--display);font-size:34px;color:var(--accent)}
+.say{background:var(--accent-soft);border-left:6px solid var(--accent);border-radius:12px;padding:10px 14px;margin:8px 0}
+.say .who{font-size:13px;color:var(--ink-soft);font-weight:700}
+.say .line{font-size:24px}
+
+/* 駕駛員：窗外 */
+.view{display:grid;grid-template-columns:1fr 1.3fr;gap:16px}
+.cal{background:#fff;border-radius:20px;overflow:hidden;border:3px solid var(--ink);text-align:center}
+.cal .top{background:var(--bad);color:#fff;font-weight:900;padding:8px;font-size:18px;letter-spacing:.1em}
+.cal .d{font-family:var(--en);font-weight:900;font-size:56px;padding:22px 8px}
+.win{border-radius:24px;border:10px solid #8a6a4a;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.win .w{font-size:110px;line-height:1.1}
+.win .t{font-family:var(--en);font-weight:900;font-size:40px}
+.win.sunny{background:linear-gradient(#8fd3ff,#d8f1ff)}.win.cloudy{background:linear-gradient(#a9b4c2,#dfe4ea)}
+.win.rainy{background:linear-gradient(#5d6f86,#a5b3c4)}.win.windy{background:linear-gradient(#9fd8cf,#e1f5f1)}
+.win.hot{background:linear-gradient(#ffb36b,#ffe4b8)}.win.cold{background:linear-gradient(#b9d7f2,#f2f8ff)}
+.ans{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.ans .say .line{font-size:20px}
+
+/* 領航員 */
+.nav{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.q{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:14px}
+.q h3{font-size:22px}
+.clue{background:var(--warn-bg);border:2px dashed var(--warn);border-radius:14px;padding:10px 12px;margin:8px 0;font-size:20px;font-weight:800;text-align:center}
+.clue .big{font-size:56px;display:block;line-height:1.15}
+.lab{font-size:14px;color:var(--ink-soft);font-weight:700;margin:10px 0 4px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts button{background:#fff;border:3px solid var(--line);border-radius:12px;padding:8px 10px;font-family:var(--en);font-weight:800;font-size:17px;min-height:48px}
+.opts button.on{border-color:var(--accent);background:var(--accent);color:#fff}
+.opts.g button.on{border-color:var(--warn);background:var(--warn)}
+.go{position:sticky;bottom:0;margin-top:14px;background:var(--ink);color:#fff;border-radius:18px;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.go .t{flex:1;font-size:20px;min-width:200px}
+
+/* 大螢幕 */
+.board{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:18px;align-items:stretch;margin-top:10px}
+.bt{border-radius:24px;padding:18px;text-align:center;color:#fff}
+.bt.g0{background:var(--g1)}.bt.g1{background:var(--g2)}
+.bt .h{font-family:var(--display);font-size:32px;font-weight:900}
+.bt .pts{font-family:var(--en);font-weight:900;font-size:96px;line-height:1}
+.bt .mem{font-size:18px}
+.bigtime{font-family:var(--en);font-weight:900;font-size:150px;line-height:1;text-align:center;font-variant-numeric:tabular-nums}
+.bigtime.low{color:var(--bad)}
+.today{text-align:center;font-size:20px;margin-top:6px}
+
+/* 老師 */
+.gs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gb{border-radius:16px;padding:12px}
+.gb.g0{background:var(--g1-bg);border:2px solid var(--g1)}.gb.g1{background:var(--g2-bg);border:2px solid var(--g2)}
+.gb h3{font-size:22px}
+.gb .pts{font-family:var(--en);font-weight:900;font-size:40px}
+.gb .say .line{font-size:17px}
+.sw{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.sw button{display:flex;justify-content:space-between;align-items:center;background:#fff;border:2px solid var(--line);border-radius:12px;padding:8px 12px;font-weight:800;font-size:18px}
+.sw button small{color:var(--ink-soft);font-weight:500;font-size:13px}
+.sw button.on{border-color:var(--accent);background:var(--accent-soft)}
+.att{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.att button{padding:8px 14px;border-radius:99px;border:2px solid var(--ok);background:var(--ok-bg);color:var(--ok);font-weight:800}
+.att button.off{border-color:var(--line);background:#f4f4f4;color:#999;text-decoration:line-through}
+.seg{display:inline-flex;border:2px solid var(--accent);border-radius:12px;overflow:hidden}
+.seg button{padding:6px 14px;font-weight:800;color:var(--accent)}
+.seg button.on{background:var(--accent);color:#fff}
+table{border-collapse:collapse;width:100%;font-size:16px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center}
+th{color:var(--ink-soft);font-weight:700;font-size:14px}
+
+.toast{position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:70;padding:14px 26px;border-radius:18px;font-size:26px;font-weight:900;font-family:var(--display);
+  box-shadow:0 10px 30px rgba(0,0,0,.2);animation:pop .25s ease-out;max-width:92vw;text-align:center}
+.toast.ok{background:var(--ok);color:#fff}.toast.bad{background:var(--bad);color:#fff}.toast.warn{background:var(--warn);color:#fff}.toast.info{background:var(--ink);color:#fff}
+@keyframes pop{from{transform:translateX(-50%) scale(.8);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal .box{background:var(--card);border-radius:20px;padding:22px;width:100%;max-width:360px}
+.modal input{width:100%;font-size:20px;padding:10px 12px;border-radius:12px;border:2px solid var(--line);margin:12px 0}
+@media (max-width:760px){
+  .view,.nav,.ans,.board,.gs{grid-template-columns:1fr}
+  .bigtime{font-size:96px}
+  .bar .timer{font-size:24px}
+  th,td{padding:5px 3px;font-size:14px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div id="conn" class="conn">連線中…</div>
+
+<section id="v-start" class="wrap" hidden>
+  <div class="hero">
+    <div class="logo">🚀</div>
+    <h1>天氣時光機 Time Machine</h1>
+    <p class="sub">你是誰？點自己的名字</p>
+  </div>
+  <div class="names" id="names"></div>
+  <div class="row" style="justify-content:center;margin-top:28px;gap:24px">
+    <button class="link" data-role="board">📺 大螢幕</button>
+    <button class="link" data-role="teacher">🧑‍🏫 老師</button>
+  </div>
+</section>
+
+<section id="v-main" hidden>
+  <div class="bar">
+    <span class="me" id="b-me"></span>
+    <span class="rd" id="b-rd"></span>
+    <span class="grow"></span>
+    <span class="timer" id="b-timer">--</span>
+    <span class="grow"></span>
+    <span id="b-sc" class="row"></span>
+    <button class="link" id="b-switch">換人</button>
+  </div>
+  <main class="wrap" id="stage"></main>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+<div id="m-pass" class="modal" hidden>
+  <div class="box">
+    <h3>老師密碼</h3>
+    <input id="m-pass-in" type="password" autocomplete="off">
+    <div class="row spread"><button class="btn ghost small" id="m-pass-x">取消</button><button class="btn small" id="m-pass-ok">進入</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getFirestore, doc, collection, onSnapshot, runTransaction, addDoc, getDocs,
+         serverTimestamp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+/* ══════════════════════════════════════════════════════════════════
+   ①  設定 —— 名單請跟 index.html 的 ROSTER['5'] 保持一致
+   ══════════════════════════════════════════════════════════════════ */
+const GRADE = '5';
+const TEACHER_PASSWORD = 'edu';
+const ROSTER = [
+  { seat: 1, name: 'Jimmy' },
+  { seat: 2, name: 'Larry' },
+  { seat: 3, name: 'Joe' },
+  { seat: 4, name: 'Riley' },
+  { seat: 5, name: 'Diana' }
+];
+const ROUNDS = 4;               // 兩人一組：駕駛員、領航員各當 2 次
+const DURATIONS = [60, 90, 120, 150];
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const WEATHER = {
+  sunny:  { e: '☀️', zh: '晴朗' },
+  cloudy: { e: '☁️', zh: '陰天' },
+  rainy:  { e: '🌧️', zh: '下雨' },
+  windy:  { e: '🌬️', zh: '颳風' },
+  hot:    { e: '🥵', zh: '熱' },
+  cold:   { e: '🥶', zh: '冷' }
+};
+const WKEYS = Object.keys(WEATHER);
+/* 星期的線索：exact 一定猜得中；其他只縮小範圍，所以會聽到 No, it isn't. */
+const DAY_CLUES = [
+  { t: '今天要上學 🎒',               set: [0, 1, 2, 3, 4] },
+  { t: '今天不用上學 🏖️',             set: [5, 6] },
+  { t: '今天的英文是 <b class="en">T</b> 開頭', set: [1, 3] },
+  { t: '今天的英文是 <b class="en">S</b> 開頭', set: [5, 6] },
+  { t: '今天的英文是 <b class="en">M</b> 或 <b class="en">W</b> 開頭', set: [0, 2] },
+  { t: '今天是上學日，而且不是 <b class="en">Monday</b>', set: [1, 2, 3, 4] }
+];
+/* 天氣的線索：一個物品對到兩種天氣 */
+const W_CLUES = [
+  { e: '☂️', t: '有人帶雨傘',   set: ['rainy', 'cloudy'] },
+  { e: '🕶️', t: '有人戴太陽眼鏡', set: ['sunny', 'hot'] },
+  { e: '🧣', t: '有人圍圍巾',   set: ['cold', 'windy'] },
+  { e: '🪁', t: '有人在放風箏', set: ['windy', 'sunny'] },
+  { e: '🍧', t: '有人在吃剉冰', set: ['hot', 'sunny'] },
+  { e: '🧥', t: '有人穿外套',   set: ['cold', 'cloudy'] },
+  { e: '🌂', t: '有人拿著雨傘', set: ['rainy', 'windy'] }
+];
+
+/* ══════════════════════════════════════════════════════════════════
+   ②  Firebase（與 index.html 同一個專案、同一個 APP_ID）
+   ══════════════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
+  authDomain: "nypscm.firebaseapp.com",
+  projectId: "nypscm",
+  storageBucket: "nypscm.firebasestorage.app",
+  messagingSenderId: "775913301411",
+  appId: "1:775913301411:web:9d73da7688854865826616"
+};
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+const APP_ID = "nypscm-class-pro";
+const docRef = (col, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', col, id);
+const colRef = (col)     => collection(db, 'artifacts', APP_ID, 'public', 'data', col);
+const gameRef = docRef(`timemachine_${GRADE}`, 'current');
+const logCol  = colRef(`timemachineLog_${GRADE}`);
+
+/* ══════════════════════════════════════════════════════════════════
+   ③  小工具
+   ══════════════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rand = (n) => Math.floor(Math.random() * n);
+const pick = (a) => a[rand(a.length)];
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const store = {
+  get(k, d = null) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+const nameOf = (seat) => (ROSTER.find(r => r.seat === seat) || {}).name || '?';
+const GN = ['第 1 組', '第 2 組'];
+const last = (a) => a[a.length - 1];
+
+function newCard() {
+  const day = rand(7), weather = pick(WKEYS);
+  const c = { day, weather, dayMode: Math.random() < .5 ? 'ask' : 'guess', wMode: Math.random() < .5 ? 'ask' : 'guess' };
+  if (c.dayMode === 'guess') {
+    const r = Math.random();
+    if (r < .2) c.dayClue = `昨天是 <b class="en">${DAYS[(day + 6) % 7]}</b>`;
+    else if (r < .35) c.dayClue = `明天是 <b class="en">${DAYS[(day + 1) % 7]}</b>`;
+    else c.dayClue = pick(DAY_CLUES.filter(x => x.set.includes(day))).t;
+  }
+  if (c.wMode === 'guess') { const k = pick(W_CLUES.filter(x => x.set.includes(weather))); c.wClue = `<span class="big">${k.e}</span>${k.t}`; }
+  return c;
+}
+/* 第 r 局：駕駛員、領航員依序輪替；3 人組的第三人當觀察員 */
+function rolesOf(g, r) { const m = g.members, n = m.length; return { pilot: m[r % n], nav: m[(r + 1) % n], watch: n > 2 ? m[(r + 2) % n] : null }; }
+
+/* ══════════════════════════════════════════════════════════════════
+   ④  遊戲狀態（transaction）
+   ══════════════════════════════════════════════════════════════════ */
+const blank = () => ({ absent: [], groups: null, duration: 90, roundIdx: 0, status: 'idle', endAt: 0, results: [], n: 0 });
+let G = blank(), ready = false;
+
+function land(s, g) { s.n = (s.n || 0) + 1; g.landing = { n: s.n, card: newCard() }; }
+function note(g, kind, text) { g.last = { kind, text, at: Date.now(), id: Math.random().toString(36).slice(2) }; }
+function finishRound(s) {
+  s.results.push({ idx: s.roundIdx, groups: s.groups.map(g => { const r = rolesOf(g, s.roundIdx);
+    return { pilot: r.pilot, nav: r.nav, score: g.score, stars: g.stars, wrong: g.wrong, minus: g.minus }; }) });
+  s.groups.forEach(g => { g.landing = null; note(g, 'info', `⏰ 時間到！這局記對 ${g.score} 站，⭐ ${g.stars}`); });
+  s.status = 'over';
+}
+const live = (s) => s.status === 'running' && Date.now() < s.endAt;
+
+async function act(fn) {
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(gameRef);
+      const s = Object.assign(blank(), snap.exists() ? snap.data() : {});
+      if (fn(s) === false) return;
+      tx.set(gameRef, JSON.parse(JSON.stringify(s)));
+    });
+  } catch (e) { console.error(e); toast({ kind: 'bad', text: '連線有問題，請再按一次' }); }
+}
+
+const A = {
+  absent: (seat) => act(s => {
+    if (s.status !== 'idle' && !(s.status === 'ready' && !s.results.length)) return false;
+    s.absent = s.absent.includes(seat) ? s.absent.filter(x => x !== seat) : [...s.absent, seat];
+    if (s.status === 'ready') { s.status = 'idle'; s.groups = null; }
+  }),
+  group: () => act(s => {
+    const seats = shuffle(ROSTER.map(r => r.seat).filter(x => !s.absent.includes(x)));
+    if (seats.length < 4) return false;
+    const h = Math.ceil(seats.length / 2);
+    Object.assign(s, { status: 'ready', roundIdx: 0, results: [],
+      groups: [seats.slice(0, h), seats.slice(h)].map(m => ({ members: m, score: 0, stars: 0, wrong: 0, minus: 0, landing: null, last: null })) });
+  }),
+  swap: (a, b) => act(s => {
+    if (s.status !== 'ready' || s.results.length) return false;
+    const pos = (x) => { for (let t = 0; t < 2; t++) { const i = s.groups[t].members.indexOf(x); if (i >= 0) return [t, i]; } };
+    const [ta, ia] = pos(a), [tb, ib] = pos(b);
+    s.groups[ta].members[ia] = b; s.groups[tb].members[ib] = a;
+  }),
+  duration: (d) => act(s => { s.duration = d; }),
+  start: () => act(s => {
+    if (s.status !== 'ready') return false;
+    s.status = 'running'; s.endAt = Date.now() + s.duration * 1000;
+    s.groups.forEach(g => { Object.assign(g, { score: 0, stars: 0, wrong: 0, minus: 0 }); land(s, g); note(g, 'info', '🚀 出發！'); });
+  }),
+  log: (gi, n, rec) => act(s => {
+    const g = s.groups && s.groups[gi];
+    if (!live(s) || !g || !g.landing || g.landing.n !== n) return false;
+    const c = g.landing.card;
+    const ok = rec.day === c.day && rec.weather === c.weather;
+    let st = 0;
+    if (ok) {
+      if (c.dayMode === 'guess' && rec.gDay === c.day) st++;
+      if (c.wMode === 'guess' && rec.gW === c.weather) st++;
+      g.score++; g.stars += st;
+      note(g, 'ok', `✅ 記對了 +1${st ? '　⭐'.repeat(st) : ''}`);
+    } else {
+      g.wrong++;
+      note(g, 'bad', `❌ 記錯了！其實是 ${DAYS[c.day]}、${c.weather}`);
+    }
+    land(s, g);
+  }),
+  adjust: (gi, d) => act(s => {
+    if (!s.groups) return false;
+    if (s.status === 'running') { const g = s.groups[gi]; g.score = Math.max(0, g.score + d); if (d < 0) g.minus++; note(g, d < 0 ? 'bad' : 'ok', d < 0 ? '⚠️ 老師扣 1 分' : '👍 老師加 1 分'); return; }
+    if (s.results.length) { const r = last(s.results).groups[gi]; r.score = Math.max(0, r.score + d); if (d < 0) r.minus++; return; }
+    return false;
+  }),
+  timeUp: () => act(s => { if (s.status !== 'running' || Date.now() < s.endAt) return false; finishRound(s); }),
+  endEarly: () => act(s => { if (s.status !== 'running') return false; finishRound(s); }),
+  next: () => act(s => {
+    if (s.status !== 'over') return false;
+    if (s.results.length >= ROUNDS) { s.status = 'done'; return; }
+    s.roundIdx = s.results.length; s.status = 'ready';
+  }),
+  reset: () => act(s => { Object.assign(s, blank(), { duration: s.duration, absent: s.absent }); })
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑤  畫面
+   ══════════════════════════════════════════════════════════════════ */
+const ROLE_LABEL = { pilot: '🧑‍✈️ 駕駛員', nav: '🧭 領航員', watch: '👀 觀察員', wait: '⏳ 等待', board: '📺 大螢幕', teacher: '🧑‍🏫 老師' };
+const L = { role: null, seat: null, key: null, sel: {}, pickSeat: null, armed: null, logs: null, shown: {} };
+
+function myGroup() { if (!G.groups || L.role !== 'student') return -1; return G.groups.findIndex(g => g.members.includes(L.seat)); }
+function myRole() {
+  if (L.role !== 'student') return L.role;
+  const gi = myGroup(); if (gi < 0) return 'wait';
+  const r = rolesOf(G.groups[gi], G.roundIdx);
+  return r.pilot === L.seat ? 'pilot' : r.nav === L.seat ? 'nav' : 'watch';
+}
+const totalNow = (gi) => G.results.reduce((a, r) => a + r.groups[gi].score + r.groups[gi].stars, 0)
+  + (G.status === 'running' ? G.groups[gi].score + G.groups[gi].stars : 0);
+
+function show(v) { $('v-start').hidden = v !== 'start'; $('v-main').hidden = v !== 'main'; }
+function setSeat(seat) { L.role = 'student'; L.seat = seat; store.set('tm-seat', seat); store.del('tm-role'); show('main'); render(); }
+function setRole(r) { L.role = r; L.seat = null; store.del('tm-seat'); if (r !== 'teacher') store.set('tm-role', r); show('main'); if (r === 'teacher') loadLogs(); render(); }
+function renderNames() { $('names').innerHTML = ROSTER.map(r => `<button class="nm" data-seat="${r.seat}"><span class="seat">${r.seat}</span><b>${esc(r.name)}</b></button>`).join(''); }
+
+const fmt = (ms) => { const t = Math.ceil(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+function remainMs() { return G.status === 'running' ? Math.max(0, G.endAt - Date.now()) : G.status === 'ready' ? G.duration * 1000 : 0; }
+function tick() {
+  const el = $('b-timer'), ms = remainMs();
+  el.textContent = ['idle', 'done', 'over'].includes(G.status) ? '--' : fmt(ms);
+  el.classList.toggle('low', G.status === 'running' && ms <= 10000);
+  const bt = document.querySelector('.bigtime'); if (bt) { bt.textContent = el.textContent; bt.classList.toggle('low', el.classList.contains('low')); }
+  if (G.status === 'running' && Date.now() >= G.endAt && !tick.busy) { tick.busy = true; A.timeUp().finally(() => setTimeout(() => tick.busy = false, 800)); }
+}
+function renderBar() {
+  const role = myRole(), gi = myGroup();
+  $('b-me').textContent = L.role === 'student' ? `${nameOf(L.seat)}｜${ROLE_LABEL[role].split(' ')[1]}` : ROLE_LABEL[L.role];
+  $('b-switch').textContent = L.role === 'student' ? '不是我' : '換角色';
+  $('b-rd').textContent = ({ idle: '等老師分組', ready: `第 ${G.roundIdx + 1} 局準備`, running: `第 ${G.roundIdx + 1} 局`, over: `第 ${G.roundIdx + 1} 局結束`, done: '全部結束' }[G.status] || '')
+    + (gi >= 0 ? `｜${GN[gi]}` : '');
+  $('b-sc').innerHTML = G.groups ? G.groups.map((g, i) => `<span class="chip g${i}">${i + 1} 組 ${totalNow(i)}</span>`).join('') : '';
+  tick();
+}
+
+function waitHTML(icon, title, text) { return `<div class="notice"><div class="ic">${icon}</div><h2>${title}</h2>${text ? `<p>${text}</p>` : ''}</div>`; }
+function winnerText() {
+  if (!G.groups) return '';
+  const a = totalNow(0), b = totalNow(1);
+  return a === b ? `平手！${a} : ${b}` : `${a > b ? '第 1 組' : '第 2 組'}獲勝！${a} : ${b}`;
+}
+function pairHTML(gi, r = G.roundIdx) {
+  const g = G.groups[gi], ro = rolesOf(g, r);
+  return `🧑‍✈️ ${esc(nameOf(ro.pilot))}　🧭 ${esc(nameOf(ro.nav))}${ro.watch ? `　👀 ${esc(nameOf(ro.watch))}` : ''}`;
+}
+function idleHTML() {
+  const role = myRole();
+  if (G.status === 'idle') return waitHTML('🚀', '等老師分組', '');
+  if (G.status === 'ready') {
+    if (role === 'wait') return waitHTML('⏳', '這次沒有分到組', '請跟老師說。');
+    return `<div class="mine">第 ${G.roundIdx + 1} 局你是 <b>${ROLE_LABEL[role]}</b></div>
+      ${waitHTML(role === 'pilot' ? '🪟' : '🧭', role === 'pilot' ? '你會看到窗外，照實回答' : role === 'nav' ? '你看不到窗外，要開口問' : '聽隊友有沒有說完整句子', '和隊友面對面坐好，老師按開始就計時。')}
+      <p class="sub" style="text-align:center">${pairHTML(myGroup())}</p>`;
+  }
+  if (G.status === 'over') { const gi = myGroup(), r = last(G.results); return waitHTML('⏰', '時間到！', gi >= 0 ? `${GN[gi]}這局記對 ${r.groups[gi].score} 站，⭐ ${r.groups[gi].stars}` : ''); }
+  if (G.status === 'done') return waitHTML('🏆', '比賽結束', winnerText());
+  return '';
+}
+
+/* 句子 */
+function linesFor(c, P, N) {
+  const day = DAYS[c.day], w = c.weather;
+  const L1 = c.dayMode === 'ask'
+    ? [[N, 'What day is today?'], [P, `It's ${day}.`]]
+    : [[N, 'Is it ______ today?'], [P, `Yes, it is. ／ No, it isn't. It's ${day}.`]];
+  const L2 = c.wMode === 'ask'
+    ? [[N, "How's the weather today?"], [P, `It's ${w}.`]]
+    : [[N, 'Is it ______ today?'], [P, `Yes, it is. ／ No, it isn't. It's ${w}.`]];
+  return [...L1, ...L2].map(([who, l]) => `<div class="say"><div class="who">${who}</div><div class="line en">${esc(l)}</div></div>`).join('');
+}
+
+function pilotHTML() {
+  if (G.status !== 'running') return idleHTML();
+  const c = G.groups[myGroup()].landing.card, w = WEATHER[c.weather];
+  return `<div class="view">
+      <div class="cal"><div class="top">TODAY</div><div class="d">${DAYS[c.day]}</div></div>
+      <div class="win ${c.weather}"><div class="w">${w.e}</div><div class="t">${c.weather}</div></div>
+    </div>
+    <div class="ans">
+      <div><div class="sub">被問 <b class="en">What day is today?</b> / <b class="en">How's the weather today?</b></div>
+        <div class="say"><div class="line en">It's ${DAYS[c.day]}.</div></div><div class="say"><div class="line en">It's ${c.weather}.</div></div></div>
+      <div><div class="sub">被問 <b class="en">Is it ______ today?</b></div>
+        <div class="say"><div class="who">猜對</div><div class="line en">Yes, it is.</div></div>
+        <div class="say"><div class="who">猜錯</div><div class="line en">No, it isn't. It's ______.</div></div></div>
+    </div>`;
+}
+
+function optsHTML(kind, list, cur, cls = '') {
+  return `<div class="opts ${cls}">${list.map(([v, label]) => `<button class="${cur === v ? 'on' : ''}" data-sel="${kind}" data-v="${v}">${label}</button>`).join('')}</div>`;
+}
+function navHTML() {
+  if (G.status !== 'running') return idleHTML();
+  const c = G.groups[myGroup()].landing.card, S = L.sel;
+  const dayList = DAYS.map((d, i) => [i, d]), wList = WKEYS.map(k => [k, `${WEATHER[k].e} ${k}`]);
+  const dayBox = c.dayMode === 'ask'
+    ? `<div class="say"><div class="who">開口問</div><div class="line en">What day is today?</div></div>
+       <div class="lab">我聽到</div>${optsHTML('day', dayList, S.day)}`
+    : `<div class="clue">🔍 線索：${c.dayClue}</div>
+       <div class="say"><div class="who">先猜一個，開口問</div><div class="line en">Is it ${S.gDay != null ? DAYS[S.gDay] : '______'} today?</div></div>
+       <div class="lab">① 我猜</div>${optsHTML('gDay', dayList, S.gDay, 'g')}
+       <div class="lab">② 我聽到的答案</div>${S.gDay == null ? '<p class="sub">先猜再問</p>' : optsHTML('day', dayList, S.day)}`;
+  const wBox = c.wMode === 'ask'
+    ? `<div class="say"><div class="who">開口問</div><div class="line en">How's the weather today?</div></div>
+       <div class="lab">我聽到</div>${optsHTML('weather', wList, S.weather)}`
+    : `<div class="clue">🔍 線索：${c.wClue}</div>
+       <div class="say"><div class="who">先猜一個，開口問</div><div class="line en">Is it ${S.gW || '______'} today?</div></div>
+       <div class="lab">① 我猜</div>${optsHTML('gW', wList, S.gW, 'g')}
+       <div class="lab">② 我聽到的答案</div>${S.gW == null ? '<p class="sub">先猜再問</p>' : optsHTML('weather', wList, S.weather)}`;
+  const done = S.day != null && S.weather != null;
+  return `<div class="nav"><div class="q"><h3>📅 星期幾？</h3>${dayBox}</div><div class="q"><h3>🌤️ 天氣？</h3>${wBox}</div></div>
+    <div class="go"><div class="t">航行日誌：<b class="en">${S.day != null ? DAYS[S.day] : '…'}</b>、<b class="en">${S.weather || '…'}</b></div>
+      <button class="btn big" data-act="log" ${done ? '' : 'disabled'}>記錄，下一站 🚀</button></div>`;
+}
+function watchHTML() {
+  if (G.status !== 'running') return idleHTML();
+  const gi = myGroup(), g = G.groups[gi], ro = rolesOf(g, G.roundIdx);
+  return `<p class="sub" style="text-align:center">你是觀察員：聽隊友有沒有說完整句子，有錯就提醒他。</p>
+    ${linesFor(g.landing.card, `駕駛員 ${esc(nameOf(ro.pilot))}`, `領航員 ${esc(nameOf(ro.nav))}`)}`;
+}
+
+function resultsHTML() {
+  if (!G.groups) return '';
+  const rows = Array.from({ length: ROUNDS }, (_, i) => {
+    const r = G.results.find(x => x.idx === i);
+    return `<tr><td>${i + 1}</td>${[0, 1].map(gi => {
+      const ro = rolesOf(G.groups[gi], i), x = r && r.groups[gi];
+      return `<td>${esc(nameOf(ro.pilot))} / ${esc(nameOf(ro.nav))}</td><td><b>${x ? x.score : ''}</b>${x && x.stars ? ` ⭐${x.stars}` : ''}${x && x.minus ? ` <span class="sub">(扣${x.minus})</span>` : ''}</td>`;
+    }).join('')}</tr>`;
+  }).join('');
+  return `<div class="card panel"><table><thead><tr><th>局</th><th>第 1 組 駕駛/領航</th><th>分數</th><th>第 2 組 駕駛/領航</th><th>分數</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="sub">總分 = 記對的站數 + ⭐（猜猜題第一次就猜中）</p></div>`;
+}
+function boardHTML() {
+  const d = new Date(), real = `真正的今天是 <b class="en">${DAYS[(d.getDay() + 6) % 7]}</b>`;
+  if (!G.groups) return waitHTML('🚀', '天氣時光機 Time Machine', '') + `<div class="today">${real}</div>`;
+  const box = (gi) => `<div class="bt g${gi}"><div class="h">${GN[gi]}</div><div class="pts">${totalNow(gi)}</div>
+    <div class="mem">${G.groups[gi].members.map(nameOf).map(esc).join('・')}</div>
+    ${['ready', 'running'].includes(G.status) ? `<div class="mem" style="margin-top:6px">${pairHTML(gi)}</div>` : ''}</div>`;
+  const mid = G.status === 'done' ? `<div class="notice" style="padding:10px"><div class="ic">🏆</div><h2>${winnerText()}</h2></div>`
+    : `<div class="bigtime">--</div><div class="today">${G.status === 'ready' ? `第 ${G.roundIdx + 1} 局準備` : G.status === 'over' ? '時間到！' : `第 ${G.roundIdx + 1} 局`}</div>`;
+  return `<div class="board">${box(0)}<div>${mid}</div>${box(1)}</div>${resultsHTML()}`;
+}
+
+function armBtn(id, label, cls = 'ghost') { const on = L.armed === id; return `<button class="btn small ${cls} ${on ? 'arm' : ''}" data-arm="${id}">${on ? '再按一次確認' : label}</button>`; }
+function teacherHTML() {
+  const dur = `<div class="row"><span class="sub">每局秒數</span><span class="seg">${DURATIONS.map(d => `<button class="${G.duration === d ? 'on' : ''}" data-dur="${d}">${d}</button>`).join('')}</span></div>`;
+  const canAtt = G.status === 'idle' || (G.status === 'ready' && !G.results.length);
+  const att = canAtt ? `<div class="panel"><span class="sub">今天出席（點名字切換缺席）</span><div class="att">${ROSTER.map(r => `<button class="${G.absent.includes(r.seat) ? 'off' : ''}" data-abs="${r.seat}">${r.seat} ${esc(r.name)}</button>`).join('')}</div></div>` : '';
+  const present = ROSTER.length - G.absent.length;
+  let main = '';
+  if (G.status === 'idle') {
+    main = `<div class="card"><h2>天氣時光機・${GRADE} 年級</h2><p class="sub">出席的人隨機分成兩組，兩組面對面同時玩，共 ${ROUNDS} 局，每局駕駛員和領航員互換。</p>
+      ${att}${dur}<div class="row panel"><button class="btn big" data-act="group" ${present < 4 ? 'disabled' : ''}>🎲 隨機分組</button>${present < 4 ? '<span class="sub">至少要 4 人</span>' : ''}</div></div>`;
+  } else if (G.status === 'ready') {
+    const swap = !G.results.length;
+    const RN = (gi, i) => { const ro = rolesOf(G.groups[gi], 0), m = G.groups[gi].members[i]; return m === ro.pilot ? '駕駛員' : m === ro.nav ? '領航員' : '觀察員'; };
+    main = `<div class="card"><h2>第 ${G.roundIdx + 1} 局準備</h2>
+      <div class="gs panel">${G.groups.map((g, gi) => `<div class="gb g${gi}"><h3>${GN[gi]}</h3>${swap
+        ? `<div class="sw">${g.members.map((m, i) => `<button class="${L.pickSeat === m ? 'on' : ''}" data-pick="${m}">${esc(nameOf(m))}<small>${RN(gi, i)}</small></button>`).join('')}</div>`
+        : `<p>${pairHTML(gi)}</p>`}</div>`).join('')}</div>
+      ${swap ? `<p class="sub">${L.pickSeat ? `已選 ${esc(nameOf(L.pickSeat))}，再點一個人互換` : '想調整就點兩個名字互換（可跨組）；之後每局自動輪替'}</p>` : ''}
+      ${att}${dur}
+      <div class="row panel"><button class="btn big ok" data-act="start">▶ 開始計時</button>${swap ? '<button class="btn small ghost" data-act="group">🎲 重新分組</button>' : ''}</div></div>`;
+  } else if (G.status === 'running') {
+    main = `<div class="gs">${G.groups.map((g, gi) => { const ro = rolesOf(g, G.roundIdx);
+      return `<div class="gb g${gi}"><div class="row spread"><h3>${GN[gi]}</h3><span class="pts">${g.score}${g.stars ? ` <small>⭐${g.stars}</small>` : ''}</span></div>
+        <div class="row"><button class="btn bad grow" data-adj="${gi}" data-d="-1">違規 −1</button><button class="btn small ghost" data-adj="${gi}" data-d="1">+1</button></div>
+        <p class="sub" style="margin:8px 0 0">現在：${DAYS[g.landing.card.day]}・${g.landing.card.weather}</p>
+        ${linesFor(g.landing.card, `🧑‍✈️ ${esc(nameOf(ro.pilot))}`, `🧭 ${esc(nameOf(ro.nav))}`)}</div>`; }).join('')}</div>
+      <div class="row panel">${armBtn('end', '⏹ 提早結束這局')}</div>`;
+  } else if (G.status === 'over') {
+    const r = last(G.results);
+    main = `<div class="card"><h2>第 ${G.roundIdx + 1} 局結束</h2>
+      <div class="gs panel">${r.groups.map((x, gi) => `<div class="gb g${gi}"><h3>${GN[gi]}：${x.score} 站 ⭐${x.stars}</h3><p class="sub">記錯 ${x.wrong} 次・被扣 ${x.minus} 分</p>
+        <div class="row"><button class="btn small ghost" data-adj="${gi}" data-d="-1">−1</button><button class="btn small ghost" data-adj="${gi}" data-d="1">+1</button></div></div>`).join('')}</div>
+      <div class="row panel"><button class="btn big" data-act="next">${G.results.length >= ROUNDS ? '🏆 看總成績' : '➜ 下一局（換角色）'}</button></div></div>`;
+  } else if (G.status === 'done') {
+    main = `<div class="card" style="text-align:center"><h2>🏆 ${winnerText()}</h2><p class="sub">按「結束本堂」把成績存起來。</p></div>`;
+  }
+  const logs = L.logs ? `<div class="card panel"><h3>已存的紀錄</h3>${L.logs.length ? `<table><thead><tr><th>日期</th><th>第 1 組</th><th>第 2 組</th></tr></thead><tbody>${
+    L.logs.map(l => `<tr><td>${esc(l.date || '')}</td><td>${l.totals?.[0] ?? ''}（${esc((l.groups?.[0] || []).join('、'))}）</td><td>${l.totals?.[1] ?? ''}（${esc((l.groups?.[1] || []).join('、'))}）</td></tr>`).join('')}</tbody></table>` : '<p class="sub">還沒有紀錄</p>'}</div>` : '';
+  return `${main}${G.status !== 'idle' ? resultsHTML() : ''}
+    <div class="row panel">${G.groups ? armBtn('save', '💾 結束本堂（存檔）', 'ok') : ''}${armBtn('reset', '🗑 重設（不存檔）')}</div>${logs}`;
+}
+
+function render() {
+  if (!L.role || !ready) return;
+  const role = myRole(), gi = myGroup();
+  const k = `${role}:${gi >= 0 && G.groups[gi].landing ? G.groups[gi].landing.n : '-'}`;
+  if (k !== L.key) { L.key = k; L.sel = {}; }
+  const y = window.scrollY;
+  $('stage').innerHTML = ({ pilot: pilotHTML, nav: navHTML, watch: watchHTML, wait: idleHTML, board: boardHTML, teacher: teacherHTML })[role]();
+  window.scrollTo(0, y);
+  renderBar(); toasts();
+}
+
+/* 提示：學生只看自己組；老師和大螢幕不跳（免得兩組一直蓋來蓋去） */
+let toastT = null;
+function toast(m) { const t = $('toast'); t.className = 'toast ' + m.kind; t.textContent = m.text; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+function toasts() {
+  if (!G.groups || L.role !== 'student') return;
+  const gi = myGroup(); if (gi < 0) return;
+  const m = G.groups[gi].last; if (!m) return;
+  const first = !(gi in L.shown); if (L.shown[gi] === m.id) return; L.shown[gi] = m.id;
+  if (!first && Date.now() - m.at < 4000) toast(m);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑥  按鈕
+   ══════════════════════════════════════════════════════════════════ */
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  const d = b.dataset;
+  if (d.role) { if (d.role === 'teacher') { $('m-pass').hidden = false; $('m-pass-in').value = ''; $('m-pass-in').focus(); } else setRole(d.role); return; }
+  if (b.id === 'b-switch') { store.del('tm-seat'); store.del('tm-role'); L.role = null; L.seat = null; show('start'); return; }
+  if (!ready) return;
+  if (d.seat) { setSeat(+d.seat); return; }
+  if (d.arm) {
+    if (L.armed !== d.arm) { L.armed = d.arm; render(); setTimeout(() => { if (L.armed === d.arm) { L.armed = null; render(); } }, 3000); return; }
+    L.armed = null;
+    if (d.arm === 'end') await A.endEarly();
+    if (d.arm === 'reset') await A.reset();
+    if (d.arm === 'save') await saveClass();
+    return;
+  }
+  if (d.sel) {
+    const v = d.sel === 'weather' || d.sel === 'gW' ? d.v : +d.v;
+    L.sel[d.sel] = v;
+    if (d.sel === 'gDay') L.sel.day = null;
+    if (d.sel === 'gW') L.sel.weather = null;
+    render(); return;
+  }
+  if (d.abs) { A.absent(+d.abs); return; }
+  if (d.dur) { A.duration(+d.dur); return; }
+  if (d.adj) { A.adjust(+d.adj, +d.d); return; }
+  if (d.pick) {
+    const m = +d.pick;
+    if (!L.pickSeat) { L.pickSeat = m; render(); return; }
+    const a = L.pickSeat; L.pickSeat = null;
+    if (a === m) { render(); return; }
+    A.swap(a, m); return;
+  }
+  switch (d.act) {
+    case 'group': A.group(); break;
+    case 'start': A.start(); break;
+    case 'next': A.next(); break;
+    case 'log': {
+      const gi = myGroup(), g = G.groups[gi]; b.disabled = true;
+      A.log(gi, g.landing.n, { day: L.sel.day, weather: L.sel.weather, gDay: L.sel.gDay ?? null, gW: L.sel.gW ?? null }); break;
+    }
+  }
+});
+function tryPass() {
+  if ($('m-pass-in').value.trim() === TEACHER_PASSWORD) { $('m-pass').hidden = true; setRole('teacher'); }
+  else { $('m-pass-in').value = ''; $('m-pass-in').placeholder = '密碼不對，再試一次'; }
+}
+$('m-pass-ok').onclick = tryPass;
+$('m-pass-in').onkeydown = (e) => { if (e.key === 'Enter') tryPass(); };
+$('m-pass-x').onclick = () => { $('m-pass').hidden = true; };
+
+async function saveClass() {
+  const s = G, d = new Date();
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const rec = {
+    date, grade: GRADE, duration: s.duration, absent: s.absent.map(nameOf),
+    groups: s.groups.map(g => g.members.map(nameOf)),
+    totals: [0, 1].map(gi => s.results.reduce((a, r) => a + r.groups[gi].score + r.groups[gi].stars, 0)),
+    rounds: s.results.map(r => ({ round: r.idx + 1, groups: r.groups.map(x => ({ pilot: nameOf(x.pilot), nav: nameOf(x.nav), score: x.score, stars: x.stars, wrong: x.wrong, minus: x.minus })) })),
+    savedAt: serverTimestamp()
+  };
+  try { await addDoc(logCol, rec); await A.reset(); toast({ kind: 'ok', text: '💾 已存檔' }); loadLogs(); }
+  catch (e) { console.error(e); toast({ kind: 'bad', text: '存檔失敗，請檢查網路再按一次' }); }
+}
+async function loadLogs() {
+  try {
+    const snap = await getDocs(logCol);
+    L.logs = snap.docs.map(x => x.data()).sort((a, b) => (b.savedAt?.seconds || 0) - (a.savedAt?.seconds || 0)).slice(0, 8);
+    render();
+  } catch (e) { console.error(e); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑦  啟動
+   ══════════════════════════════════════════════════════════════════ */
+setInterval(() => { if (L.role && ready) tick(); }, 250);
+onAuthStateChanged(auth, (user) => {
+  if (!user) return;
+  onSnapshot(gameRef, (snap) => {
+    G = Object.assign(blank(), snap.exists() ? snap.data() : {});
+    $('conn').hidden = true;
+    if (!ready) {
+      ready = true; renderNames();
+      const seat = store.get('tm-seat'), r = store.get('tm-role');
+      if (seat && ROSTER.some(x => x.seat === seat)) setSeat(seat);
+      else if (r === 'board') setRole(r);
+      else show('start');
+    }
+    render();
+  }, (err) => { $('conn').hidden = false; $('conn').textContent = '連線失敗，請重新整理（' + err.code + '）'; });
+});
+signInAnonymously(auth).catch(err => { $('conn').textContent = '連線失敗，請檢查網路後重新整理（' + err.code + '）'; });
+</script>
+</body>
+</html>
