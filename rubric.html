@@ -264,13 +264,10 @@ td.empty{color:var(--line)}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, collection, onSnapshot, writeBatch, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { ROSTER as CLASS_ROSTER, TEACHER_PASSWORD, firebaseConfig, APP_ID } from './config.js';
 
-/* ══════════ ① 班級名單（和 index.html 相同，換學期兩邊一起改） ══════════ */
-const ROSTER = {
-  '5': ['Jimmy', 'Larry', 'Joe', 'Riley', 'Diana'],
-  '6': ['Lola', 'Charles', 'Jenny', 'Irving', 'Tim', 'Joana']
-};
-const TEACHER_PASSWORD = 'edu';
+/* ══════════ ① 班級名單（來自 config.js，這頁只用名字） ══════════ */
+const ROSTER = Object.fromEntries(Object.entries(CLASS_ROSTER).map(([g, list]) => [g, list.map(x => x.name)]));
 
 /* ══════════ ② 評分項目（對應講稿學習單） ══════════ */
 const ITEMS = [
@@ -306,18 +303,9 @@ const FRAMES_PEER = [
 ];
 
 /* ══════════ ③ Firebase（沿用 nypsCM 專案與資料路徑） ══════════ */
-const firebaseConfig = {
-  apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
-  authDomain: "nypscm.firebaseapp.com",
-  projectId: "nypscm",
-  storageBucket: "nypscm.firebasestorage.app",
-  messagingSenderId: "775913301411",
-  appId: "1:775913301411:web:9d73da7688854865826616"
-};
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const APP_ID = 'nypscm-class-pro';
 const colRef = (name) => collection(db, 'artifacts', APP_ID, 'public', 'data', name);
 const docRef = (name, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', name, id);
 const rubricCol = (g) => colRef(`rubric_${g}`);

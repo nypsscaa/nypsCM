@@ -233,20 +233,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, runTransaction, setDoc, addDoc, getDocs,
          serverTimestamp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { ROSTER as CLASS_ROSTER, TEACHER_PASSWORD, firebaseConfig, APP_ID } from './config.js';
 
 /* ══════════════════════════════════════════════════════════════════
-   ①  設定 —— 名單請跟 index.html 的 ROSTER['6'] 保持一致
+   ①  設定 —— 名單與密碼在 config.js
    ══════════════════════════════════════════════════════════════════ */
 const GRADE = '6';
-const TEACHER_PASSWORD = 'edu';
-const ROSTER = [
-  { seat: 1, name: 'Lola' },
-  { seat: 2, name: 'Charles' },
-  { seat: 3, name: 'Jenny' },
-  { seat: 4, name: 'Irving' },
-  { seat: 5, name: 'Tim' },
-  { seat: 6, name: 'Joana' }
-];
+const ROSTER = CLASS_ROSTER[GRADE];   // 名單在 config.js
 const PENALTY_SEC = 5;          // 挑戰成立扣的秒數
 const ROUNDS = 6;               // 2 隊 × 每人輪 3 個角色
 const DURATIONS = [60, 90, 120, 150];
@@ -290,18 +283,9 @@ const DRINKS = [
 /* ══════════════════════════════════════════════════════════════════
    ②  Firebase（與 index.html 同一個專案、同一個 APP_ID）
    ══════════════════════════════════════════════════════════════════ */
-const firebaseConfig = {
-  apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
-  authDomain: "nypscm.firebaseapp.com",
-  projectId: "nypscm",
-  storageBucket: "nypscm.firebasestorage.app",
-  messagingSenderId: "775913301411",
-  appId: "1:775913301411:web:9d73da7688854865826616"
-};
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
-const APP_ID = "nypscm-class-pro";
 const docRef = (col, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', col, id);
 const colRef = (col)     => collection(db, 'artifacts', APP_ID, 'public', 'data', col);
 const gameRef = docRef(`restaurant_${GRADE}`, 'current');   // 比賽進行中的共用狀態

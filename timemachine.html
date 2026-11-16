@@ -193,19 +193,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, doc, collection, onSnapshot, runTransaction, addDoc, getDocs,
          serverTimestamp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { ROSTER as CLASS_ROSTER, TEACHER_PASSWORD, firebaseConfig, APP_ID } from './config.js';
 
 /* ══════════════════════════════════════════════════════════════════
-   ①  設定 —— 名單請跟 index.html 的 ROSTER['5'] 保持一致
+   ①  設定 —— 名單與密碼在 config.js
    ══════════════════════════════════════════════════════════════════ */
 const GRADE = '5';
-const TEACHER_PASSWORD = 'edu';
-const ROSTER = [
-  { seat: 1, name: 'Jimmy' },
-  { seat: 2, name: 'Larry' },
-  { seat: 3, name: 'Joe' },
-  { seat: 4, name: 'Riley' },
-  { seat: 5, name: 'Diana' }
-];
+const ROSTER = CLASS_ROSTER[GRADE];   // 名單在 config.js
 const ROUNDS = 4;               // 兩人一組：駕駛員、領航員各當 2 次
 const DURATIONS = [60, 90, 120, 150];
 
@@ -242,18 +236,9 @@ const W_CLUES = [
 /* ══════════════════════════════════════════════════════════════════
    ②  Firebase（與 index.html 同一個專案、同一個 APP_ID）
    ══════════════════════════════════════════════════════════════════ */
-const firebaseConfig = {
-  apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
-  authDomain: "nypscm.firebaseapp.com",
-  projectId: "nypscm",
-  storageBucket: "nypscm.firebasestorage.app",
-  messagingSenderId: "775913301411",
-  appId: "1:775913301411:web:9d73da7688854865826616"
-};
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
-const APP_ID = "nypscm-class-pro";
 const docRef = (col, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', col, id);
 const colRef = (col)     => collection(db, 'artifacts', APP_ID, 'public', 'data', col);
 const gameRef = docRef(`timemachine_${GRADE}`, 'current');
