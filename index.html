@@ -158,18 +158,9 @@
 
       <div class="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2 mt-6 pl-1">課堂活動（另開分頁）</div>
       <div class="space-y-1.5">
-        <a href="restaurant.html" target="_blank" rel="noopener" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-orange-50 hover:border-orange-300 transition flex items-center shadow-sm active:scale-[.98]">
-          <span class="w-9 h-9 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center mr-3 shrink-0"><i class="fas fa-utensils"></i></span>
-          <span class="flex-1">餐廳點餐大挑戰</span><span class="text-[11px] font-bold text-gray-400 ml-1">6 年級</span></a>
-        <a href="timemachine.html" target="_blank" rel="noopener" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-sky-50 hover:border-sky-300 transition flex items-center shadow-sm active:scale-[.98]">
-          <span class="w-9 h-9 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center mr-3 shrink-0"><i class="fas fa-rocket"></i></span>
-          <span class="flex-1">天氣時光機</span><span class="text-[11px] font-bold text-gray-400 ml-1">5 年級</span></a>
         <a href="funday.html" target="_blank" rel="noopener" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-amber-50 hover:border-amber-300 transition flex items-center shadow-sm active:scale-[.98]">
           <span class="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mr-3 shrink-0"><i class="fas fa-bed"></i></span>
           <span class="flex-1">賴床大作戰</span><span class="text-[11px] font-bold text-gray-400 ml-1">5 年級</span></a>
-        <a href="rubric.html" target="_blank" rel="noopener" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-emerald-50 hover:border-emerald-300 transition flex items-center shadow-sm active:scale-[.98]">
-          <span class="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center mr-3 shrink-0"><i class="fas fa-clipboard-check"></i></span>
-          <span class="flex-1">簡報評量</span><span class="text-[11px] font-bold text-gray-400 ml-1">5・6 年級</span></a>
         <a href="taxiang.html" target="_blank" rel="noopener" class="w-full text-left p-3 rounded-xl bg-white border hover:bg-rose-50 hover:border-rose-300 transition flex items-center shadow-sm active:scale-[.98]">
           <span class="w-9 h-9 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center mr-3 shrink-0"><i class="fas fa-globe-asia"></i></span>
           <span class="flex-1">他鄉的第一年</span><span class="text-[11px] font-bold text-gray-400 ml-1">高年級</span></a>
@@ -741,7 +732,7 @@ import { TEACHER_NAME, TEACHER_PASSWORD, ROSTER, firebaseConfig, APP_ID } from '
 /* 每次改版都會換掉這一行（部署時間）。
    GitHub Pages 會被 CDN 與 Safari 快取，學生 iPad 常常抱著舊版不放，
    所以頁面自己會去比對線上版本，不一樣就提示更新。 */
-const BUILD_ID = '2026-11-16-0930';
+const BUILD_ID = '2026-11-16-0935';
 
 const AUDIO_MAX_SECONDS = 90;            // 安全上限（避免檔案大到存不進資料庫），畫面不顯示倒數
 const AUDIO_BITS_PER_SEC = 24000;        // 語音用 24kbps 就很清楚，90 秒約 270KB

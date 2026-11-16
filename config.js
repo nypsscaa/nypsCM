@@ -4,10 +4,8 @@
 
    使用這份設定的頁面：
      index.html        課室系統
-     rubric.html       簡報評量
-     restaurant.html   餐廳點餐大挑戰（6 年級）
-     timemachine.html  天氣時光機（5 年級）
      funday.html       賴床大作戰（5 年級）
+   （簡報評量、餐廳點餐、天氣時光機已移到 _backup 資料夾，沒有上線）
    ══════════════════════════════════════════════════════════════════ */
 
 export const TEACHER_NAME = 'Ruby';      // 會顯示在控制台與學生待機畫面
