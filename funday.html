@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>賴床大作戰 A Fun Day</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 早晨主題：奶油黃底、深藍字、橘色主色 */
+:root{
+  --ink:#24304a; --ink-soft:#66708a;
+  --paper:#fff8e8; --card:#ffffff; --line:#efdfbd;
+  --accent:#e9762b; --accent-soft:#fdebdc;
+  --blue:#3b6fd8; --blue-soft:#e3ecfc;
+  --ok:#2e8b57; --ok-bg:#e4f4ea; --bad:#c2465a; --bad-bg:#fbe7ea; --warn:#c98a12; --warn-bg:#fdf3dc;
+  --display:'LXGW WenKai TC','Noto Sans TC','PingFang TC',sans-serif;
+  --body:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+  --en:'Nunito','Avenir Next','Helvetica Neue',Arial,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:disabled{opacity:.35;cursor:not-allowed}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+.en{font-family:var(--en);font-weight:800}
+.wrap{max-width:1100px;margin:0 auto;padding:16px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(40px,env(safe-area-inset-bottom))}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.grow{flex:1}
+.sub{color:var(--ink-soft);font-size:15px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px}
+.panel{margin-top:14px}
+.btn{padding:12px 20px;border-radius:14px;font-weight:800;background:var(--accent);color:#fff;min-height:50px}
+.btn.ghost{background:transparent;color:var(--accent);border:2px solid var(--accent)}
+.btn.ok{background:var(--ok)}.btn.bad{background:var(--bad)}
+.btn.small{min-height:40px;padding:6px 14px;font-size:15px}
+.btn.big{font-size:24px;min-height:72px;padding:14px 28px;border-radius:18px}
+.btn.arm{background:var(--bad)!important;color:#fff!important;border-color:var(--bad)!important}
+.link{color:var(--ink-soft);text-decoration:underline;font-size:14px;padding:6px}
+.conn{position:fixed;left:50%;top:8px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:6px 14px;border-radius:99px;font-size:14px;z-index:90}
+
+.hero{text-align:center;margin:24px 0 20px}
+.hero .logo{font-size:64px;line-height:1}
+.hero h1{font-size:38px;margin-top:6px}
+.names{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.nm{background:var(--card);border:3px solid var(--line);border-radius:20px;padding:20px 10px;text-align:center}
+.nm .seat{font-family:var(--en);font-weight:900;font-size:22px;color:var(--accent)}
+.nm b{font-family:var(--display);font-size:28px;display:block}
+
+.bar{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top));
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bar .me{font-weight:900;font-family:var(--display);font-size:20px}
+.bar .rd{font-size:15px;opacity:.85}
+.bar .timer{font-family:var(--en);font-weight:900;font-size:30px;min-width:84px;text-align:center;font-variant-numeric:tabular-nums}
+.bar .timer.low{color:#ffb4a2}
+.bar .pts{font-weight:900;background:var(--accent);padding:3px 12px;border-radius:99px}
+.bar .link{color:#c8d0e0}
+
+/* 一天的進度 */
+.path{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:4px 0 10px}
+.path span{padding:4px 10px;border-radius:99px;background:var(--line);font-size:15px;font-weight:800;color:var(--ink-soft)}
+.path span.done{background:var(--ok-bg);color:var(--ok)}
+.path span.on{background:var(--accent);color:#fff}
+.who{text-align:center;font-size:24px;font-weight:900;font-family:var(--display);margin:4px 0 10px}
+.who b{color:var(--accent)}
+
+.notice{text-align:center;padding:30px 16px}
+.notice .ic{font-size:72px;line-height:1.1}
+.notice h2{font-size:32px;margin-top:8px}
+.notice p{color:var(--ink-soft);font-size:18px;margin:8px 0 0}
+.say{background:var(--blue-soft);border-left:6px solid var(--blue);border-radius:12px;padding:10px 14px;margin:8px 0}
+.say .w{font-size:13px;color:var(--ink-soft);font-weight:700}
+.say .line{font-size:24px}
+.say.alt{background:var(--accent-soft);border-color:var(--accent)}
+
+/* 任務卡 */
+.mission{background:var(--warn-bg);border:3px dashed var(--warn);border-radius:18px;padding:14px 16px;font-size:20px;font-weight:800;text-align:center}
+.mission .big{font-size:60px;display:block;line-height:1.15}
+/* 回答的人：自己的家 */
+.home{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:stretch}
+.tile{background:var(--card);border:3px solid var(--ink);border-radius:20px;padding:14px 20px;text-align:center;min-width:220px}
+.tile .k{font-size:14px;color:var(--ink-soft);font-weight:700}
+.tile .big{font-size:72px;line-height:1.15}
+.tile .v{font-family:var(--en);font-weight:900;font-size:38px}
+.tile .calbar{background:var(--bad);color:#fff;font-weight:900;letter-spacing:.15em;border-radius:8px;padding:4px 0;margin:8px 0}
+.tile .v.clock{font-size:72px;font-variant-numeric:tabular-nums}
+.frames{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+
+/* 問的人：要做的事 */
+.lab{font-size:16px;font-weight:800;margin:14px 0 6px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opts button{background:#fff;border:3px solid var(--line);border-radius:14px;padding:8px 12px;font-family:var(--en);font-weight:800;font-size:18px;min-height:52px}
+.opts button .e{font-size:26px;margin-right:4px;vertical-align:middle}
+.opts button.on{border-color:var(--accent);background:var(--accent);color:#fff}
+.go{position:sticky;bottom:0;margin-top:16px;background:var(--ink);color:#fff;border-radius:18px;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.go .t{flex:1;font-size:18px;min-width:200px}
+
+/* 大螢幕 */
+.bigtime{font-family:var(--en);font-weight:900;font-size:120px;line-height:1;text-align:center;font-variant-numeric:tabular-nums}
+.bigtime.low{color:var(--bad)}
+.stats{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.stat{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px 22px;text-align:center}
+.stat b{display:block;font-family:var(--en);font-size:56px;line-height:1.1;color:var(--accent)}
+
+/* 老師 */
+.att{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.att button{padding:8px 14px;border-radius:99px;border:2px solid var(--ok);background:var(--ok-bg);color:var(--ok);font-weight:800}
+.att button.off{border-color:var(--line);background:#f4f4f4;color:#999;text-decoration:line-through}
+.ring{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.ring button{background:#fff;border:2px solid var(--line);border-radius:12px;padding:8px 14px;font-weight:800;font-size:18px}
+.ring button.on{border-color:var(--accent);background:var(--accent-soft)}
+.seg{display:inline-flex;border:2px solid var(--accent);border-radius:12px;overflow:hidden}
+.seg button{padding:6px 12px;font-weight:800;color:var(--accent)}
+.seg button.on{background:var(--accent);color:#fff}
+table{border-collapse:collapse;width:100%;font-size:16px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:center}
+th{color:var(--ink-soft);font-weight:700;font-size:14px}
+
+.toast{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:70;padding:14px 26px;border-radius:18px;font-size:26px;font-weight:900;font-family:var(--display);
+  box-shadow:0 10px 30px rgba(0,0,0,.2);animation:pop .25s ease-out;max-width:92vw;text-align:center}
+.toast.ok{background:var(--ok);color:#fff}.toast.bad{background:var(--bad);color:#fff}.toast.warn{background:var(--warn);color:#fff}.toast.info{background:var(--ink);color:#fff}
+.toast.wish{background:linear-gradient(90deg,#ff7aa8,#ffb347);color:#fff;font-size:30px}
+@keyframes pop{from{transform:translateX(-50%) scale(.8);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal .box{background:var(--card);border-radius:20px;padding:22px;width:100%;max-width:360px}
+.modal input{width:100%;font-size:20px;padding:10px 12px;border-radius:12px;border:2px solid var(--line);margin:12px 0}
+@media (max-width:760px){
+  .frames{grid-template-columns:1fr}
+  .bigtime{font-size:80px}
+  .bar .timer{font-size:24px}
+  .say .line{font-size:19px}
+  .tile .big{font-size:56px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div id="conn" class="conn">連線中…</div>
+
+<section id="v-start" class="wrap" hidden>
+  <div class="hero">
+    <div class="logo">😴⏰</div>
+    <h1>賴床大作戰 A Fun Day</h1>
+    <p class="sub">你是誰？點自己的名字</p>
+  </div>
+  <div class="names" id="names"></div>
+  <div class="row" style="justify-content:center;margin-top:28px;gap:24px">
+    <button class="link" data-role="board">📺 大螢幕</button>
+    <button class="link" data-role="teacher">🧑‍🏫 老師</button>
+  </div>
+</section>
+
+<section id="v-main" hidden>
+  <div class="bar">
+    <span class="me" id="b-me"></span>
+    <span class="rd" id="b-rd"></span>
+    <span class="grow"></span>
+    <span class="timer" id="b-timer"></span>
+    <span class="grow"></span>
+    <span class="pts" id="b-pts"></span>
+    <button class="link" id="b-switch">換人</button>
+  </div>
+  <main class="wrap" id="stage"></main>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+<div id="m-pass" class="modal" hidden>
+  <div class="box">
+    <h3>老師密碼</h3>
+    <input id="m-pass-in" type="password" autocomplete="off">
+    <div class="row spread"><button class="btn ghost small" id="m-pass-x">取消</button><button class="btn small" id="m-pass-ok">進入</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getFirestore, doc, collection, onSnapshot, runTransaction, addDoc, getDocs,
+         serverTimestamp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+/* ══════════════════════════════════════════════════════════════════
+   ①  設定 —— 名單請跟 index.html 的 ROSTER['5'] 保持一致
+   ══════════════════════════════════════════════════════════════════ */
+const GRADE = '5';
+const TEACHER_PASSWORD = 'edu';
+const ROSTER = [
+  { seat: 1, name: 'Jimmy' },
+  { seat: 2, name: 'Larry' },
+  { seat: 3, name: 'Joe' },
+  { seat: 4, name: 'Riley' },
+  { seat: 5, name: 'Diana' }
+];
+const DURATIONS = [[0, '不計時'], [300, '5 分'], [480, '8 分'], [600, '10 分'], [900, '15 分']];
+const MAX_TRIES = 2;            // 做錯可以再問一次；第二次還錯就公布答案、換下一個人
+
+/* 單字：3 上～5 上學過的 */
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAY_WISH = { 4: '週五晚上可以熬夜看卡通 📺', 5: '去動物園看獅子 🦁', 6: '睡到中午 😴' };
+const WEATHER = {
+  sunny:  { e: '☀️', wish: '去海邊玩 🏖️' },
+  cloudy: { e: '☁️', wish: '去公園跑步 🏃' },
+  rainy:  { e: '🌧️', wish: '撐新的雨傘 ☂️' },
+  windy:  { e: '🌬️', wish: '放風箏 🪁' },
+  hot:    { e: '🥵', wish: '去游泳 🏊' },
+  cold:   { e: '🥶', wish: '吃火鍋 🍲' }
+};
+const WKEYS = Object.keys(WEATHER);
+const NUMW = { 6: 'six', 7: 'seven', 8: 'eight', 15: 'fifteen', 20: 'twenty', 30: 'thirty', 40: 'forty', 50: 'fifty' };
+const HOURS = [6, 7, 8], MINS = [0, 15, 20, 30, 40, 50];
+const ROOMS = { bathroom: '🛁', bedroom: '🛏️', kitchen: '🍳', 'dining room': '🍽️', 'living room': '🛋️' };
+const ACTS = { cooking: '🥘', eating: '🍚', reading: '📖', sleeping: '💤', writing: '✍️' };
+const COMBOS = [['kitchen','cooking'],['kitchen','eating'],['dining room','eating'],['dining room','reading'],['dining room','writing'],
+  ['bedroom','sleeping'],['bedroom','reading'],['bedroom','writing'],['living room','reading'],['living room','sleeping'],['living room','writing'],['bathroom','reading']];
+const PARENT = { Mom: { e: '👩', zh: '媽媽', P: 'She', p: 'she' }, Dad: { e: '👨', zh: '爸爸', P: 'He', p: 'he' } };
+const DRINKS = { coffee: '☕', cola: '🥤', lemonade: '🍋', tea: '🍵', 'bubble tea': '🧋', 'hot chocolate': '🍫', 'soy milk': '🫘' };
+const FOODS = {
+  hamburger: { e: '🍔', count: true, pl: 'hamburgers' }, 'hot dog': { e: '🌭', count: true, pl: 'hot dogs' },
+  'ice cream': { e: '🍦' }, juice: { e: '🧃' }, milk: { e: '🥛' }, water: { e: '💧' }
+};
+const STATIONERY = { book: '📕', eraser: '🧽', marker: '🖍️', pen: '🖊️', pencil: '✏️', ruler: '📏' };
+const PREPS = ['in', 'on', 'under'], OBJS = { box: '📦', chair: '🪑', desk: '🗄️' };
+
+const STATIONS = [
+  { ic: '⏰', zh: '起床' }, { ic: '📅', zh: '星期' }, { ic: '🌤️', zh: '天氣' },
+  { ic: '🏠', zh: '找爸媽' }, { ic: '🎒', zh: '整理書包' }, { ic: '🍔', zh: '午餐' }
+];
+
+/* ══════════════════════════════════════════════════════════════════
+   ②  Firebase（與 index.html 同一個專案、同一個 APP_ID）
+   ══════════════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAdKdGniXt6PbHFfxIjyY09bWplPQQufc4",
+  authDomain: "nypscm.firebaseapp.com",
+  projectId: "nypscm",
+  storageBucket: "nypscm.firebasestorage.app",
+  messagingSenderId: "775913301411",
+  appId: "1:775913301411:web:9d73da7688854865826616"
+};
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+const APP_ID = "nypscm-class-pro";
+const docRef = (col, id) => doc(db, 'artifacts', APP_ID, 'public', 'data', col, id);
+const colRef = (col)     => collection(db, 'artifacts', APP_ID, 'public', 'data', col);
+const gameRef = docRef(`funday_${GRADE}`, 'current');
+const logCol  = colRef(`fundayLog_${GRADE}`);
+
+/* ══════════════════════════════════════════════════════════════════
+   ③  小工具與句子
+   ══════════════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rand = (n) => Math.floor(Math.random() * n);
+const pick = (a) => a[rand(a.length)];
+const pickNot = (a, x) => pick(a.filter(v => v !== x));
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const store = {
+  get(k, d = null) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+const nameOf = (seat) => (ROSTER.find(r => r.seat === seat) || {}).name || '?';
+
+const timeWords = (t) => `${NUMW[t.h]} ${t.m ? NUMW[t.m] : "o'clock"}`;
+const timeDigits = (t) => `${t.h}:${String(t.m).padStart(2, '0')}`;
+const foodWords = (f, q) => { const it = FOODS[f]; if (!it.count) return 'some ' + f; return q === 1 ? 'a ' + f : `${['', 'one', 'two', 'three'][q]} ${it.pl}`; };
+
+/* 每一對（問的人 → 回答的人）一起產生：回答者的家，和問的人手上的卡片。
+   願望／任務／請喝的飲料／撿到的東西，約四成剛好成真，其餘會聽到 No。 */
+function makePair() {
+  const wishDay = pick([4, 5, 6]), wishW = pick(WKEYS), offer = pick(Object.keys(DRINKS)), found = pick(Object.keys(STATIONERY));
+  const [room, act] = pick(COMBOS), food = pick(Object.keys(FOODS));
+  const home = {
+    time: { h: pick(HOURS), m: pick(MINS) },
+    day: Math.random() < .4 ? wishDay : pickNot([0, 1, 2, 3, 4, 5, 6], wishDay),
+    weather: Math.random() < .4 ? wishW : pickNot(WKEYS, wishW),
+    parent: pick(['Mom', 'Dad']), room, act,
+    likes: Math.random() < .4 ? offer : pickNot(Object.keys(DRINKS), offer),
+    food, qty: FOODS[food].count ? 1 + rand(3) : 0,
+    lost: Math.random() < .5 ? found : pickNot(Object.keys(STATIONERY), found),
+    eraser: (() => { const prep = pick(PREPS); return { prep, obj: prep === 'in' ? pickNot(Object.keys(OBJS), 'chair') : pick(Object.keys(OBJS)) }; })()
+  };
+  return { home, card: { wishDay, wishW, offer, found } };
+}
+function makePlan(ring) {
+  const plan = {};
+  ring.forEach((asker, i) => { const target = ring[(i + 1) % ring.length], p = makePair(); plan[target] = { ...(plan[target] || {}), home: p.home }; plan[asker] = { ...(plan[asker] || {}), card: p.card }; });
+  return plan;
+}
+
+/* 現在這一輪：誰問、誰答 */
+function pairNow(s = G) {
+  if (!s.ring) return null;
+  const n = s.ring.length, asker = s.ring[s.turn % n], target = s.ring[(s.turn + 1) % n];
+  return { asker, target, home: s.plan[target].home, card: s.plan[asker].card };
+}
+
+/* 這一關的標準對話（給老師、大螢幕對照用） */
+function lines(st, pr) {
+  const h = pr.home, c = pr.card, A = nameOf(pr.asker), B = nameOf(pr.target), P = PARENT[h.parent];
+  const L = {
+    0: [[A, 'What time is it?'], [B, `It's ${timeWords(h.time)}.`]],
+    1: [[A, `Is it ${DAYS[c.wishDay]} today?`], [B, h.day === c.wishDay ? 'Yes, it is.' : `No, it isn't. It's ${DAYS[h.day]}.`]],
+    2: [[A, `Is it ${c.wishW} today?`], [B, h.weather === c.wishW ? 'Yes, it is.' : `No, it isn't. It's ${h.weather}.`]],
+    3: [[A, `Where's ${h.parent}?`], [B, `${P.P}'s in the ${h.room}.`], [A, `What's ${P.p} doing?`], [B, `${P.P}'s ${h.act}.`]],
+    4: [[A, `Is this your ${c.found}?`], [B, h.lost === c.found ? 'Yes, it is.' : "No, it's not."], [A, "Where's the eraser?"], [B, `It's ${h.eraser.prep} the ${h.eraser.obj}.`]],
+    5: [[A, `Do you like ${c.offer}?`], [B, h.likes === c.offer ? 'Yes, I do.' : `No, I don't. I like ${h.likes}.`], [A, 'What do you want for lunch?'], [B, `I want ${foodWords(h.food, h.qty)}.`]]
+  }[st];
+  return L.map(([w, l], i) => `<div class="say ${i % 2 ? 'alt' : ''}"><div class="w">${esc(w)}</div><div class="line en">${esc(l)}</div></div>`).join('');
+}
+
+/* 問的人做的事 → 對不對 */
+function check(st, pr, a) {
+  const h = pr.home, c = pr.card;
+  switch (st) {
+    case 0: return a.h === h.time.h && a.m === h.time.m;
+    case 1: return a.day === h.day;
+    case 2: return a.weather === h.weather;
+    case 3: return a.room === h.room && a.act === h.act;
+    case 4: return a.mine === (h.lost === c.found) && a.prep === h.eraser.prep && a.obj === h.eraser.obj;
+    case 5: return a.drink === h.likes && a.food === h.food && (!FOODS[h.food].count || a.qty === h.qty);
+  }
+  return false;
+}
+const wishHit = (st, pr) => (st === 1 && pr.home.day === pr.card.wishDay) || (st === 2 && pr.home.weather === pr.card.wishW);
+
+/* ══════════════════════════════════════════════════════════════════
+   ④  遊戲狀態（transaction）
+   ══════════════════════════════════════════════════════════════════ */
+const blank = () => ({ absent: [], ring: null, duration: 480, status: 'idle', endAt: 0, day: 1, st: 0, turn: 0, tries: 0,
+  plan: null, score: 0, wishes: 0, stats: {}, last: null, n: 0 });
+let G = blank(), ready = false;
+
+function note(s, kind, text) { s.last = { kind, text, at: Date.now(), id: Math.random().toString(36).slice(2) }; }
+function advance(s) {
+  s.tries = 0; s.n++;
+  s.turn++;
+  if (s.turn >= s.ring.length) {
+    s.turn = 0; s.st++;
+    if (s.st >= STATIONS.length) { s.st = 0; s.day++; s.plan = makePlan(s.ring); return 'day'; }
+    return 'station';
+  }
+  return 'turn';
+}
+const live = (s) => s.status === 'running' && (!s.duration || Date.now() < s.endAt);
+
+async function act(fn) {
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(gameRef);
+      const s = Object.assign(blank(), snap.exists() ? snap.data() : {});
+      if (fn(s) === false) return;
+      tx.set(gameRef, JSON.parse(JSON.stringify(s)));
+    });
+  } catch (e) { console.error(e); toast({ kind: 'bad', text: '連線有問題，請再按一次' }); }
+}
+
+const A = {
+  absent: (seat) => act(s => {
+    if (s.status !== 'idle' && s.status !== 'ready') return false;
+    s.absent = s.absent.includes(seat) ? s.absent.filter(x => x !== seat) : [...s.absent, seat];
+    s.status = 'idle'; s.ring = null;
+  }),
+  order: () => act(s => {
+    const seats = shuffle(ROSTER.map(r => r.seat).filter(x => !s.absent.includes(x)));
+    if (seats.length < 2) return false;
+    Object.assign(s, { ring: seats, status: 'ready' });
+  }),
+  swap: (a, b) => act(s => {
+    if (s.status !== 'ready') return false;
+    const i = s.ring.indexOf(a), j = s.ring.indexOf(b); if (i < 0 || j < 0) return false;
+    s.ring[i] = b; s.ring[j] = a;
+  }),
+  duration: (d) => act(s => { s.duration = d; }),
+  start: () => act(s => {
+    if (s.status !== 'ready') return false;
+    Object.assign(s, { status: 'running', endAt: s.duration ? Date.now() + s.duration * 1000 : 0, day: 1, st: 0, turn: 0, tries: 0,
+      plan: makePlan(s.ring), score: 0, wishes: 0, stats: Object.fromEntries(s.ring.map(x => [x, { ok: 0, tries: 0 }])), n: 1 });
+    note(s, 'info', '⏰ 起床囉！');
+  }),
+  submit: (n, ans) => act(s => {
+    if (!live(s) || s.n !== n) return false;
+    const pr = pairNow(s), st = s.st, ok = check(st, pr, ans), me = s.stats[pr.asker];
+    me.tries++;
+    if (ok) {
+      s.score++; me.ok++;
+      const w = wishHit(st, pr); if (w) s.wishes++;
+      const where = advance(s);
+      note(s, w ? 'wish' : 'ok', (w ? '🎉 願望成真！' : '✅ 答對了！') + (where === 'day' ? `　第 ${s.day - 1} 天完成！` : ''));
+    } else if (s.tries + 1 < MAX_TRIES) {
+      s.tries++; note(s, 'bad', '❌ 不對喔，再問一次！');
+    } else {
+      advance(s); note(s, 'warn', '😅 沒關係，換下一個人');
+    }
+  }),
+  skip: () => act(s => { if (s.status !== 'running') return false; advance(s); note(s, 'info', '⏭ 老師跳過'); }),
+  timeUp: () => act(s => { if (s.status !== 'running' || !s.duration || Date.now() < s.endAt) return false; s.status = 'over'; note(s, 'info', '⏰ 時間到！'); }),
+  end: () => act(s => { if (s.status !== 'running') return false; s.status = 'over'; note(s, 'info', '⏹ 結束'); }),
+  reset: () => act(s => { Object.assign(s, blank(), { duration: s.duration, absent: s.absent }); })
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑤  畫面
+   ══════════════════════════════════════════════════════════════════ */
+const L = { role: null, seat: null, key: null, a: {}, pickSeat: null, armed: null, logs: null, shown: null };
+
+function show(v) { $('v-start').hidden = v !== 'start'; $('v-main').hidden = v !== 'main'; }
+function setSeat(seat) { L.role = 'student'; L.seat = seat; store.set('fd-seat', seat); store.del('fd-role'); show('main'); render(); }
+function setRole(r) { L.role = r; L.seat = null; store.del('fd-seat'); if (r !== 'teacher') store.set('fd-role', r); show('main'); if (r === 'teacher') loadLogs(); render(); }
+function renderNames() { $('names').innerHTML = ROSTER.map(r => `<button class="nm" data-seat="${r.seat}"><span class="seat">${r.seat}</span><b>${esc(r.name)}</b></button>`).join(''); }
+
+/* 學生這一刻的身分：ask 問、answer 答、wait 等 */
+function myPart() {
+  if (L.role !== 'student') return L.role;
+  if (G.status !== 'running' || !G.ring) return 'idle';
+  if (!G.ring.includes(L.seat)) return 'out';
+  const pr = pairNow(); return pr.asker === L.seat ? 'ask' : pr.target === L.seat ? 'answer' : 'wait';
+}
+
+const fmt = (ms) => { const t = Math.ceil(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+function tick() {
+  const el = $('b-timer');
+  let txt = '';
+  if (G.status === 'running' && G.duration) { const ms = Math.max(0, G.endAt - Date.now()); txt = fmt(ms); el.classList.toggle('low', ms <= 30000); }
+  else if (G.status === 'ready' && G.duration) txt = fmt(G.duration * 1000);
+  el.textContent = txt;
+  const bt = document.querySelector('.bigtime'); if (bt) { bt.textContent = txt || '⏰'; bt.classList.toggle('low', el.classList.contains('low')); }
+  if (G.status === 'running' && G.duration && Date.now() >= G.endAt && !tick.busy) { tick.busy = true; A.timeUp().finally(() => setTimeout(() => tick.busy = false, 800)); }
+}
+function renderBar() {
+  const part = myPart();
+  const PL = { ask: '🗣️ 你問', answer: '🏠 你答', wait: '⏳ 等一下', idle: '', out: '', board: '📺 大螢幕', teacher: '🧑‍🏫 老師' };
+  $('b-me').textContent = L.role === 'student' ? `${nameOf(L.seat)}${PL[part] ? '｜' + PL[part] : ''}` : PL[L.role];
+  $('b-switch').textContent = L.role === 'student' ? '不是我' : '換角色';
+  $('b-rd').textContent = G.status === 'running' ? `第 ${G.day} 天・${STATIONS[G.st].ic} ${STATIONS[G.st].zh}` : { idle: '等老師開始', ready: '準備好了', over: '結束' }[G.status] || '';
+  $('b-pts').textContent = G.status === 'idle' ? '' : `✔ ${G.score}`; $('b-pts').hidden = G.status === 'idle';
+  tick();
+}
+
+function pathHTML() {
+  return `<div class="path">${STATIONS.map((x, i) => `<span class="${i < G.st ? 'done' : i === G.st ? 'on' : ''}">${x.ic} ${x.zh}</span>`).join('')}</div>`;
+}
+function whoHTML(pr) { return `<div class="who"><b>${esc(nameOf(pr.asker))}</b> 問 <b>${esc(nameOf(pr.target))}</b></div>`; }
+function waitHTML(icon, title, text) { return `<div class="notice"><div class="ic">${icon}</div><h2>${title}</h2>${text ? `<p>${text}</p>` : ''}</div>`; }
+function ringText() { return G.ring ? G.ring.map(nameOf).map(esc).join(' → ') + ' → ' + esc(nameOf(G.ring[0])) : ''; }
+
+function idleHTML() {
+  if (G.status === 'idle') return waitHTML('😴', '等老師開始', '');
+  if (G.status === 'ready') return waitHTML('🔁', '圍成一圈坐好', `問的順序：${ringText()}`);
+  if (G.status === 'over') return waitHTML('🏁', '結束！', `一起答對 ${G.score} 次，願望成真 ${G.wishes} 次，走完 ${G.day - 1} 天又 ${G.st} 關`);
+  return '';
+}
+
+/* ── 問的人 ── */
+function optBtns(key, list, cur) {
+  return `<div class="opts">${list.map(([v, label]) => `<button class="${JSON.stringify(cur) === JSON.stringify(v) ? 'on' : ''}" data-a="${key}" data-v='${esc(JSON.stringify(v))}'>${label}</button>`).join('')}</div>`;
+}
+const E = (e, t) => `<span class="e">${e}</span>${esc(t)}`;
+function askHTML() {
+  const pr = pairNow(), c = pr.card, B = esc(nameOf(pr.target)), a = L.a, st = G.st, P = PARENT[pr.home.parent];
+  let mission = '', say = '', work = '', done = false;
+  if (st === 0) {
+    mission = `<span class="big">⏰</span>鬧鐘壞了！問 ${B} 現在幾點，幫他把鬧鐘調好。`;
+    say = `What time is it?`;
+    work = `<div class="lab">幾點？</div>${optBtns('h', HOURS.map(h => [h, String(h)]), a.h)}
+      <div class="lab">幾分？</div>${optBtns('m', MINS.map(m => [m, ':' + String(m).padStart(2, '0')]), a.m)}`;
+    done = a.h != null && a.m != null;
+  } else if (st === 1) {
+    mission = `<span class="big">💭</span>願望卡：你想${DAY_WISH[c.wishDay]}<br>希望今天是 <b class="en">${DAYS[c.wishDay]}</b>！`;
+    say = `Is it ${DAYS[c.wishDay]} today?`;
+    work = `<div class="lab">📅 在 ${B} 家的日曆上，點出真正的今天</div>${optBtns('day', DAYS.map((d, i) => [i, d]), a.day)}`;
+    done = a.day != null;
+  } else if (st === 2) {
+    mission = `<span class="big">🎯</span>任務卡：你想${WEATHER[c.wishW].wish}<br>需要 <b class="en">${c.wishW}</b>！`;
+    say = `Is it ${c.wishW} today?`;
+    work = `<div class="lab">🪟 點出 ${B} 家窗外真正的天氣</div>${optBtns('weather', WKEYS.map(k => [k, E(WEATHER[k].e, k)]), a.weather)}`;
+    done = a.weather != null;
+  } else if (st === 3) {
+    mission = `<span class="big">${P.e}</span>找${P.zh}：問 ${B} 他家的${P.zh}在哪裡、在做什麼。`;
+    say = `Where's ${pr.home.parent}?　What's ${P.p} doing?`;
+    work = `<div class="lab">在哪個房間？</div>${optBtns('room', Object.keys(ROOMS).map(k => [k, E(ROOMS[k], k)]), a.room)}
+      <div class="lab">在做什麼？</div>${optBtns('act', Object.keys(ACTS).map(k => [k, E(ACTS[k], k)]), a.act)}`;
+    done = a.room != null && a.act != null;
+  } else if (st === 4) {
+    mission = `<span class="big">${STATIONERY[c.found]}</span>你撿到一個 <b class="en">${c.found}</b>，問 ${B} 是不是他的。<br>再問他橡皮擦在哪裡。`;
+    say = `Is this your ${c.found}?　Where's the eraser?`;
+    work = `<div class="lab">是他的嗎？</div>${optBtns('mine', [[true, '✅ 是他的，還給他'], [false, '🙅 不是他的']], a.mine)}
+      <div class="lab">🧽 橡皮擦在哪裡？</div>${optBtns('prep', PREPS.map(p => [p, p]), a.prep)}
+      <div style="height:8px"></div>${optBtns('obj', Object.keys(OBJS).map(k => [k, E(OBJS[k], 'the ' + k)]), a.obj)}`;
+    done = a.mine != null && a.prep != null && a.obj != null;
+  } else if (st === 5) {
+    mission = `<span class="big">${DRINKS[c.offer]}</span>午餐時間！你想請 ${B} 喝 <b class="en">${c.offer}</b>。<br>問他喜不喜歡，再問他想吃什麼。`;
+    say = `Do you like ${c.offer}?　What do you want for lunch?`;
+    const f = a.food && FOODS[a.food];
+    work = `<div class="lab">🥤 給他喝什麼？</div>${optBtns('drink', Object.keys(DRINKS).map(k => [k, E(DRINKS[k], k)]), a.drink)}
+      <div class="lab">🍽️ 給他吃什麼？</div>${optBtns('food', Object.keys(FOODS).map(k => [k, E(FOODS[k].e, k)]), a.food)}
+      ${f && f.count ? `<div class="lab">幾個？</div>${optBtns('qty', [[1, '1'], [2, '2'], [3, '3']], a.qty)}` : ''}`;
+    done = a.drink != null && a.food != null && (!f || !f.count || a.qty != null);
+  }
+  return `${pathHTML()}${whoHTML(pr)}
+    <div class="mission">${mission}</div>
+    <div class="say"><div class="w">開口問 ${B}${G.tries ? '（再問一次！）' : ''}</div><div class="line en">${esc(say)}</div></div>
+    ${work}
+    <div class="go"><div class="t">聽完答案，選好再按完成</div><button class="btn big" data-act="submit" ${done ? '' : 'disabled'}>完成 ✔</button></div>`;
+}
+
+/* ── 回答的人：只給畫面和句子框，要自己把字填進去 ── */
+function answerHTML() {
+  const pr = pairNow(), h = pr.home, st = G.st, A_ = esc(nameOf(pr.asker)), P = PARENT[h.parent];
+  const yn = (no) => `<div class="frames"><div class="say"><div class="w">如果他問對了</div><div class="line en">Yes, it is.</div></div>
+    <div class="say alt"><div class="w">如果他問錯了</div><div class="line en">${no}</div></div></div>`;
+  let body = '';
+  if (st === 0) body = `<div class="home"><div class="tile"><div class="k">你家的時鐘</div><div class="v clock">${timeDigits(h.time)}</div></div></div>
+    <div class="say"><div class="w">回答</div><div class="line en">It's ______ ______.</div></div>`;
+  if (st === 1) body = `<div class="home"><div class="tile"><div class="k">你家的日曆</div><div class="calbar">TODAY</div><div class="v">${DAYS[h.day]}</div></div></div>${yn("No, it isn't. It's ______.")}`;
+  if (st === 2) body = `<div class="home"><div class="tile"><div class="k">你家窗外</div><div class="big">${WEATHER[h.weather].e}</div><div class="v">${h.weather}</div></div></div>${yn("No, it isn't. It's ______.")}`;
+  if (st === 3) body = `<div class="home"><div class="tile"><div class="k">你家的${P.zh}在</div><div class="big">${ROOMS[h.room]}</div><div class="v">${h.room}</div></div>
+      <div class="tile"><div class="k">正在</div><div class="big">${ACTS[h.act]}</div><div class="v">${h.act}</div></div></div>
+    <div class="say"><div class="w">回答</div><div class="line en">${P.P}'s in the ______.</div></div><div class="say alt"><div class="w">回答</div><div class="line en">${P.P}'s ______.</div></div>`;
+  if (st === 4) body = `<div class="home"><div class="tile"><div class="k">你今天弄丟的東西</div><div class="big">${STATIONERY[h.lost]}</div><div class="v">${h.lost}</div></div>
+      <div class="tile"><div class="k">🧽 橡皮擦在</div><div class="big">${OBJS[h.eraser.obj]}</div><div class="v">${h.eraser.prep} the ${h.eraser.obj}</div></div></div>
+    <div class="frames"><div class="say"><div class="w">是你弄丟的</div><div class="line en">Yes, it is.</div></div><div class="say alt"><div class="w">不是你的</div><div class="line en">No, it's not.</div></div></div>
+    <div class="say"><div class="w">橡皮擦在哪</div><div class="line en">It's ______ the ______.</div></div>`;
+  if (st === 5) body = `<div class="home"><div class="tile"><div class="k">你喜歡喝</div><div class="big">${DRINKS[h.likes]}</div><div class="v">${h.likes}</div></div>
+      <div class="tile"><div class="k">你午餐想吃</div><div class="big">${FOODS[h.food].e.repeat(Math.max(1, h.qty))}</div><div class="v">${h.qty ? '× ' + h.qty : 'some'} ${h.food}</div></div></div>
+    <div class="frames"><div class="say"><div class="w">你喜歡</div><div class="line en">Yes, I do.</div></div><div class="say alt"><div class="w">你不喜歡</div><div class="line en">No, I don't. I like ______.</div></div></div>
+    <div class="say"><div class="w">想吃什麼</div><div class="line en">I want ______.</div></div>`;
+  return `${pathHTML()}${whoHTML(pr)}<p class="sub" style="text-align:center">仔細聽 ${A_} 問什麼，照你家的情況回答，<b>句子要說完整</b>。</p>${body}`;
+}
+
+function waitPartHTML() {
+  const pr = pairNow(), n = G.ring.length, me = G.ring.indexOf(L.seat), d = (me - G.turn + n) % n;
+  return `${pathHTML()}${whoHTML(pr)}${waitHTML('👂', '聽他們說', d === 1 ? '下一個輪到你問！' : d === n - 1 ? '' : `再 ${d} 個人就輪到你問`)}`;
+}
+
+function boardHTML() {
+  if (!G.ring || G.status === 'idle') return waitHTML('😴⏰', '賴床大作戰 A Fun Day', '');
+  const stats = `<div class="stats"><div class="stat">一起答對<b>${G.score}</b></div><div class="stat">願望成真<b>${G.wishes}</b></div><div class="stat">第幾天<b>${G.day}</b></div></div>`;
+  if (G.status === 'ready') return `<div class="bigtime">⏰</div><p class="who">問的順序：${ringText()}</p>`;
+  if (G.status === 'over') return waitHTML('🏁', '結束！', '') + stats + statTable();
+  return `<div class="bigtime">⏰</div>${pathHTML()}${whoHTML(pairNow())}${stats}`;
+}
+function statTable() {
+  if (!G.ring || !G.stats) return '';
+  return `<div class="card panel"><table><thead><tr><th>名字</th><th>問了幾次</th><th>做對</th></tr></thead><tbody>${G.ring.map(x => {
+    const s = G.stats[x] || { ok: 0, tries: 0 }; return `<tr><td>${esc(nameOf(x))}</td><td>${s.tries}</td><td>${s.ok}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+
+function armBtn(id, label, cls = 'ghost') { const on = L.armed === id; return `<button class="btn small ${cls} ${on ? 'arm' : ''}" data-arm="${id}">${on ? '再按一次確認' : label}</button>`; }
+function teacherHTML() {
+  const dur = `<div class="row panel"><span class="sub">時間</span><span class="seg">${DURATIONS.map(([d, t]) => `<button class="${G.duration === d ? 'on' : ''}" data-dur="${d}">${t}</button>`).join('')}</span></div>`;
+  const att = `<div class="panel"><span class="sub">今天出席（點名字切換缺席）</span><div class="att">${ROSTER.map(r => `<button class="${G.absent.includes(r.seat) ? 'off' : ''}" data-abs="${r.seat}">${r.seat} ${esc(r.name)}</button>`).join('')}</div></div>`;
+  let main = '';
+  if (G.status === 'idle') {
+    const present = ROSTER.length - G.absent.length;
+    main = `<div class="card"><h2>賴床大作戰・${GRADE} 年級</h2><p class="sub">出席的人圍成一圈，每一關輪流問下一個人、回答上一個人。一天 6 關，走完再換新的一天。</p>
+      ${att}${dur}<div class="row panel"><button class="btn big" data-act="order" ${present < 2 ? 'disabled' : ''}>🎲 排問的順序</button></div></div>`;
+  } else if (G.status === 'ready') {
+    main = `<div class="card"><h2>問的順序</h2>
+      <div class="ring">${G.ring.map(x => `<button class="${L.pickSeat === x ? 'on' : ''}" data-pick="${x}">${esc(nameOf(x))}</button>`).join('<span>→</span>')}<span>→ ${esc(nameOf(G.ring[0]))}</span></div>
+      <p class="sub">${L.pickSeat ? `已選 ${esc(nameOf(L.pickSeat))}，再點一個人互換` : '點兩個名字可以互換順序。請學生照這個順序圍成一圈坐。'}</p>
+      ${att}${dur}<div class="row panel"><button class="btn big ok" data-act="start">▶ 開始</button><button class="btn small ghost" data-act="order">🎲 重排</button></div></div>`;
+  } else if (G.status === 'running') {
+    const pr = pairNow();
+    main = `<div class="card">${pathHTML()}<h2>第 ${G.day} 天・${STATIONS[G.st].ic} ${STATIONS[G.st].zh}</h2>${whoHTML(pr)}
+      ${G.tries ? '<p class="sub">⚠️ 第一次做錯了，正在重問</p>' : ''}
+      ${lines(G.st, pr)}
+      <div class="row panel"><button class="btn small ghost" data-act="skip">⏭ 跳過這一輪</button>${armBtn('end', '⏹ 結束遊戲')}</div></div>`;
+  } else if (G.status === 'over') {
+    main = `<div class="card" style="text-align:center"><h2>🏁 一起答對 ${G.score} 次</h2><p class="sub">願望成真 ${G.wishes} 次・走完 ${G.day - 1} 天又 ${G.st} 關。按「結束本堂」存起來。</p></div>`;
+  }
+  const logs = L.logs ? `<div class="card panel"><h3>已存的紀錄</h3>${L.logs.length ? `<table><thead><tr><th>日期</th><th>出席</th><th>答對</th><th>天數</th></tr></thead><tbody>${
+    L.logs.map(l => `<tr><td>${esc(l.date || '')}</td><td>${esc((l.ring || []).join('、'))}</td><td>${l.score ?? ''}</td><td>${esc(l.progress || '')}</td></tr>`).join('')}</tbody></table>` : '<p class="sub">還沒有紀錄</p>'}</div>` : '';
+  return `${main}${G.status === 'running' || G.status === 'over' ? statTable() : ''}
+    <div class="row panel">${G.status === 'running' || G.status === 'over' ? armBtn('save', '💾 結束本堂（存檔）', 'ok') : ''}${armBtn('reset', '🗑 重設（不存檔）')}</div>${logs}`;
+}
+
+function render() {
+  if (!L.role || !ready) return;
+  const part = myPart();
+  const k = `${part}:${G.n}:${G.tries}`;
+  if (k !== L.key) { L.key = k; L.a = {}; }
+  const y = window.scrollY;
+  let html;
+  if (L.role === 'teacher') html = teacherHTML();
+  else if (L.role === 'board') html = boardHTML();
+  else html = ({ ask: askHTML, answer: answerHTML, wait: waitPartHTML, idle: idleHTML, out: () => waitHTML('🙋', '你今天沒有排進順序', '請跟老師說。') })[part]();
+  $('stage').innerHTML = html;
+  window.scrollTo(0, y);
+  renderBar(); toasts();
+}
+
+let toastT = null;
+function toast(m) { const t = $('toast'); t.className = 'toast ' + m.kind; t.textContent = m.text; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+function toasts() {
+  if (L.role === 'teacher') return;
+  const m = G.last; if (!m || m.id === L.shown) return;
+  const first = L.shown === null; L.shown = m.id;
+  if (!first && Date.now() - m.at < 4000) toast(m);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑥  按鈕
+   ══════════════════════════════════════════════════════════════════ */
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  const d = b.dataset;
+  if (d.role) { if (d.role === 'teacher') { $('m-pass').hidden = false; $('m-pass-in').value = ''; $('m-pass-in').focus(); } else setRole(d.role); return; }
+  if (b.id === 'b-switch') { store.del('fd-seat'); store.del('fd-role'); L.role = null; L.seat = null; show('start'); return; }
+  if (!ready) return;
+  if (d.seat) { setSeat(+d.seat); return; }
+  if (d.arm) {
+    if (L.armed !== d.arm) { L.armed = d.arm; render(); setTimeout(() => { if (L.armed === d.arm) { L.armed = null; render(); } }, 3000); return; }
+    L.armed = null;
+    if (d.arm === 'end') await A.end();
+    if (d.arm === 'reset') await A.reset();
+    if (d.arm === 'save') await saveClass();
+    return;
+  }
+  if (d.a) { L.a[d.a] = JSON.parse(d.v); if (d.a === 'food') delete L.a.qty; render(); return; }
+  if (d.abs) { A.absent(+d.abs); return; }
+  if (d.dur) { A.duration(+d.dur); return; }
+  if (d.pick) {
+    const m = +d.pick;
+    if (!L.pickSeat) { L.pickSeat = m; render(); return; }
+    const a = L.pickSeat; L.pickSeat = null;
+    if (a === m) { render(); return; }
+    A.swap(a, m); return;
+  }
+  switch (d.act) {
+    case 'order': A.order(); break;
+    case 'start': A.start(); break;
+    case 'skip': A.skip(); break;
+    case 'submit': b.disabled = true; A.submit(G.n, { ...L.a }); break;
+  }
+});
+function tryPass() {
+  if ($('m-pass-in').value.trim() === TEACHER_PASSWORD) { $('m-pass').hidden = true; setRole('teacher'); }
+  else { $('m-pass-in').value = ''; $('m-pass-in').placeholder = '密碼不對，再試一次'; }
+}
+$('m-pass-ok').onclick = tryPass;
+$('m-pass-in').onkeydown = (e) => { if (e.key === 'Enter') tryPass(); };
+$('m-pass-x').onclick = () => { $('m-pass').hidden = true; };
+
+async function saveClass() {
+  const s = G, d = new Date();
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const rec = {
+    date, grade: GRADE, absent: s.absent.map(nameOf), ring: s.ring.map(nameOf),
+    score: s.score, wishes: s.wishes, progress: `${s.day - 1} 天又 ${s.st} 關`,
+    students: s.ring.map(x => ({ name: nameOf(x), asked: (s.stats[x] || {}).tries || 0, ok: (s.stats[x] || {}).ok || 0 })),
+    savedAt: serverTimestamp()
+  };
+  try { await addDoc(logCol, rec); await A.reset(); toast({ kind: 'ok', text: '💾 已存檔' }); loadLogs(); }
+  catch (e) { console.error(e); toast({ kind: 'bad', text: '存檔失敗，請檢查網路再按一次' }); }
+}
+async function loadLogs() {
+  try {
+    const snap = await getDocs(logCol);
+    L.logs = snap.docs.map(x => x.data()).sort((a, b) => (b.savedAt?.seconds || 0) - (a.savedAt?.seconds || 0)).slice(0, 8);
+    render();
+  } catch (e) { console.error(e); }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ⑦  啟動
+   ══════════════════════════════════════════════════════════════════ */
+setInterval(() => { if (L.role && ready) tick(); }, 250);
+onAuthStateChanged(auth, (user) => {
+  if (!user) return;
+  onSnapshot(gameRef, (snap) => {
+    G = Object.assign(blank(), snap.exists() ? snap.data() : {});
+    $('conn').hidden = true;
+    if (!ready) {
+      ready = true; renderNames();
+      const seat = store.get('fd-seat'), r = store.get('fd-role');
+      if (seat && ROSTER.some(x => x.seat === seat)) setSeat(seat);
+      else if (r === 'board') setRole(r);
+      else show('start');
+    }
+    render();
+  }, (err) => { $('conn').hidden = false; $('conn').textContent = '連線失敗，請重新整理（' + err.code + '）'; });
+});
+signInAnonymously(auth).catch(err => { $('conn').textContent = '連線失敗，請檢查網路後重新整理（' + err.code + '）'; });
+</script>
+</body>
+</html>
